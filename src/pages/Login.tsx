@@ -2,23 +2,18 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function Login() {
-  const [email, setEmail] = useState('livia.santana@re.green')
-  const [password, setPassword] = useState('Skip@Pass')
   const [error, setError] = useState('')
-  const { signIn } = useAuth()
+  const { signInWith } = useAuth()
   const navigate = useNavigate()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleMicrosoftLogin = async () => {
     setError('')
-    const { error: signInError } = await signIn(email, password)
+    const { error: signInError } = await signInWith('microsoft')
     if (signInError) {
-      setError('Credenciais inválidas')
+      setError('Falha na autenticação com a Microsoft. Tente novamente.')
     } else {
       navigate('/')
     }
@@ -29,38 +24,26 @@ export default function Login() {
       <Card className="w-full max-w-sm shadow-subtle border-brand-secondary/20">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-2xl text-brand-primary">Board DDL DDA</CardTitle>
-          <CardDescription>Acesse o sistema para interagir com o board</CardDescription>
+          <CardDescription>Acesse o sistema utilizando sua conta corporativa</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && <p className="text-sm text-brand-red font-medium">{error}</p>}
+          <div className="space-y-4 pt-4">
+            {error && <p className="text-sm text-brand-red font-medium text-center">{error}</p>}
             <Button
-              type="submit"
-              className="w-full bg-brand-primary hover:bg-brand-primary/90 mt-2"
+              type="button"
+              onClick={handleMicrosoftLogin}
+              variant="outline"
+              className="w-full flex items-center justify-center gap-3 h-12 text-base font-medium hover:bg-gray-100"
             >
-              Entrar
+              <svg viewBox="0 0 21 21" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
+              Microsoft
             </Button>
-          </form>
+          </div>
         </CardContent>
       </Card>
     </div>
