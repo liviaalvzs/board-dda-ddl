@@ -481,7 +481,9 @@ export default function LandDetail() {
                 <Button
                   variant="outline"
                   className="flex-1 bg-white border-brand-primary/20 text-brand-primary hover:bg-brand-secondary/10 hover:text-brand-primary hover:border-brand-secondary rounded-xl h-12 text-[15px] shadow-sm font-semibold"
-                  onClick={() => window.open('#', '_blank')}
+                  onClick={() =>
+                    window.open(`https://panel.re.green/#/land-detail/${id}`, '_blank')
+                  }
                 >
                   <Leaf className="w-5 h-5 mr-2 text-brand-secondary" />
                   Visualizar no rg-panel
