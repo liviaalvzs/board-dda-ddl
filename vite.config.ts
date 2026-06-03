@@ -1,21 +1,30 @@
 /* Vite config for building the frontend react app: https://vite.dev/config/ */
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 // @ts-expect-error - uidPlugin is a custom plugin
 import uidPlugin from './vite-plugin-react-uid'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  return {
   server: {
     host: '::',
     port: 8080,
+    proxy: {
+      '/api/lands': {
+        target: 'https://prdfovmhyc.execute-api.us-east-1.amazonaws.com/api/v1/partner',
+        rewrite: (path) => path.replace(/^\/api\/lands/, '/lands'),
+        headers: { 'X-API-Key': env.VITE_CORE_KEY ?? '' },
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     outDir: mode === 'development' ? 'dev-dist' : 'dist',
     minify: mode !== 'development',
-    // lightningcss in every mode so dev/QA catches the same CSS errors as prod
-    cssMinify: 'lightningcss',
     sourcemap: mode === 'development',
     rolldownOptions: {
       onwarn(warning, warn) {
@@ -42,4 +51,5 @@ export default defineConfig(({ mode }) => ({
       }
     ],
   },
-}))
+  }
+})
