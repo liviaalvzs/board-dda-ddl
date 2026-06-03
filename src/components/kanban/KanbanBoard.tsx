@@ -16,6 +16,7 @@ import pb from '@/lib/pocketbase/client'
 
 export function KanbanBoard({ columns, cards, isLoading, onMoveCard }: KanbanBoardProps) {
   const [metadataMap, setMetadataMap] = useState<Record<string, any>>({})
+  const [docChecksMap, setDocChecksMap] = useState<Record<string, number>>({})
   const { toast } = useToast()
 
   const fetchMetadata = async () => {
@@ -30,24 +31,49 @@ export function KanbanBoard({ columns, cards, isLoading, onMoveCard }: KanbanBoa
     }
   }
 
+  const fetchDocumentChecks = async () => {
+    try {
+      const records = await pb.collection('document_checks').getFullList({
+        filter: 'is_completed = true',
+      })
+      const map = records.reduce(
+        (acc, r) => {
+          acc[r.land_id] = (acc[r.land_id] || 0) + 1
+          return acc
+        },
+        {} as Record<string, number>,
+      )
+      setDocChecksMap(map)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   useEffect(() => {
     fetchMetadata()
+    fetchDocumentChecks()
   }, [])
 
   useRealtime('land_metadata', () => {
     fetchMetadata()
   })
 
+  useRealtime('document_checks', () => {
+    fetchDocumentChecks()
+  })
+
   const enrichedCards = useMemo(() => {
     return cards.map((c) => {
       const meta = metadataMap[c.id]
+      const completedDocs = docChecksMap[c.id] || 0
       return {
         ...c,
         stageId: meta?.status || c.stageId,
         responsible: meta?.expand?.responsible_user?.name || 'Unassigned',
+        completedDocs,
       }
     })
-  }, [cards, metadataMap])
+  }, [cards, metadataMap, docChecksMap])
 
   const handleMoveCard = async (cardId: string, targetColumnId: string) => {
     onMoveCard(cardId, targetColumnId) // Optimistic UI update via parent

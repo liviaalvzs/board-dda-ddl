@@ -60,17 +60,8 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
       </div>
 
       <div className="flex items-center justify-between pt-3 mt-1 border-t border-brand-primary/10">
-        <div
-          className={cn(
-            'flex items-center gap-1.5 px-2 py-1 rounded-md font-semibold text-[11px] transition-colors',
-            card.ddaStatus === 'N/A' || !card.ddaStatus
-              ? 'bg-brand-primary/10 text-brand-primary/60'
-              : 'bg-brand-info/10 text-brand-info',
-          )}
-        >
-          <span className="truncate max-w-[120px]" title={card.ddaStatus || 'N/A'}>
-            {card.ddaStatus || 'N/A'}
-          </span>
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-brand-primary/5 text-brand-primary/80 font-semibold text-[11px] whitespace-nowrap">
+          <span>Checklist de Documentos ({card.completedDocs || 0}/9)</span>
         </div>
 
         <div
@@ -82,7 +73,7 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
           )}
         >
           <User className="w-3 h-3" />
-          <span className="truncate max-w-[110px]" title={card.responsible}>
+          <span className="truncate max-w-[100px]" title={card.responsible}>
             {responsibleStatus ? 'Pendente' : card.responsible}
           </span>
         </div>
