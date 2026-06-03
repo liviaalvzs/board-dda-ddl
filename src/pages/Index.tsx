@@ -8,23 +8,23 @@ import pb from '@/lib/pocketbase/client'
 
 const KANBAN_COLUMNS: KanbanColumnType[] = [
   { id: 'assinatura-carta', title: 'Assinatura da carta proposta', color: 'bg-brand-warning' },
-  { id: 'aguardando-doc', title: 'Aguardando documentacao basica', color: 'bg-brand-warning' },
-  { id: 'emissao-certidoes', title: 'Emissao das certidoes', color: 'bg-brand-info' },
+  { id: 'aguardando-doc', title: 'Aguardando documentação básica', color: 'bg-brand-warning' },
+  { id: 'emissao-certidoes', title: 'Emissão das certidões', color: 'bg-brand-info' },
   {
     id: 'distribuida-escritorio',
-    title: 'Distribuida ao escritorio externo',
+    title: 'Distribuída ao escritório externo',
     color: 'bg-brand-info',
   },
   { id: 'dda', title: 'DDA', color: 'bg-brand-alternative' },
   {
     id: 'analise-interna-preliminar',
-    title: 'Analise interna DD preliminar',
+    title: 'Análise interna DD preliminar',
     color: 'bg-brand-alternative',
   },
   { id: 'dd-conclusiva', title: 'DD conclusiva', color: 'bg-brand-secondary' },
   {
     id: 'analise-interna-conclusiva',
-    title: 'Analise interna DD conclusiva',
+    title: 'Análise interna DD conclusiva',
     color: 'bg-brand-primary',
   },
 ]
