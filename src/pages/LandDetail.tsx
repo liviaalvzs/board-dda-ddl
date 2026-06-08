@@ -259,22 +259,22 @@ function CommentsSection({ landId }: { landId: string }) {
 }
 
 export default function LandDetail() {
-  const { id } = useParams()
+  const { external_id } = useParams()
   const navigate = useNavigate()
   const [land, setLand] = useState<any>(null)
   const [metadata, setMetadata] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchData = async () => {
-    if (!id) return
+    if (!external_id) return
     try {
-      const data = await pb.send(`/backend/v1/lands/${id}`, { method: 'GET' })
+      const data = await pb.send(`/backend/v1/lands/${external_id}`, { method: 'GET' })
       setLand(data.data || data)
 
       try {
         const meta = await pb
           .collection('land_metadata')
-          .getFirstListItem(`external_id="${id}"`, { expand: 'responsible_user' })
+          .getFirstListItem(`external_id="${external_id}"`, { expand: 'responsible_user' })
         setMetadata(meta)
       } catch (e) {
         // ignore if metadata doesn't exist
@@ -288,10 +288,10 @@ export default function LandDetail() {
 
   useEffect(() => {
     fetchData()
-  }, [id])
+  }, [external_id])
 
   useRealtime('land_metadata', (e) => {
-    if (e.record.external_id === id) {
+    if (e.record.external_id === external_id) {
       fetchData()
     }
   })
@@ -474,7 +474,7 @@ export default function LandDetail() {
               </SectionCollapsible>
 
               <div className="pt-2">
-                <DocumentChecklist landId={id!} metadata={metadata} />
+                <DocumentChecklist landId={external_id!} metadata={metadata} />
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -490,7 +490,7 @@ export default function LandDetail() {
                   variant="outline"
                   className="flex-1 bg-white border-brand-primary/20 text-brand-primary hover:bg-brand-secondary/10 hover:text-brand-primary hover:border-brand-secondary rounded-xl h-12 text-[15px] shadow-sm font-semibold"
                   onClick={() =>
-                    window.open(`https://panel.re.green/#/land-detail/${id}`, '_blank')
+                    window.open(`https://panel.re.green/#/land-detail/${external_id}`, '_blank')
                   }
                 >
                   <Leaf className="w-5 h-5 mr-2 text-brand-secondary" />
@@ -499,7 +499,7 @@ export default function LandDetail() {
               </div>
 
               <div className="pt-2">
-                <CommentsSection landId={id!} />
+                <CommentsSection landId={external_id!} />
               </div>
             </div>
           </div>
