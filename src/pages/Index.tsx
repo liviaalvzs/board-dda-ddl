@@ -85,7 +85,7 @@ export default function Index() {
       const mappedCards: KanbanCardType[] = list.map((item: any) => {
         let stageId = KANBAN_COLUMNS[0].id
         const displaySerial = item.clusterSerial || item.external_id || item.externalId || item.id
-        const meta = metadataMap.get(displaySerial) || metadataMap.get(item.id)
+        const meta = metadataMap.get(item.id) || metadataMap.get(displaySerial)
 
         if (meta && meta.status) {
           stageId = meta.status
@@ -94,7 +94,7 @@ export default function Index() {
             pb
               .collection('land_metadata')
               .create({
-                external_id: displaySerial,
+                external_id: item.id,
                 status: stageId,
               })
               .catch((e) => console.error('Failed to init land_metadata', e)),
@@ -110,7 +110,7 @@ export default function Index() {
           'Sem responsável'
 
         return {
-          id: displaySerial,
+          id: item.id,
           title,
           name: item.name,
           clusterSerial: displaySerial,
@@ -182,7 +182,10 @@ export default function Index() {
   const filteredCards = useMemo(() => {
     return cards.filter((c) => {
       const meta =
-        metadata[c.id] || Object.values(metadata).find((m: any) => m.external_id === c.id)
+        metadata[c.id] ||
+        Object.values(metadata).find(
+          (m: any) => m.external_id === c.id || m.external_id === c.clusterSerial,
+        )
       const displayId = c.clusterSerial || c.id
 
       const matchSearch =

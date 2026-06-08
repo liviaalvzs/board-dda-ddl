@@ -22,7 +22,7 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
     <div
       draggable
       onDragStart={(e) => onDragStart(e, card.id)}
-      onClick={() => navigate(`/land/${card.clusterSerial || card.id}`)}
+      onClick={() => navigate(`/land/${card.id}`)}
       className="bg-white rounded-rg p-4 shadow-rg-card border border-transparent hover:border-brand-secondary/60 transition-all duration-150 cursor-grab active:cursor-grabbing group animate-slide-up flex flex-col gap-3"
     >
       <div className="space-y-1.5">

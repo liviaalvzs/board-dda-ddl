@@ -34,7 +34,7 @@ const App = () => (
           >
             <Route path="/" element={<Index />} />
             <Route
-              path="/land/:external_id"
+              path="/land/:id"
               element={
                 <>
                   <Index />
