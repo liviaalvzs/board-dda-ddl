@@ -82,12 +82,22 @@ function CommentsSection({ landId }: { landId: string }) {
   const { user } = useAuth()
   const { toast } = useToast()
 
-  useEffect(() => {
+  const fetchComments = () => {
     pb.collection('comments')
       .getFullList({ filter: `land_id="${landId}"`, expand: 'user', sort: '-created' })
       .then(setComments)
       .catch(() => {})
+  }
+
+  useEffect(() => {
+    fetchComments()
   }, [landId])
+
+  useRealtime('comments', (e) => {
+    if (e.record.land_id === landId) {
+      fetchComments()
+    }
+  })
 
   const handleAdd = async () => {
     if (!newComment.trim() && !selectedFile) return
@@ -318,7 +328,6 @@ export default function LandDetail() {
               <SheetHeader className="mb-4">
                 <div className="space-y-1.5">
                   <span className="font-label font-semibold uppercase tracking-rg text-[11px] text-brand-primary/60 block">
-                    Cluster Serial:{' '}
                     {land.clusterSerial || land.external_id || land.externalId || land.id || 'N/A'}
                   </span>
                   <SheetTitle className="font-display font-light text-[26px] text-brand-primary leading-tight text-left">

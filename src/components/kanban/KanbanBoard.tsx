@@ -64,8 +64,8 @@ export function KanbanBoard({ columns, cards, isLoading, onMoveCard }: KanbanBoa
 
   const enrichedCards = useMemo(() => {
     return cards.map((c) => {
-      const meta = metadataMap[c.id]
-      const completedDocs = docChecksMap[c.id] || 0
+      const meta = metadataMap[c.id] || metadataMap[c.clusterSerial || '']
+      const completedDocs = docChecksMap[c.id] || docChecksMap[c.clusterSerial || ''] || 0
       return {
         ...c,
         stageId: meta?.status || c.stageId,

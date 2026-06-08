@@ -47,7 +47,6 @@ export default function Index() {
   // Filters State
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedResponsible, setSelectedResponsible] = useState('all')
-  const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedCluster, setSelectedCluster] = useState('all')
   const [selectedState, setSelectedState] = useState('all')
 
@@ -85,7 +84,8 @@ export default function Index() {
 
       const mappedCards: KanbanCardType[] = list.map((item: any) => {
         let stageId = KANBAN_COLUMNS[0].id
-        const meta = metadataMap.get(item.id)
+        const displaySerial = item.clusterSerial || item.external_id || item.externalId || item.id
+        const meta = metadataMap.get(displaySerial) || metadataMap.get(item.id)
 
         if (meta && meta.status) {
           stageId = meta.status
@@ -94,7 +94,7 @@ export default function Index() {
             pb
               .collection('land_metadata')
               .create({
-                external_id: item.id,
+                external_id: displaySerial,
                 status: stageId,
               })
               .catch((e) => console.error('Failed to init land_metadata', e)),
@@ -102,7 +102,6 @@ export default function Index() {
         }
 
         const baseName = item.name || 'Propriedade sem nome'
-        const displaySerial = item.clusterSerial || item.external_id || item.externalId || item.id
         const title = displaySerial ? `${baseName} - ${displaySerial}` : baseName
 
         const responsibleName =
@@ -111,10 +110,10 @@ export default function Index() {
           'Sem responsável'
 
         return {
-          id: item.id,
+          id: displaySerial,
           title,
           name: item.name,
-          clusterSerial: item.clusterSerial || item.external_id || item.externalId,
+          clusterSerial: displaySerial,
           code: item.code || item.sicarCode || item.agrotoolsCode,
           location: {
             city: item.city || item.geomCityName || 'Desconhecido',
@@ -166,14 +165,6 @@ export default function Index() {
   }
 
   // Derived options for filters
-  const uniqueStatuses = useMemo(() => {
-    const statuses = Array.from(new Set(cards.map((c) => c.stageId)))
-    return statuses.map((id) => {
-      const col = KANBAN_COLUMNS.find((col) => col.id === id)
-      return { id, title: col?.title || id }
-    })
-  }, [cards])
-
   const uniqueClusters = useMemo(() => {
     const prefixes = cards
       .map((c) => c.clusterSerial || c.id)
@@ -190,7 +181,8 @@ export default function Index() {
   // Filtered Cards
   const filteredCards = useMemo(() => {
     return cards.filter((c) => {
-      const meta = metadata[c.id]
+      const meta =
+        metadata[c.id] || Object.values(metadata).find((m: any) => m.external_id === c.id)
       const displayId = c.clusterSerial || c.id
 
       const matchSearch =
@@ -202,7 +194,6 @@ export default function Index() {
 
       const matchResponsible =
         selectedResponsible === 'all' || meta?.responsible_user === selectedResponsible
-      const matchStatus = selectedStatus === 'all' || c.stageId === selectedStatus
 
       const matchCluster =
         selectedCluster === 'all' ||
@@ -210,22 +201,13 @@ export default function Index() {
 
       const matchState = selectedState === 'all' || c.location.state === selectedState
 
-      return matchSearch && matchResponsible && matchStatus && matchCluster && matchState
+      return matchSearch && matchResponsible && matchCluster && matchState
     })
-  }, [
-    cards,
-    metadata,
-    searchQuery,
-    selectedResponsible,
-    selectedStatus,
-    selectedCluster,
-    selectedState,
-  ])
+  }, [cards, metadata, searchQuery, selectedResponsible, selectedCluster, selectedState])
 
   const resetFilters = () => {
     setSearchQuery('')
     setSelectedResponsible('all')
-    setSelectedStatus('all')
     setSelectedCluster('all')
     setSelectedState('all')
   }
@@ -253,19 +235,6 @@ export default function Index() {
               {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.name || u.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Status</SelectItem>
-              {uniqueStatuses.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.title}
                 </SelectItem>
               ))}
             </SelectContent>
