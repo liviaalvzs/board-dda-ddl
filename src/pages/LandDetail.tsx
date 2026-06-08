@@ -318,7 +318,7 @@ export default function LandDetail() {
               <SheetHeader className="mb-4">
                 <div className="space-y-1.5">
                   <span className="font-label font-semibold uppercase tracking-rg text-[11px] text-brand-primary/60 block">
-                    {land.code || 'S/ CÓDIGO'}
+                    Cluster Serial: {land.id || 'N/A'}
                   </span>
                   <SheetTitle className="font-display font-light text-[26px] text-brand-primary leading-tight text-left">
                     {land.name || 'Propriedade sem nome'}
@@ -409,15 +409,13 @@ export default function LandDetail() {
                     </span>
                   </div>
                   <div>
-                    <span className="rg-label text-brand-primary/60 block mb-1">Código SICAR</span>
+                    <span className="rg-label text-brand-primary/60 block mb-1">SICAR</span>
                     <span className="font-medium text-brand-primary text-[15px] break-all">
                       {land.sicarCode || 'N/A'}
                     </span>
                   </div>
                   <div>
-                    <span className="rg-label text-brand-primary/60 block mb-1">
-                      Código Agrotools
-                    </span>
+                    <span className="rg-label text-brand-primary/60 block mb-1">Agrotools</span>
                     <span className="font-medium text-brand-primary text-[15px] break-all">
                       {land.agrotoolsCode || 'N/A'}
                     </span>

@@ -173,7 +173,9 @@ export default function Index() {
   }, [cards])
 
   const uniqueClusters = useMemo(() => {
-    const prefixes = cards.map((c) => c.id.substring(0, 3).toUpperCase())
+    const prefixes = cards
+      .filter((c) => c.id.includes('-'))
+      .map((c) => c.id.substring(0, 3).toUpperCase())
     return Array.from(new Set(prefixes)).sort()
   }, [cards])
 
@@ -193,8 +195,9 @@ export default function Index() {
         selectedResponsible === 'all' || meta?.responsible_user === selectedResponsible
       const matchStatus = selectedStatus === 'all' || c.stageId === selectedStatus
 
-      const clusterPrefix = c.id.substring(0, 3).toUpperCase()
-      const matchCluster = selectedCluster === 'all' || clusterPrefix === selectedCluster
+      const matchCluster =
+        selectedCluster === 'all' ||
+        c.id.toUpperCase().startsWith(`${selectedCluster.toUpperCase()}-`)
 
       return matchSearch && matchResponsible && matchStatus && matchCluster
     })
@@ -214,7 +217,7 @@ export default function Index() {
         <div className="relative w-full lg:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar por nome ou código..."
+            placeholder="Pesquisar por nome ou cluster serial..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9"
