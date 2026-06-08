@@ -318,7 +318,8 @@ export default function LandDetail() {
               <SheetHeader className="mb-4">
                 <div className="space-y-1.5">
                   <span className="font-label font-semibold uppercase tracking-rg text-[11px] text-brand-primary/60 block">
-                    Cluster Serial: {land.id || 'N/A'}
+                    Cluster Serial:{' '}
+                    {land.clusterSerial || land.external_id || land.externalId || land.id || 'N/A'}
                   </span>
                   <SheetTitle className="font-display font-light text-[26px] text-brand-primary leading-tight text-left">
                     {land.name || 'Propriedade sem nome'}

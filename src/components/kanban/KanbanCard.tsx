@@ -27,7 +27,7 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
     >
       <div className="space-y-1.5">
         <span className="rg-label text-muted-foreground block font-bold text-[11px] tracking-wider uppercase">
-          Cluster Serial: {card.id}
+          Cluster Serial: {card.clusterSerial || card.id}
         </span>
         <div className="flex justify-between items-start gap-2">
           <h4 className="font-display font-light text-[1.1rem] text-brand-primary leading-tight group-hover:text-brand-secondary transition-colors line-clamp-2">

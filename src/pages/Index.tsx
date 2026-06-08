@@ -49,6 +49,7 @@ export default function Index() {
   const [selectedResponsible, setSelectedResponsible] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedCluster, setSelectedCluster] = useState('all')
+  const [selectedState, setSelectedState] = useState('all')
 
   // Data State
   const [users, setUsers] = useState<any[]>([])
@@ -101,7 +102,8 @@ export default function Index() {
         }
 
         const baseName = item.name || 'Propriedade sem nome'
-        const title = item.clusterSerial ? `${baseName} - ${item.clusterSerial}` : baseName
+        const displaySerial = item.clusterSerial || item.external_id || item.externalId || item.id
+        const title = displaySerial ? `${baseName} - ${displaySerial}` : baseName
 
         const responsibleName =
           meta?.expand?.responsible_user?.name ||
@@ -112,7 +114,7 @@ export default function Index() {
           id: item.id,
           title,
           name: item.name,
-          clusterSerial: item.clusterSerial,
+          clusterSerial: item.clusterSerial || item.external_id || item.externalId,
           code: item.code || item.sicarCode || item.agrotoolsCode,
           location: {
             city: item.city || item.geomCityName || 'Desconhecido',
@@ -174,22 +176,29 @@ export default function Index() {
 
   const uniqueClusters = useMemo(() => {
     const prefixes = cards
-      .filter((c) => c.id.includes('-'))
-      .map((c) => c.id.substring(0, 3).toUpperCase())
+      .map((c) => c.clusterSerial || c.id)
+      .filter((id) => typeof id === 'string' && id.includes('-'))
+      .map((id) => id.substring(0, 3).toUpperCase())
     return Array.from(new Set(prefixes)).sort()
+  }, [cards])
+
+  const uniqueStates = useMemo(() => {
+    const states = cards.map((c) => c.location.state).filter((s) => s && s !== 'NA')
+    return Array.from(new Set(states)).sort()
   }, [cards])
 
   // Filtered Cards
   const filteredCards = useMemo(() => {
     return cards.filter((c) => {
       const meta = metadata[c.id]
+      const displayId = c.clusterSerial || c.id
 
       const matchSearch =
         !searchQuery ||
         c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (c.code && c.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (c.name && c.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        c.id.toLowerCase().includes(searchQuery.toLowerCase())
+        displayId.toLowerCase().includes(searchQuery.toLowerCase())
 
       const matchResponsible =
         selectedResponsible === 'all' || meta?.responsible_user === selectedResponsible
@@ -197,17 +206,28 @@ export default function Index() {
 
       const matchCluster =
         selectedCluster === 'all' ||
-        c.id.toUpperCase().startsWith(`${selectedCluster.toUpperCase()}-`)
+        displayId.toUpperCase().startsWith(`${selectedCluster.toUpperCase()}-`)
 
-      return matchSearch && matchResponsible && matchStatus && matchCluster
+      const matchState = selectedState === 'all' || c.location.state === selectedState
+
+      return matchSearch && matchResponsible && matchStatus && matchCluster && matchState
     })
-  }, [cards, metadata, searchQuery, selectedResponsible, selectedStatus, selectedCluster])
+  }, [
+    cards,
+    metadata,
+    searchQuery,
+    selectedResponsible,
+    selectedStatus,
+    selectedCluster,
+    selectedState,
+  ])
 
   const resetFilters = () => {
     setSearchQuery('')
     setSelectedResponsible('all')
     setSelectedStatus('all')
     setSelectedCluster('all')
+    setSelectedState('all')
   }
 
   return (
@@ -259,6 +279,19 @@ export default function Index() {
               {uniqueClusters.map((c) => (
                 <SelectItem key={c} value={c}>
                   {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedState} onValueChange={setSelectedState}>
+            <SelectTrigger className="w-full sm:w-32">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos (Estado)</SelectItem>
+              {uniqueStates.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
                 </SelectItem>
               ))}
             </SelectContent>
