@@ -1,9 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { KanbanCardType, KanbanColumnType } from '@/types/kanban'
 import { useToast } from '@/hooks/use-toast'
-import { AlertCircle, RefreshCcw, Leaf } from 'lucide-react'
+import { AlertCircle, RefreshCcw, Leaf, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useRealtime } from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 
 const KANBAN_COLUMNS: KanbanColumnType[] = [
@@ -35,8 +44,22 @@ export default function Index() {
   const [hasError, setHasError] = useState(false)
   const { toast } = useToast()
 
-  const fetchData = async () => {
-    setIsLoading(true)
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedResponsible, setSelectedResponsible] = useState('all')
+  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [selectedCluster, setSelectedCluster] = useState('all')
+
+  // Data State
+  const [users, setUsers] = useState<any[]>([])
+  const [metadata, setMetadata] = useState<Record<string, any>>({})
+
+  useEffect(() => {
+    pb.collection('users').getFullList().then(setUsers).catch(console.error)
+  }, [])
+
+  const fetchData = async (silent = false) => {
+    if (!silent) setIsLoading(true)
     setHasError(false)
 
     try {
@@ -55,6 +78,7 @@ export default function Index() {
         .collection('land_metadata')
         .getFullList({ expand: 'responsible_user' })
       const metadataMap = new Map(metadataRecords.map((r: any) => [r.external_id, r]))
+      setMetadata(Object.fromEntries(metadataMap))
 
       const newMetadataPromises: Promise<any>[] = []
 
@@ -79,7 +103,10 @@ export default function Index() {
         const baseName = item.name || 'Propriedade sem nome'
         const title = item.clusterSerial ? `${baseName} - ${item.clusterSerial}` : baseName
 
-        const responsibleName = meta?.expand?.responsible_user?.name || 'Sem responsável'
+        const responsibleName =
+          meta?.expand?.responsible_user?.name ||
+          meta?.expand?.responsible_user?.email ||
+          'Sem responsável'
 
         return {
           id: item.id,
@@ -109,13 +136,18 @@ export default function Index() {
       console.error('Error fetching cards:', err)
       setHasError(true)
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }
 
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Real-time synchronization
+  useRealtime('land_metadata', () => {
+    fetchData(true)
+  })
 
   const handleMoveCard = (cardId: string, targetStageId: string) => {
     const card = cards.find((c) => c.id === cardId)
@@ -131,8 +163,114 @@ export default function Index() {
     })
   }
 
+  // Derived options for filters
+  const uniqueStatuses = useMemo(() => {
+    const statuses = Array.from(new Set(cards.map((c) => c.stageId)))
+    return statuses.map((id) => {
+      const col = KANBAN_COLUMNS.find((col) => col.id === id)
+      return { id, title: col?.title || id }
+    })
+  }, [cards])
+
+  const uniqueClusters = useMemo(() => {
+    const prefixes = cards.map((c) => c.id.substring(0, 3).toUpperCase())
+    return Array.from(new Set(prefixes)).sort()
+  }, [cards])
+
+  // Filtered Cards
+  const filteredCards = useMemo(() => {
+    return cards.filter((c) => {
+      const meta = metadata[c.id]
+
+      const matchSearch =
+        !searchQuery ||
+        c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (c.code && c.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (c.name && c.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        c.id.toLowerCase().includes(searchQuery.toLowerCase())
+
+      const matchResponsible =
+        selectedResponsible === 'all' || meta?.responsible_user === selectedResponsible
+      const matchStatus = selectedStatus === 'all' || c.stageId === selectedStatus
+
+      const clusterPrefix = c.id.substring(0, 3).toUpperCase()
+      const matchCluster = selectedCluster === 'all' || clusterPrefix === selectedCluster
+
+      return matchSearch && matchResponsible && matchStatus && matchCluster
+    })
+  }, [cards, metadata, searchQuery, selectedResponsible, selectedStatus, selectedCluster])
+
+  const resetFilters = () => {
+    setSearchQuery('')
+    setSelectedResponsible('all')
+    setSelectedStatus('all')
+    setSelectedCluster('all')
+  }
+
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-brand-background">
+      {/* Filter Bar */}
+      <div className="flex flex-col lg:flex-row gap-4 p-4 border-b bg-white shrink-0 lg:items-center">
+        <div className="relative w-full lg:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Pesquisar por nome ou código..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9"
+          />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+          <Select value={selectedResponsible} onValueChange={setSelectedResponsible}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Responsável" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Responsáveis</SelectItem>
+              {users.map((u) => (
+                <SelectItem key={u.id} value={u.id}>
+                  {u.name || u.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Status</SelectItem>
+              {uniqueStatuses.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedCluster} onValueChange={setSelectedCluster}>
+            <SelectTrigger className="w-full sm:w-32">
+              <SelectValue placeholder="Cluster" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos (Cluster)</SelectItem>
+              {uniqueClusters.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="ghost"
+            onClick={resetFilters}
+            className="w-full sm:w-auto flex items-center gap-2"
+          >
+            <X className="w-4 h-4" />
+            Limpar
+          </Button>
+        </div>
+      </div>
+
       {hasError ? (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
           <div className="bg-white p-8 rounded-2xl shadow-elevation max-w-md w-full flex flex-col items-center">
@@ -146,7 +284,7 @@ export default function Index() {
               Não foi possível carregar as informações do board. Por favor, tente novamente.
             </p>
             <Button
-              onClick={fetchData}
+              onClick={() => fetchData()}
               className="w-full bg-brand-primary hover:bg-brand-primary/90 text-white flex items-center gap-2"
             >
               <RefreshCcw className="w-4 h-4" />
@@ -154,10 +292,21 @@ export default function Index() {
             </Button>
           </div>
         </div>
+      ) : filteredCards.length === 0 && !isLoading ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in bg-gray-50/50">
+          <Leaf className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">Nenhuma terra encontrada</h2>
+          <p className="text-muted-foreground mb-6">
+            Não encontramos nenhum registro com os filtros aplicados.
+          </p>
+          <Button variant="outline" onClick={resetFilters}>
+            Limpar Filtros
+          </Button>
+        </div>
       ) : (
         <KanbanBoard
           columns={KANBAN_COLUMNS}
-          cards={cards}
+          cards={filteredCards}
           isLoading={isLoading}
           onMoveCard={handleMoveCard}
         />

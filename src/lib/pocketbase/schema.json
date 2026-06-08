@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-03T18:27:31.623Z",
+  "generatedAt": "2026-06-08T19:10:59.623Z",
   "collections": [
     {
       "name": "users",
@@ -96,7 +96,11 @@
           "selectValues": ["solteiro", "casado", "divorciado", "viuvo"]
         }
       ],
-      "indexes": ["CREATE INDEX `idx_land_metadata_external_id` ON `land_metadata` (external_id)"]
+      "indexes": [
+        "CREATE INDEX `idx_land_metadata_external_id` ON `land_metadata` (external_id)",
+        "CREATE INDEX `idx_land_metadata_status` ON `land_metadata` (status)",
+        "CREATE INDEX `idx_land_metadata_responsible` ON `land_metadata` (responsible_user)"
+      ]
     },
     {
       "name": "comments",
