@@ -18,6 +18,10 @@ export interface KanbanCardType {
   stageId: string
   completedDocs?: number
   completedDda?: number
+  riskLevel?: 'low' | 'medium' | 'high' | ''
+  ddaStatusLabel?: 'existing' | 'distributed' | 'none' | ''
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface KanbanColumnType {

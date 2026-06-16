@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T00:07:46.833Z",
+  "generatedAt": "2026-06-16T00:23:56.129Z",
   "collections": [
     {
       "name": "users",
@@ -101,6 +101,20 @@
           "required": false,
           "system": false,
           "collectionRef": "external_offices"
+        },
+        {
+          "name": "risk_level",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["low", "medium", "high"]
+        },
+        {
+          "name": "dda_status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["existing", "distributed", "none"]
         }
       ],
       "indexes": [

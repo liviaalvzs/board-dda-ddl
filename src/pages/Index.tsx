@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { KanbanCardType, KanbanColumnType } from '@/types/kanban'
 import { useToast } from '@/hooks/use-toast'
-import { AlertCircle, RefreshCcw, Leaf, Search, X } from 'lucide-react'
+import { AlertCircle, RefreshCcw, Leaf, Search, X, Filter, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -12,44 +12,56 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { useRealtime } from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
+import { Badge } from '@/components/ui/badge'
 
 const KANBAN_COLUMNS: KanbanColumnType[] = [
-  { id: 'assinatura-carta', title: 'Assinatura da carta proposta', color: 'bg-brand-warning' },
-  { id: 'aguardando-doc', title: 'Aguardando documentação básica', color: 'bg-brand-warning' },
-  { id: 'emissao-certidoes', title: 'Emissão das certidões', color: 'bg-brand-info' },
-  {
-    id: 'distribuida-escritorio',
-    title: 'Distribuída ao escritório externo',
-    color: 'bg-brand-info',
-  },
+  { id: 'assinatura-carta', title: 'Assinatura da carta proposta', color: 'bg-slate-400' },
+  { id: 'aguardando-doc', title: 'Aguardando documentação básica', color: 'bg-amber-400' },
+  { id: 'emissao-certidoes', title: 'Emissão das certidões', color: 'bg-sky-400' },
   {
     id: 'analise-interna-preliminar',
     title: 'Análise interna DD preliminar',
-    color: 'bg-brand-alternative',
+    color: 'bg-indigo-400',
   },
-  { id: 'dd-conclusiva', title: 'DD conclusiva', color: 'bg-brand-secondary' },
+  { id: 'dd-conclusiva', title: 'DD conclusiva', color: 'bg-fuchsia-400' },
   {
     id: 'analise-interna-conclusiva',
     title: 'Análise interna DD conclusiva',
-    color: 'bg-brand-primary',
+    color: 'bg-emerald-500',
   },
 ]
 
 export default function Index() {
   const [cards, setCards] = useState<KanbanCardType[]>([])
+  const [localCards, setLocalCards] = useState<KanbanCardType[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const { toast } = useToast()
 
-  // Filters State
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedResponsible, setSelectedResponsible] = useState('all')
   const [selectedCluster, setSelectedCluster] = useState('all')
   const [selectedState, setSelectedState] = useState('all')
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
 
-  // Data State
   const [users, setUsers] = useState<any[]>([])
   const [metadata, setMetadata] = useState<Record<string, any>>({})
 
@@ -64,9 +76,7 @@ export default function Index() {
     try {
       const data = await pb.send(
         '/backend/v1/lands?limit=25&offset=0&statusGroupNames=Due+Diligence',
-        {
-          method: 'GET',
-        },
+        { method: 'GET' },
       )
 
       const list: any[] = Array.isArray(data)
@@ -92,10 +102,7 @@ export default function Index() {
           newMetadataPromises.push(
             pb
               .collection('land_metadata')
-              .create({
-                external_id: item.id,
-                status: stageId,
-              })
+              .create({ external_id: item.id, status: stageId })
               .catch((e) => console.error('Failed to init land_metadata', e)),
           )
         }
@@ -144,42 +151,69 @@ export default function Index() {
     fetchData()
   }, [])
 
-  // Real-time synchronization
   useRealtime('land_metadata', () => {
     fetchData(true)
   })
 
   const handleMoveCard = (cardId: string, targetStageId: string) => {
+    if (localCards.find((c) => c.id === cardId)) {
+      setLocalCards((prev) =>
+        prev.map((c) => (c.id === cardId ? { ...c, stageId: targetStageId } : c)),
+      )
+      return
+    }
+
     const card = cards.find((c) => c.id === cardId)
     if (!card || card.stageId === targetStageId) return
 
     setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, stageId: targetStageId } : c)))
 
     toast({
-      title: 'Card movido com sucesso!',
-      description: `O card foi movido para a nova etapa.`,
+      title: 'Propriedade movida',
+      description: `A propriedade foi movida para a nova etapa.`,
       duration: 3000,
-      className: 'bg-brand-primary text-white border-none',
     })
   }
 
-  // Derived options for filters
+  const handleCreateCard = (columnId: string, title: string) => {
+    const newCard: KanbanCardType = {
+      id: `local-${Date.now()}`,
+      title,
+      name: title,
+      location: { city: 'Pendente', state: 'NA' },
+      owner: 'Pendente',
+      area: 0,
+      ddaStatus: 'N/A',
+      statusType: 'info',
+      responsible: 'Sem responsável',
+      stageId: columnId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setLocalCards((prev) => [...prev, newCard])
+    toast({
+      title: 'Propriedade adicionada',
+      description: `Propriedade criada temporariamente nesta sessão.`,
+    })
+  }
+
+  const allCards = useMemo(() => [...cards, ...localCards], [cards, localCards])
+
   const uniqueClusters = useMemo(() => {
-    const prefixes = cards
+    const prefixes = allCards
       .map((c) => c.clusterSerial || c.id)
       .filter((id) => typeof id === 'string' && id.includes('-'))
       .map((id) => id.substring(0, 3).toUpperCase())
     return Array.from(new Set(prefixes)).sort()
-  }, [cards])
+  }, [allCards])
 
   const uniqueStates = useMemo(() => {
-    const states = cards.map((c) => c.location.state).filter((s) => s && s !== 'NA')
+    const states = allCards.map((c) => c.location.state).filter((s) => s && s !== 'NA')
     return Array.from(new Set(states)).sort()
-  }, [cards])
+  }, [allCards])
 
-  // Filtered Cards
   const filteredCards = useMemo(() => {
-    return cards.filter((c) => {
+    return allCards.filter((c) => {
       const meta =
         metadata[c.id] ||
         Object.values(metadata).find(
@@ -205,7 +239,7 @@ export default function Index() {
 
       return matchSearch && matchResponsible && matchCluster && matchState
     })
-  }, [cards, metadata, searchQuery, selectedResponsible, selectedCluster, selectedState])
+  }, [allCards, metadata, searchQuery, selectedResponsible, selectedCluster, selectedState])
 
   const resetFilters = () => {
     setSearchQuery('')
@@ -214,23 +248,70 @@ export default function Index() {
     setSelectedState('all')
   }
 
-  return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-brand-background">
-      {/* Filter Bar */}
-      <div className="flex flex-col lg:flex-row gap-4 p-4 border-b bg-white shrink-0 lg:items-center">
-        <div className="relative w-full lg:w-72">
+  const activeFilterCount =
+    (searchQuery ? 1 : 0) +
+    (selectedResponsible !== 'all' ? 1 : 0) +
+    (selectedCluster !== 'all' ? 1 : 0) +
+    (selectedState !== 'all' ? 1 : 0)
+
+  const FilterPanel = () => (
+    <div className="flex flex-col gap-6 pt-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-700">Pesquisar</label>
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Pesquisar por nome ou cluster serial..."
+            placeholder="Nome, código, serial..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9"
+            className="pl-9 bg-white"
           />
         </div>
-        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="text-sm font-semibold text-slate-900 border-b pb-2">Localização</h4>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-600">Estado</label>
+          <Select value={selectedState} onValueChange={setSelectedState}>
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Estados</SelectItem>
+              {uniqueStates.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-600">Cluster</label>
+          <Select value={selectedCluster} onValueChange={setSelectedCluster}>
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Clusters</SelectItem>
+              {uniqueClusters.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="text-sm font-semibold text-slate-900 border-b pb-2">Equipe</h4>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-600">Responsável</label>
           <Select value={selectedResponsible} onValueChange={setSelectedResponsible}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Responsável" />
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="Selecione..." />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Responsáveis</SelectItem>
@@ -241,83 +322,142 @@ export default function Index() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={selectedCluster} onValueChange={setSelectedCluster}>
-            <SelectTrigger className="w-full sm:w-32">
-              <SelectValue placeholder="Cluster" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos (Cluster)</SelectItem>
-              {uniqueClusters.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedState} onValueChange={setSelectedState}>
-            <SelectTrigger className="w-full sm:w-32">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos (Estado)</SelectItem>
-              {uniqueStates.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="ghost"
-            onClick={resetFilters}
-            className="w-full sm:w-auto flex items-center gap-2"
-          >
-            <X className="w-4 h-4" />
-            Limpar
-          </Button>
         </div>
       </div>
 
-      {hasError ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-          <div className="bg-white p-8 rounded-2xl shadow-elevation max-w-md w-full flex flex-col items-center">
-            <div className="w-16 h-16 bg-brand-red/10 rounded-full flex items-center justify-center mb-6">
-              <AlertCircle className="w-8 h-8 text-brand-red" />
-            </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">
-              Erro ao carregar dados. Por favor, tente novamente.
-            </h2>
-            <p className="text-muted-foreground mb-8">
-              Não foi possível carregar as informações do board. Por favor, tente novamente.
-            </p>
-            <Button
-              onClick={() => fetchData()}
-              className="w-full bg-brand-primary hover:bg-brand-primary/90 text-white flex items-center gap-2"
-            >
-              <RefreshCcw className="w-4 h-4" />
-              Recarregar
-            </Button>
+      {activeFilterCount > 0 && (
+        <Button
+          variant="outline"
+          onClick={resetFilters}
+          className="w-full mt-4 flex items-center gap-2 border-slate-200 text-slate-600"
+        >
+          <X className="w-4 h-4" />
+          Limpar Filtros
+        </Button>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50 relative">
+      <div className="px-4 sm:px-6 py-4 bg-white border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 z-10">
+        <div>
+          <Breadcrumb className="mb-2">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/" className="text-slate-500">
+                  Home
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-semibold text-brand-primary">
+                  Terras (Due Diligence)
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Controle DDL</h1>
+            <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-medium">
+              {filteredCards.length} {filteredCards.length === 1 ? 'propriedade' : 'propriedades'}
+            </Badge>
           </div>
         </div>
-      ) : filteredCards.length === 0 && !isLoading ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in bg-gray-50/50">
-          <Leaf className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
-          <h2 className="text-xl font-semibold text-foreground mb-2">Nenhuma terra encontrada</h2>
-          <p className="text-muted-foreground mb-6">
-            Não encontramos nenhum registro com os filtros aplicados.
-          </p>
-          <Button variant="outline" onClick={resetFilters}>
-            Limpar Filtros
-          </Button>
+
+        <div className="hidden lg:flex items-center">
+          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2 border-slate-200">
+                <SlidersHorizontal className="w-4 h-4" />
+                Filtros
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 bg-brand-primary text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[320px] sm:w-[400px] bg-slate-50 overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Filtros</SheetTitle>
+                <SheetDescription>
+                  Refine a visualização das propriedades no board.
+                </SheetDescription>
+              </SheetHeader>
+              <FilterPanel />
+            </SheetContent>
+          </Sheet>
         </div>
-      ) : (
-        <KanbanBoard
-          columns={KANBAN_COLUMNS}
-          cards={filteredCards}
-          isLoading={isLoading}
-          onMoveCard={handleMoveCard}
-        />
-      )}
+      </div>
+
+      <div className="flex-1 relative overflow-hidden flex flex-col">
+        {hasError ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 max-w-md w-full flex flex-col items-center">
+              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-6">
+                <AlertCircle className="w-8 h-8 text-rose-500" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 mb-2">Erro ao carregar dados</h2>
+              <p className="text-slate-500 mb-8">
+                Não foi possível conectar ao servidor. Tente novamente.
+              </p>
+              <Button onClick={() => fetchData()} className="w-full">
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                Recarregar
+              </Button>
+            </div>
+          </div>
+        ) : filteredCards.length === 0 && !isLoading ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+            <Leaf className="w-12 h-12 text-slate-300 mb-4" />
+            <h2 className="text-xl font-semibold text-slate-800 mb-2">
+              Nenhuma propriedade encontrada
+            </h2>
+            <p className="text-slate-500 mb-6">Não há registros com os filtros atuais.</p>
+            {activeFilterCount > 0 && (
+              <Button variant="outline" onClick={resetFilters}>
+                Limpar Filtros
+              </Button>
+            )}
+          </div>
+        ) : (
+          <KanbanBoard
+            columns={KANBAN_COLUMNS}
+            cards={filteredCards}
+            isLoading={isLoading}
+            onMoveCard={handleMoveCard}
+            onCreateCard={handleCreateCard}
+          />
+        )}
+      </div>
+
+      <div className="fixed bottom-6 right-6 lg:hidden z-50">
+        <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <SheetTrigger asChild>
+            <Button
+              size="icon"
+              className="h-14 w-14 rounded-full shadow-xl bg-brand-primary hover:bg-brand-primary/90 text-white relative"
+            >
+              <Filter className="w-6 h-6" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-amber-400 text-amber-950 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-sm">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[85vh] bg-slate-50 rounded-t-3xl px-6">
+            <SheetHeader className="text-left mb-2 mt-2">
+              <SheetTitle>Filtros</SheetTitle>
+              <SheetDescription>Refine a lista de propriedades.</SheetDescription>
+            </SheetHeader>
+            <div className="overflow-y-auto pb-8 h-full">
+              <FilterPanel />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
     </div>
   )
 }
