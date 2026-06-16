@@ -17,6 +17,7 @@ export interface KanbanCardType {
   responsible: string
   stageId: string
   completedDocs?: number
+  completedDda?: number
 }
 
 export interface KanbanColumnType {

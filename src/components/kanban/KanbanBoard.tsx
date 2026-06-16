@@ -16,7 +16,9 @@ import pb from '@/lib/pocketbase/client'
 
 export function KanbanBoard({ columns, cards, isLoading, onMoveCard }: KanbanBoardProps) {
   const [metadataMap, setMetadataMap] = useState<Record<string, any>>({})
-  const [docChecksMap, setDocChecksMap] = useState<Record<string, number>>({})
+  const [docChecksMap, setDocChecksMap] = useState<Record<string, { docs: number; dda: number }>>(
+    {},
+  )
   const { toast } = useToast()
 
   const fetchMetadata = async () => {
@@ -38,10 +40,15 @@ export function KanbanBoard({ columns, cards, isLoading, onMoveCard }: KanbanBoa
       })
       const map = records.reduce(
         (acc, r) => {
-          acc[r.land_id] = (acc[r.land_id] || 0) + 1
+          if (!acc[r.land_id]) acc[r.land_id] = { docs: 0, dda: 0 }
+          if (r.document_key === 'dda_existente' || r.document_key === 'dda_distribuida') {
+            acc[r.land_id].dda += 1
+          } else {
+            acc[r.land_id].docs += 1
+          }
           return acc
         },
-        {} as Record<string, number>,
+        {} as Record<string, { docs: number; dda: number }>,
       )
       setDocChecksMap(map)
     } catch (e) {
@@ -65,12 +72,14 @@ export function KanbanBoard({ columns, cards, isLoading, onMoveCard }: KanbanBoa
   const enrichedCards = useMemo(() => {
     return cards.map((c) => {
       const meta = metadataMap[c.id] || metadataMap[c.clusterSerial || '']
-      const completedDocs = docChecksMap[c.id] || docChecksMap[c.clusterSerial || ''] || 0
+      const checks = docChecksMap[c.id] ||
+        docChecksMap[c.clusterSerial || ''] || { docs: 0, dda: 0 }
       return {
         ...c,
         stageId: meta?.status || c.stageId,
         responsible: meta?.expand?.responsible_user?.name || 'Unassigned',
-        completedDocs,
+        completedDocs: checks.docs,
+        completedDda: checks.dda,
       }
     })
   }, [cards, metadataMap, docChecksMap])

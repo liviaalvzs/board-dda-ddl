@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { ExternalLink, FileText, CheckCircle2, Circle } from 'lucide-react'
+import { ExternalLink, FileText, CheckCircle2, Circle, ListTodo } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 
@@ -156,15 +156,22 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     })
   }
 
+  const ddaItems: ChecklistItem[] = [
+    { key: 'dda_existente', label: 'dda existente', category: 'DDA' },
+    { key: 'dda_distribuida', label: 'dda distribuida ao escritorio', category: 'DDA' },
+  ]
+
   const totalItems = baseItems.length
   const completedCount = baseItems.filter((i) => checks[i.key]?.is_completed).length
-
   const categories = Array.from(new Set(baseItems.map((i) => i.category)))
+
+  const totalDdaItems = ddaItems.length
+  const completedDdaCount = ddaItems.filter((i) => checks[i.key]?.is_completed).length
 
   if (loading) return null
 
   return (
-    <Accordion type="single" collapsible defaultValue="checklist" className="w-full">
+    <Accordion type="multiple" defaultValue={['checklist', 'dda']} className="w-full space-y-4">
       <AccordionItem
         value="checklist"
         className="border border-brand-primary/5 bg-white rounded-rg shadow-rg-card overflow-hidden"
@@ -269,6 +276,61 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                         </div>
                       )
                     })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem
+        value="dda"
+        className="border border-brand-primary/5 bg-white rounded-rg shadow-rg-card overflow-hidden"
+      >
+        <AccordionTrigger className="hover:no-underline hover:bg-brand-primary/[0.02] transition-colors py-5 px-5 group">
+          <div className="flex items-center justify-between w-full pr-2">
+            <div className="flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-brand-primary" strokeWidth={1.5} />
+              <span className="font-display text-[1.2rem] text-brand-primary font-light">DDA</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-brand-primary/70 font-semibold bg-brand-primary/5 px-3 py-1 rounded-md mr-2">
+              {completedDdaCount === totalDdaItems && totalDdaItems > 0 ? (
+                <CheckCircle2 className="w-4 h-4 text-brand-secondary" />
+              ) : (
+                <Circle className="w-4 h-4 text-brand-warning" />
+              )}
+              {completedDdaCount} / {totalDdaItems} concluídos
+            </div>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="pb-5 px-5 space-y-6">
+          <div className="h-px w-full bg-brand-primary/5 mb-4 -mt-2" />
+          <div className="space-y-3">
+            {ddaItems.map((item) => {
+              const check = checks[item.key]
+              const isCompleted = check?.is_completed || false
+
+              return (
+                <div
+                  key={item.key}
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl border border-brand-primary/10 hover:border-brand-secondary/40 transition-colors"
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <Checkbox
+                      checked={isCompleted}
+                      onCheckedChange={(c) => handleCheck(item.key, !!c)}
+                      id={`check-${item.key}`}
+                      className="data-[state=checked]:bg-brand-secondary data-[state=checked]:text-brand-primary data-[state=checked]:border-brand-secondary w-5 h-5"
+                    />
+                    <Label
+                      htmlFor={`check-${item.key}`}
+                      className={`text-sm cursor-pointer select-none font-medium ${
+                        isCompleted ? 'text-brand-primary/50 line-through' : 'text-brand-primary'
+                      }`}
+                    >
+                      {item.label}
+                    </Label>
                   </div>
                 </div>
               )

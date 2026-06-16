@@ -24,7 +24,6 @@ const KANBAN_COLUMNS: KanbanColumnType[] = [
     title: 'Distribuída ao escritório externo',
     color: 'bg-brand-info',
   },
-  { id: 'dda', title: 'DDA', color: 'bg-brand-alternative' },
   {
     id: 'analise-interna-preliminar',
     title: 'Análise interna DD preliminar',

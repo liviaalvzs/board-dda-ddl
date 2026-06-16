@@ -62,13 +62,18 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
       </div>
 
       <div className="flex items-center justify-between pt-3 mt-1 border-t border-brand-primary/10">
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-brand-primary/5 text-brand-primary/80 font-semibold text-[11px] whitespace-nowrap">
-          <span>Checklist de Documentos ({card.completedDocs || 0}/9)</span>
+        <div className="flex gap-1.5 flex-wrap flex-1 mr-2">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-brand-primary/5 text-brand-primary/80 font-semibold text-[11px] whitespace-nowrap">
+            <span>Docs: {card.completedDocs || 0}/9</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-brand-alternative/10 text-brand-alternative font-semibold text-[11px] whitespace-nowrap">
+            <span>DDA: {card.completedDda || 0}/2</span>
+          </div>
         </div>
 
         <div
           className={cn(
-            'flex items-center gap-1.5 font-semibold text-[11px] px-2.5 py-1 rounded-md transition-colors',
+            'flex items-center gap-1.5 font-semibold text-[11px] px-2.5 py-1 rounded-md transition-colors whitespace-nowrap',
             responsibleStatus
               ? 'bg-brand-warning text-brand-primary'
               : 'bg-brand-secondary text-brand-primary',
