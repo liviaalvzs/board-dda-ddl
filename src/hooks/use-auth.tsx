@@ -4,8 +4,8 @@ import pb from '@/lib/pocketbase/client'
 interface AuthContextType {
   user: any
   isAuthenticated: boolean
+  signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
-  signInWith: (provider: string) => Promise<{ error: any }>
   signOut: () => void
   loading: boolean
 }
@@ -44,8 +44,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [])
 
-  const signIn = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string) => {
     try {
+      await pb.collection('users').create({ email, password, passwordConfirm: password })
       await pb.collection('users').authWithPassword(email, password)
       return { error: null }
     } catch (error) {
@@ -53,9 +54,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-  const signInWith = async (provider: string) => {
+  const signIn = async (email: string, password: string) => {
     try {
-      await pb.collection('users').authWithOAuth2({ provider })
+      await pb.collection('users').authWithPassword(email, password)
       return { error: null }
     } catch (error) {
       return { error }
@@ -67,7 +68,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, signIn, signInWith, signOut, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        signUp,
+        signIn,
+        signOut,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

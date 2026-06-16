@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-08T20:19:11.310Z",
+  "generatedAt": "2026-06-16T00:02:36.663Z",
   "collections": [
     {
       "name": "users",
@@ -48,11 +48,11 @@
       "name": "land_metadata",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
-        "delete": null
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
       },
       "fields": [
         {
@@ -94,6 +94,13 @@
           "required": false,
           "system": false,
           "selectValues": ["solteiro", "casado", "divorciado", "viuvo"]
+        },
+        {
+          "name": "external_offices",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "external_offices"
         }
       ],
       "indexes": [
@@ -106,11 +113,11 @@
       "name": "comments",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != '' && @request.auth.id = @request.body.user",
-        "update": "@request.auth.id != '' && @request.auth.id = user",
-        "delete": "@request.auth.id != '' && @request.auth.id = user"
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
       },
       "fields": [
         {
@@ -122,7 +129,7 @@
         {
           "name": "user",
           "type": "relation",
-          "required": true,
+          "required": false,
           "system": false,
           "collectionRef": "users"
         },
@@ -159,11 +166,11 @@
       "name": "document_checks",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != ''",
-        "delete": "@request.auth.id != ''"
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
       },
       "fields": [
         {
@@ -209,6 +216,40 @@
         "CREATE INDEX idx_document_checks_land_id ON document_checks (land_id)",
         "CREATE UNIQUE INDEX idx_document_checks_unique ON document_checks (land_id, document_key)"
       ]
+    },
+    {
+      "name": "external_offices",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "",
+        "update": "",
+        "delete": ""
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
     }
   ]
 }

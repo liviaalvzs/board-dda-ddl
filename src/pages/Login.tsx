@@ -2,45 +2,80 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-
-import { Cloud } from 'lucide-react'
+import { Leaf } from 'lucide-react'
 
 export default function Login() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const { signInWith } = useAuth()
+  const [isLoading, setIsLoading] = useState(false)
+  const { signIn } = useAuth()
   const navigate = useNavigate()
 
-  const handleAzureLogin = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
     setError('')
-    const { error: signInError } = await signInWith('oidc')
+    setIsLoading(true)
+
+    const { error: signInError } = await signIn(email, password)
+
+    setIsLoading(false)
+
     if (signInError) {
-      setError('Falha na autenticação com Azure. Tente novamente.')
+      setError('Credenciais inválidas. Tente novamente.')
     } else {
       navigate('/')
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50/50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-brand-background p-4">
       <Card className="w-full max-w-sm shadow-subtle border-brand-secondary/20">
         <CardHeader className="text-center pb-2">
+          <div className="mx-auto w-12 h-12 bg-brand-primary p-2 rounded-xl flex items-center justify-center mb-4">
+            <Leaf className="w-8 h-8 text-white" />
+          </div>
           <CardTitle className="text-2xl text-brand-primary">Board DDL DDA</CardTitle>
-          <CardDescription>Acesse o sistema utilizando sua conta corporativa</CardDescription>
+          <CardDescription>Faça login para acessar o painel de controle</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4 pt-4">
-            {error && <p className="text-sm text-brand-red font-medium text-center">{error}</p>}
+          <form onSubmit={handleLogin} className="space-y-4 pt-4">
+            {error && <p className="text-sm text-red-500 font-medium text-center">{error}</p>}
+
+            <div className="space-y-2 text-left">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="admin@regreen.earth"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2 text-left">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
             <Button
-              type="button"
-              onClick={handleAzureLogin}
-              variant="outline"
-              className="w-full flex items-center justify-center gap-3 h-12 text-base font-medium hover:bg-gray-100"
+              type="submit"
+              className="w-full mt-6 bg-brand-primary hover:bg-brand-primary/90"
+              disabled={isLoading}
             >
-              <Cloud className="w-5 h-5 text-[#0089D6]" />
-              Azure
+              {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>
