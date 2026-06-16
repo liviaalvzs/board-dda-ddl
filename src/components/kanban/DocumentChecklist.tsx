@@ -2,12 +2,7 @@ import { useState, useEffect } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from '@/components/ui/accordion'
+import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -16,9 +11,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { ExternalLink, FileText, CheckCircle2, Circle, ListTodo } from 'lucide-react'
+import { ExternalLink, CheckCircle2, User, FileText } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
+import { cn } from '@/lib/utils'
+import { format } from 'date-fns'
 
 interface ChecklistItem {
   key: string
@@ -34,9 +31,9 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
 
   const fetchChecks = async () => {
     try {
-      const records = await pb.collection('document_checks').getFullList({
-        filter: `land_id="${landId}"`,
-      })
+      const records = await pb
+        .collection('document_checks')
+        .getFullList({ filter: `land_id="${landId}"` })
       const map: Record<string, any> = {}
       records.forEach((r) => {
         map[r.document_key] = r
@@ -52,22 +49,18 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   useEffect(() => {
     fetchChecks()
   }, [landId])
-
   useRealtime('document_checks', (e) => {
-    if (e.record.land_id === landId) {
-      fetchChecks()
-    }
+    if (e.record.land_id === landId) fetchChecks()
   })
 
   const handleMaritalStatusChange = async (val: string) => {
     try {
-      if (metadata?.id) {
+      if (metadata?.id)
         await pb.collection('land_metadata').update(metadata.id, { owner_marital_status: val })
-      } else {
+      else
         await pb
           .collection('land_metadata')
           .create({ external_id: landId, owner_marital_status: val })
-      }
     } catch (err) {
       console.error(err)
     }
@@ -75,17 +68,17 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
 
   const handleCheck = async (key: string, checked: boolean) => {
     const existing = checks[key]
-    setChecks((prev) => ({ ...prev, [key]: { ...prev[key], is_completed: checked } }))
+    setChecks((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], is_completed: checked, updated: new Date().toISOString() },
+    }))
     try {
-      if (existing?.id) {
+      if (existing?.id)
         await pb.collection('document_checks').update(existing.id, { is_completed: checked })
-      } else {
-        await pb.collection('document_checks').create({
-          land_id: landId,
-          document_key: key,
-          is_completed: checked,
-        })
-      }
+      else
+        await pb
+          .collection('document_checks')
+          .create({ land_id: landId, document_key: key, is_completed: checked })
     } catch (e) {
       fetchChecks()
     }
@@ -94,34 +87,30 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   const handleUrlBlur = async (key: string, url: string) => {
     const existing = checks[key]
     if (existing?.document_url === url) return
-
     setChecks((prev) => ({ ...prev, [key]: { ...prev[key], document_url: url } }))
     try {
-      if (existing?.id) {
+      if (existing?.id)
         await pb.collection('document_checks').update(existing.id, { document_url: url })
-      } else {
-        await pb.collection('document_checks').create({
-          land_id: landId,
-          document_key: key,
-          document_url: url,
-        })
-      }
+      else
+        await pb
+          .collection('document_checks')
+          .create({ land_id: landId, document_key: key, document_url: url })
     } catch (e) {
       fetchChecks()
     }
   }
 
   const baseItems: ChecklistItem[] = [
-    { key: 'rg_cpf', label: 'RG/CPF', category: 'Do Proprietário' },
+    { key: 'rg_cpf', label: 'RG/CPF', category: 'Documentos do Proprietário' },
     {
       key: 'comprovante_residencia',
       label: 'Comprovante de Residência',
-      category: 'Do Proprietário',
+      category: 'Documentos do Proprietário',
     },
-    { key: 'matricula', label: 'Matrícula', category: 'Do Imóvel' },
-    { key: 'ccir', label: 'CCIR', category: 'Do Imóvel' },
-    { key: 'itr', label: 'ITR', category: 'Do Imóvel' },
-    { key: 'car', label: 'CAR', category: 'Do Imóvel' },
+    { key: 'matricula', label: 'Matrícula', category: 'Documentos do Imóvel' },
+    { key: 'ccir', label: 'CCIR', category: 'Documentos do Imóvel' },
+    { key: 'itr', label: 'ITR', category: 'Documentos do Imóvel' },
+    { key: 'car', label: 'CAR', category: 'Documentos do Imóvel' },
     { key: 'ibama', label: 'IBAMA', category: 'Certidões Ambientais e Fiscais' },
     {
       key: 'trabalho_escravo',
@@ -133,16 +122,16 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
       label: 'Débitos Federais',
       category: 'Certidões Ambientais e Fiscais',
     },
+    { key: 'dda_existente', label: 'DDA Existente', category: 'DDA' },
+    { key: 'dda_distribuida', label: 'DDA Distribuída', category: 'DDA' },
   ]
 
-  if (maritalStatus === 'divorciado') {
+  if (maritalStatus === 'divorciado')
     baseItems.push({
       key: 'documento_divorcio',
       label: 'Documento de Divórcio',
-      category: 'Do Proprietário',
+      category: 'Documentos do Proprietário',
     })
-  }
-
   if (maritalStatus === 'casado') {
     baseItems.push({
       key: 'rg_cpf_conjuge',
@@ -156,188 +145,158 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     })
   }
 
-  const ddaItems: ChecklistItem[] = [
-    { key: 'dda_existente', label: 'dda existente', category: 'DDA' },
-    { key: 'dda_distribuida', label: 'dda distribuida ao escritorio', category: 'DDA' },
-  ]
-
   const totalItems = baseItems.length
   const completedCount = baseItems.filter((i) => checks[i.key]?.is_completed).length
+  const progressPercent = totalItems > 0 ? (completedCount / totalItems) * 100 : 0
   const categories = Array.from(new Set(baseItems.map((i) => i.category)))
-
-  const totalDdaItems = ddaItems.length
-  const completedDdaCount = ddaItems.filter((i) => checks[i.key]?.is_completed).length
 
   if (loading) return null
 
   return (
-    <Accordion type="multiple" defaultValue={['checklist', 'dda']} className="w-full space-y-4">
-      <AccordionItem
-        value="checklist"
-        className="border border-brand-primary/5 bg-white rounded-rg shadow-rg-card overflow-hidden"
-      >
-        <AccordionTrigger className="hover:no-underline hover:bg-brand-primary/[0.02] transition-colors py-5 px-5 group">
-          <div className="flex items-center justify-between w-full pr-2">
-            <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-brand-primary" strokeWidth={1.5} />
-              <span className="font-display text-[1.2rem] text-brand-primary font-light">
-                Checklist de Documentos
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-brand-primary/70 font-semibold bg-brand-primary/5 px-3 py-1 rounded-md mr-2">
-              {completedCount === totalItems && totalItems > 0 ? (
-                <CheckCircle2 className="w-4 h-4 text-brand-secondary" />
-              ) : (
-                <Circle className="w-4 h-4 text-brand-warning" />
-              )}
-              {completedCount} / {totalItems} concluídos
-            </div>
+    <div className="space-y-6">
+      {/* Global Progress */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-brand-primary/10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-xl font-display text-brand-primary flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-brand-secondary" /> Progresso da Due Diligence
+            </h3>
+            <p className="text-sm font-medium text-brand-primary/60 mt-1">
+              {completedCount} de {totalItems} documentos validados
+            </p>
           </div>
-        </AccordionTrigger>
-        <AccordionContent className="pb-5 px-5 space-y-6">
-          <div className="h-px w-full bg-brand-primary/5 mb-4 -mt-2" />
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-brand-primary/5 p-4 rounded-xl border border-brand-primary/10">
-            <Label className="text-sm font-semibold text-brand-primary uppercase tracking-rg text-[11px]">
+          <span className="text-3xl font-bold text-brand-secondary leading-none">
+            {Math.round(progressPercent)}%
+          </span>
+        </div>
+        <Progress
+          value={progressPercent}
+          className="h-3 bg-brand-primary/5"
+          indicatorClassName="bg-brand-secondary transition-all duration-500 ease-in-out"
+        />
+      </div>
+
+      {/* Marital Status Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-brand-primary/5 flex items-center justify-center shrink-0">
+            <User className="w-5 h-5 text-brand-primary/60" />
+          </div>
+          <div>
+            <Label className="text-sm font-bold text-brand-primary">
               Estado Civil do Proprietário
             </Label>
-            <Select value={maritalStatus} onValueChange={handleMaritalStatusChange}>
-              <SelectTrigger className="w-[180px] bg-white h-9 border-brand-primary/20 text-brand-primary font-medium">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="solteiro">Solteiro</SelectItem>
-                <SelectItem value="casado">Casado</SelectItem>
-                <SelectItem value="divorciado">Divorciado</SelectItem>
-                <SelectItem value="viuvo">Viúvo</SelectItem>
-              </SelectContent>
-            </Select>
+            <p className="text-xs text-brand-primary/60">
+              Define os documentos exigidos para o cônjuge.
+            </p>
           </div>
+        </div>
+        <Select value={maritalStatus} onValueChange={handleMaritalStatusChange}>
+          <SelectTrigger className="w-full sm:w-[200px] bg-white h-10 border-brand-primary/20 text-brand-primary font-semibold">
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="solteiro">Solteiro</SelectItem>
+            <SelectItem value="casado">Casado</SelectItem>
+            <SelectItem value="divorciado">Divorciado</SelectItem>
+            <SelectItem value="viuvo">Viúvo</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-          <div className="space-y-8">
-            {categories.map((cat) => {
-              const catItems = baseItems.filter((i) => i.category === cat)
-              const catCompleted = catItems.filter((i) => checks[i.key]?.is_completed).length
-              return (
-                <div key={cat} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <h4 className="rg-label text-brand-primary">{cat}</h4>
-                    <div className="h-px bg-brand-primary/10 flex-1" />
-                    <span className="text-[11px] font-semibold text-brand-primary/60">
-                      {catCompleted}/{catItems.length}
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {catItems.map((item) => {
-                      const check = checks[item.key]
-                      const isCompleted = check?.is_completed || false
-                      const url = check?.document_url || ''
+      {/* Categories */}
+      <div className="space-y-4">
+        {categories.map((cat) => {
+          const catItems = baseItems.filter((i) => i.category === cat)
+          const catCompleted = catItems.filter((i) => checks[i.key]?.is_completed).length
 
-                      return (
-                        <div
-                          key={item.key}
-                          className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl border border-brand-primary/10 hover:border-brand-secondary/40 transition-colors"
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <Checkbox
-                              checked={isCompleted}
-                              onCheckedChange={(c) => handleCheck(item.key, !!c)}
-                              id={`check-${item.key}`}
-                              className="data-[state=checked]:bg-brand-secondary data-[state=checked]:text-brand-primary data-[state=checked]:border-brand-secondary w-5 h-5"
-                            />
-                            <Label
-                              htmlFor={`check-${item.key}`}
-                              className={`text-sm cursor-pointer select-none font-medium ${
-                                isCompleted
-                                  ? 'text-brand-primary/50 line-through'
-                                  : 'text-brand-primary'
-                              }`}
-                            >
-                              {item.label}
-                            </Label>
-                          </div>
-                          <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <Input
-                              placeholder="URL do documento..."
-                              defaultValue={url}
-                              onBlur={(e) => handleUrlBlur(item.key, e.target.value)}
-                              className="h-9 text-xs flex-1 sm:w-[260px] border-brand-primary/20 focus-visible:ring-brand-secondary"
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-9 w-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-secondary/10 hover:text-brand-secondary hover:border-brand-secondary"
-                              disabled={!url}
-                              onClick={() => window.open(url, '_blank')}
-                              title="Abrir documento"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+          return (
+            <div
+              key={cat}
+              className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden animate-slide-up"
+            >
+              <div className="bg-brand-primary/[0.02] px-5 py-4 border-b border-brand-primary/5 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-brand-primary/50" />
+                  <h4 className="font-semibold text-brand-primary text-[15px]">{cat}</h4>
                 </div>
-              )
-            })}
-          </div>
-        </AccordionContent>
-      </AccordionItem>
+                <span className="text-xs font-bold px-2.5 py-1 bg-white rounded-md text-brand-primary/60 border border-brand-primary/10 shadow-sm">
+                  {catCompleted}/{catItems.length}
+                </span>
+              </div>
+              <div className="divide-y divide-brand-primary/5">
+                {catItems.map((item) => {
+                  const check = checks[item.key]
+                  const isCompleted = check?.is_completed || false
+                  const url = check?.document_url || ''
 
-      <AccordionItem
-        value="dda"
-        className="border border-brand-primary/5 bg-white rounded-rg shadow-rg-card overflow-hidden"
-      >
-        <AccordionTrigger className="hover:no-underline hover:bg-brand-primary/[0.02] transition-colors py-5 px-5 group">
-          <div className="flex items-center justify-between w-full pr-2">
-            <div className="flex items-center gap-2">
-              <ListTodo className="w-5 h-5 text-brand-primary" strokeWidth={1.5} />
-              <span className="font-display text-[1.2rem] text-brand-primary font-light">DDA</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-brand-primary/70 font-semibold bg-brand-primary/5 px-3 py-1 rounded-md mr-2">
-              {completedDdaCount === totalDdaItems && totalDdaItems > 0 ? (
-                <CheckCircle2 className="w-4 h-4 text-brand-secondary" />
-              ) : (
-                <Circle className="w-4 h-4 text-brand-warning" />
-              )}
-              {completedDdaCount} / {totalDdaItems} concluídos
-            </div>
-          </div>
-        </AccordionTrigger>
-        <AccordionContent className="pb-5 px-5 space-y-6">
-          <div className="h-px w-full bg-brand-primary/5 mb-4 -mt-2" />
-          <div className="space-y-3">
-            {ddaItems.map((item) => {
-              const check = checks[item.key]
-              const isCompleted = check?.is_completed || false
-
-              return (
-                <div
-                  key={item.key}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl border border-brand-primary/10 hover:border-brand-secondary/40 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <Checkbox
-                      checked={isCompleted}
-                      onCheckedChange={(c) => handleCheck(item.key, !!c)}
-                      id={`check-${item.key}`}
-                      className="data-[state=checked]:bg-brand-secondary data-[state=checked]:text-brand-primary data-[state=checked]:border-brand-secondary w-5 h-5"
-                    />
-                    <Label
-                      htmlFor={`check-${item.key}`}
-                      className={`text-sm cursor-pointer select-none font-medium ${
-                        isCompleted ? 'text-brand-primary/50 line-through' : 'text-brand-primary'
-                      }`}
+                  return (
+                    <div
+                      key={item.key}
+                      className={cn(
+                        'flex flex-col md:flex-row md:items-center gap-4 p-5 transition-colors hover:bg-brand-primary/[0.01]',
+                        isCompleted && 'bg-emerald-50/30',
+                      )}
                     >
-                      {item.label}
-                    </Label>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+                      <div className="flex items-start gap-3 flex-1">
+                        <Checkbox
+                          checked={isCompleted}
+                          onCheckedChange={(c) => handleCheck(item.key, !!c)}
+                          id={`check-${item.key}`}
+                          className="data-[state=checked]:bg-emerald-500 data-[state=checked]:text-white data-[state=checked]:border-emerald-500 w-5 h-5 mt-0.5 rounded shadow-sm border-brand-primary/20"
+                        />
+                        <div className="flex flex-col">
+                          <Label
+                            htmlFor={`check-${item.key}`}
+                            className={cn(
+                              'text-sm cursor-pointer select-none font-semibold',
+                              isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+                            )}
+                          >
+                            {item.label}
+                          </Label>
+                          {isCompleted && check?.updated && (
+                            <span className="text-[10px] font-medium text-emerald-600 mt-1 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Concluído em{' '}
+                              {format(new Date(check.updated), 'dd/MM/yyyy')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 w-full md:w-auto md:min-w-[300px]">
+                        <Input
+                          placeholder="URL do documento no Sharepoint..."
+                          defaultValue={url}
+                          onBlur={(e) => handleUrlBlur(item.key, e.target.value)}
+                          className={cn(
+                            'h-9 text-xs flex-1 border-brand-primary/20 bg-white',
+                            url && 'pr-8',
+                          )}
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className={cn(
+                            'h-9 w-9 shrink-0 shadow-sm transition-colors',
+                            url
+                              ? 'border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white'
+                              : 'border-brand-primary/10 text-brand-primary/30',
+                          )}
+                          disabled={!url}
+                          onClick={() => window.open(url, '_blank')}
+                          title="Abrir documento"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }

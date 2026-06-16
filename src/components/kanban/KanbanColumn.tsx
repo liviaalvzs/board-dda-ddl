@@ -61,29 +61,31 @@ export function KanbanColumn({ column, cards, onDropCard, onCreateCard }: Kanban
   return (
     <div
       className={cn(
-        'flex flex-col flex-shrink-0 w-[280px] sm:w-[320px] h-full max-h-full bg-slate-100 rounded-xl transition-all duration-200 border border-slate-200',
+        'flex flex-col flex-shrink-0 w-[280px] sm:w-[320px] h-full max-h-full bg-slate-100/80 rounded-xl transition-all duration-200 border border-slate-200 shadow-rg-card',
         isDragOver && 'bg-brand-secondary/10 ring-2 ring-brand-secondary/30',
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="p-3 sm:p-4 flex-shrink-0 border-b border-slate-200 flex items-center justify-between gap-2 bg-slate-100 rounded-t-xl">
-        <div className="flex items-center gap-2">
+      <div className="p-4 flex-shrink-0 border-b border-slate-200/80 flex items-center justify-between gap-3 bg-slate-100 rounded-t-xl shadow-sm z-10 relative">
+        <div className="flex items-center gap-2.5">
           <div
             className={cn(
-              'w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm',
+              'w-3 h-3 rounded-full flex-shrink-0 shadow-sm',
               column.color || 'bg-brand-primary',
             )}
           />
-          <h3 className="font-semibold text-slate-800 leading-snug">{column.title}</h3>
+          <h3 className="font-display font-semibold text-slate-800 text-[15px] leading-snug">
+            {column.title}
+          </h3>
         </div>
-        <div className="bg-white text-slate-600 font-bold text-xs px-2.5 py-1 rounded-full shadow-sm flex-shrink-0 border border-slate-200">
-          {cards.length}
+        <div className="bg-white text-brand-primary font-bold text-xs px-3 py-1 rounded-full shadow-sm flex-shrink-0 border border-slate-200/80">
+          {cards.length} {cards.length === 1 ? 'card' : 'cards'}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-3 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 scrollbar-hide">
         {cards.length === 0 ? (
           <div className="h-32 flex flex-col items-center justify-center text-muted-foreground/60 gap-3 border-2 border-dashed border-slate-300 rounded-lg bg-white/40 m-1">
             <Leaf className="w-8 h-8 opacity-20" />
