@@ -15,6 +15,7 @@ export interface KanbanCardType {
   ddaStatus: string
   statusType: CardStatus
   responsible: string
+  externalOffice?: string
   stageId: string
   completedDocs?: number
   completedDda?: number

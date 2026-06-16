@@ -85,7 +85,7 @@ export default function Index() {
 
       const metadataRecords = await pb
         .collection('land_metadata')
-        .getFullList({ expand: 'responsible_user' })
+        .getFullList({ expand: 'responsible_user,external_offices' })
       const metadataMap = new Map(metadataRecords.map((r: any) => [r.external_id, r]))
       setMetadata(Object.fromEntries(metadataMap))
 
@@ -115,6 +115,8 @@ export default function Index() {
           meta?.expand?.responsible_user?.email ||
           'Sem responsável'
 
+        const externalOfficeName = meta?.expand?.external_offices?.name || 'Sem Escritório'
+
         return {
           id: item.id,
           title,
@@ -130,6 +132,7 @@ export default function Index() {
           ddaStatus: item.statusGroup?.name || item.status || 'N/A',
           statusType: 'info',
           responsible: responsibleName,
+          externalOffice: externalOfficeName,
           stageId,
         }
       })
@@ -186,6 +189,7 @@ export default function Index() {
       ddaStatus: 'N/A',
       statusType: 'info',
       responsible: 'Sem responsável',
+      externalOffice: 'Sem Escritório',
       stageId: columnId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -395,7 +399,7 @@ export default function Index() {
         {hasError ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 max-w-md w-full flex flex-col items-center">
-              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-6">
+              <div className="w-16 h-16 bg-white border border-rose-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
                 <AlertCircle className="w-8 h-8 text-rose-500" />
               </div>
               <h2 className="text-xl font-bold text-slate-900 mb-2">Erro ao carregar dados</h2>

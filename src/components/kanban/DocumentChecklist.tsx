@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { ExternalLink, CheckCircle2, User, FileText } from 'lucide-react'
+import { ExternalLink, CheckCircle2, User, FileText, Scale } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 import { cn } from '@/lib/utils'
@@ -28,6 +28,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   const [loading, setLoading] = useState(true)
 
   const maritalStatus = metadata?.owner_marital_status || 'solteiro'
+  const ddaStatus = metadata?.dda_status || 'none'
 
   const fetchChecks = async () => {
     try {
@@ -61,6 +62,16 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
         await pb
           .collection('land_metadata')
           .create({ external_id: landId, owner_marital_status: val })
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleDdaStatusChange = async (val: string) => {
+    try {
+      if (metadata?.id)
+        await pb.collection('land_metadata').update(metadata.id, { dda_status: val })
+      else await pb.collection('land_metadata').create({ external_id: landId, dda_status: val })
     } catch (err) {
       console.error(err)
     }
@@ -122,8 +133,6 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
       label: 'Débitos Federais',
       category: 'Certidões Ambientais e Fiscais',
     },
-    { key: 'dda_existente', label: 'DDA Existente', category: 'DDA' },
-    { key: 'dda_distribuida', label: 'DDA Distribuída', category: 'DDA' },
   ]
 
   if (maritalStatus === 'divorciado')
@@ -176,32 +185,59 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
         />
       </div>
 
-      {/* Marital Status Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-brand-primary/5 flex items-center justify-center shrink-0">
-            <User className="w-5 h-5 text-brand-primary/60" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Marital Status Selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-10 h-10 rounded-full bg-brand-primary/5 flex items-center justify-center shrink-0">
+              <User className="w-5 h-5 text-brand-primary/60" />
+            </div>
+            <div>
+              <Label className="text-sm font-bold text-brand-primary">Estado Civil</Label>
+              <p className="text-[11px] text-brand-primary/60 leading-tight mt-0.5">
+                Define documentos do cônjuge.
+              </p>
+            </div>
           </div>
-          <div>
-            <Label className="text-sm font-bold text-brand-primary">
-              Estado Civil do Proprietário
-            </Label>
-            <p className="text-xs text-brand-primary/60">
-              Define os documentos exigidos para o cônjuge.
-            </p>
-          </div>
+          <Select value={maritalStatus} onValueChange={handleMaritalStatusChange}>
+            <SelectTrigger className="w-full sm:w-[140px] bg-white h-9 border-brand-primary/20 text-brand-primary font-semibold text-xs">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="solteiro">Solteiro</SelectItem>
+              <SelectItem value="casado">Casado</SelectItem>
+              <SelectItem value="divorciado">Divorciado</SelectItem>
+              <SelectItem value="viuvo">Viúvo</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={maritalStatus} onValueChange={handleMaritalStatusChange}>
-          <SelectTrigger className="w-full sm:w-[200px] bg-white h-10 border-brand-primary/20 text-brand-primary font-semibold">
-            <SelectValue placeholder="Selecione" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="solteiro">Solteiro</SelectItem>
-            <SelectItem value="casado">Casado</SelectItem>
-            <SelectItem value="divorciado">Divorciado</SelectItem>
-            <SelectItem value="viuvo">Viúvo</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* DDA Status Selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-10 h-10 rounded-full bg-brand-primary/5 flex items-center justify-center shrink-0">
+              <Scale className="w-5 h-5 text-brand-primary/60" />
+            </div>
+            <div>
+              <Label className="text-sm font-bold text-brand-primary">
+                DDA Distribuída ao Escritório Externo
+              </Label>
+              <p className="text-[11px] text-brand-primary/60 leading-tight mt-0.5">
+                Situação da Due Diligence Assessment.
+              </p>
+            </div>
+          </div>
+          <Select value={ddaStatus} onValueChange={handleDdaStatusChange}>
+            <SelectTrigger className="w-full sm:w-[140px] bg-white h-9 border-brand-primary/20 text-brand-primary font-semibold text-xs">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Nenhuma</SelectItem>
+              <SelectItem value="existing">Existente</SelectItem>
+              <SelectItem value="distributed">Distribuída</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Categories */}

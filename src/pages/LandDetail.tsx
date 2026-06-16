@@ -28,9 +28,17 @@ import {
   AlertCircle,
   Clock,
   FileIcon,
+  Building2,
 } from 'lucide-react'
 
 import pb from '@/lib/pocketbase/client'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
@@ -178,7 +186,7 @@ function CommentsSection({ landId }: { landId: string }) {
     <div className="space-y-6">
       <div className="bg-white rounded-xl p-5 shadow-sm border border-brand-primary/10 flex flex-col gap-3">
         {selectedFile && (
-          <div className="flex items-center gap-2 bg-brand-primary/5 p-2 rounded-lg w-fit border border-brand-primary/10 animate-fade-in-up">
+          <div className="flex items-center gap-2 bg-white p-2 rounded-lg w-fit border border-brand-primary/10 animate-fade-in-up">
             <FileIcon className="w-4 h-4 text-brand-secondary" />
             <span className="text-xs text-brand-primary font-medium max-w-[150px] truncate">
               {selectedFile.name}
@@ -195,7 +203,7 @@ function CommentsSection({ landId }: { landId: string }) {
           placeholder="Escreva um comentário..."
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          className="resize-none focus-visible:ring-brand-secondary border-brand-primary/20 rounded-xl min-h-[100px]"
+          className="resize-none bg-white focus-visible:ring-brand-secondary border-brand-primary/20 rounded-xl min-h-[100px]"
         />
         <div className="flex justify-between items-center">
           <input
@@ -234,7 +242,7 @@ function CommentsSection({ landId }: { landId: string }) {
                   c.expand?.user?.avatar ? pb.files.getURL(c.expand.user, c.expand.user.avatar) : ''
                 }
               />
-              <AvatarFallback className="bg-brand-primary/5 text-brand-primary font-bold">
+              <AvatarFallback className="bg-slate-100 text-brand-primary font-bold">
                 {(c.expand?.user?.name || c.expand?.user?.email || 'U').charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -255,7 +263,7 @@ function CommentsSection({ landId }: { landId: string }) {
           </div>
         ))}
         {comments.length === 0 && (
-          <div className="text-center py-10 bg-brand-primary/5 rounded-xl border border-dashed border-brand-primary/20">
+          <div className="text-center py-10 bg-white rounded-xl border border-dashed border-brand-primary/20">
             <MessageSquare className="w-8 h-8 text-brand-primary/30 mx-auto mb-2" />
             <p className="text-sm text-brand-primary/60">
               Nenhum comentário ainda. Seja o primeiro a comentar!
@@ -270,10 +278,21 @@ function CommentsSection({ landId }: { landId: string }) {
 export default function LandDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { toast } = useToast()
   const [land, setLand] = useState<any>(null)
   const [metadata, setMetadata] = useState<any>(null)
+  const [offices, setOffices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
+
+  const fetchOffices = async () => {
+    try {
+      const records = await pb.collection('external_offices').getFullList({ sort: 'name' })
+      setOffices(records)
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   const fetchData = async () => {
     if (!id) return
@@ -290,7 +309,7 @@ export default function LandDetail() {
           : `external_id="${id}"`
         const meta = await pb
           .collection('land_metadata')
-          .getFirstListItem(query, { expand: 'responsible_user' })
+          .getFirstListItem(query, { expand: 'responsible_user,external_offices' })
         setMetadata(meta)
       } catch (e) {
         // ignore if metadata doesn't exist
@@ -304,7 +323,36 @@ export default function LandDetail() {
 
   useEffect(() => {
     fetchData()
+    fetchOffices()
   }, [id])
+
+  useRealtime('external_offices', () => {
+    fetchOffices()
+  })
+
+  const handleOfficeChange = async (val: string) => {
+    const officeId = val === 'none' ? '' : val
+    try {
+      if (metadata?.id) {
+        await pb.collection('land_metadata').update(metadata.id, { external_offices: officeId })
+      } else {
+        await pb
+          .collection('land_metadata')
+          .create({ external_id: land.clusterSerial || id, external_offices: officeId })
+      }
+
+      setMetadata((prev: any) => ({ ...prev, external_offices: officeId }))
+
+      toast({ title: 'Sucesso', description: 'Escritório atualizado com sucesso.' })
+    } catch (err) {
+      console.error(err)
+      toast({
+        title: 'Erro',
+        description: 'Falha ao atualizar o escritório.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   useRealtime('land_metadata', (e) => {
     if (e.record.external_id === id || (land && e.record.external_id === land.clusterSerial)) {
@@ -336,11 +384,7 @@ export default function LandDetail() {
   const daysInStatus = differenceInDays(new Date(), updatedDate)
   const urgencyStatus = daysInStatus > 14 ? 'delayed' : daysInStatus > 7 ? 'attention' : 'ontrack'
 
-  const urgencyBg = {
-    delayed: 'bg-rose-50 border-rose-100',
-    attention: 'bg-amber-50 border-amber-100',
-    ontrack: 'bg-emerald-50 border-emerald-100',
-  }[urgencyStatus]
+  const urgencyBg = 'bg-white border-brand-primary/10'
 
   const statusColor = {
     delayed: 'text-rose-700',
@@ -380,15 +424,14 @@ export default function LandDetail() {
             <Button
               variant="ghost"
               onClick={() => navigate('/')}
-              className="mb-6 h-8 px-3 text-brand-primary/70 hover:text-brand-primary hover:bg-white/50 bg-white/30 backdrop-blur-sm rounded-full text-xs font-semibold"
+              className="mb-6 h-8 px-3 text-brand-primary/70 hover:text-brand-primary hover:bg-slate-100 bg-white rounded-full text-xs font-semibold shadow-sm border border-brand-primary/10"
             >
               <ChevronLeft className="w-4 h-4 mr-1" /> Voltar para o Board
             </Button>
-
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-label font-bold uppercase tracking-widest text-[10px] text-brand-primary/50 bg-white/50 px-2 py-0.5 rounded-md border border-brand-primary/10">
+                  <span className="font-label font-bold uppercase tracking-widest text-[10px] text-brand-primary/50 bg-white px-2 py-0.5 rounded-md border border-brand-primary/10 shadow-sm">
                     {land.clusterSerial || land.external_id || land.externalId || land.id}
                   </span>
                   <div className="flex items-center gap-1.5 text-xs font-medium text-brand-primary/60">
@@ -403,35 +446,60 @@ export default function LandDetail() {
                   {land.name || 'Propriedade sem nome'}
                 </h1>
 
-                <div className="flex flex-wrap gap-2 items-center">
-                  <Badge
-                    variant="outline"
-                    className="bg-white border-brand-primary/10 text-brand-primary font-semibold shadow-sm"
-                  >
-                    <MapPin className="w-3 h-3 mr-1" /> {locationStr}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className="bg-white border-brand-primary/10 text-brand-primary font-semibold shadow-sm"
-                  >
-                    <Ruler className="w-3 h-3 mr-1" /> {(land.area || 0).toLocaleString('pt-BR')} ha
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'bg-white font-bold border-brand-primary/10 shadow-sm',
-                      statusColor,
-                    )}
-                  >
-                    <AlertCircle className="w-3 h-3 mr-1" />{' '}
-                    {land.currentStatus?.name || land.status || 'Status N/A'}
-                  </Badge>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Badge
+                      variant="outline"
+                      className="bg-white border-brand-primary/10 text-brand-primary font-semibold shadow-sm"
+                    >
+                      <MapPin className="w-3 h-3 mr-1" /> {locationStr}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="bg-white border-brand-primary/10 text-brand-primary font-semibold shadow-sm"
+                    >
+                      <Ruler className="w-3 h-3 mr-1" /> {(land.area || 0).toLocaleString('pt-BR')}{' '}
+                      ha
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'bg-white font-bold border-brand-primary/10 shadow-sm',
+                        statusColor,
+                      )}
+                    >
+                      <AlertCircle className="w-3 h-3 mr-1" />{' '}
+                      {land.currentStatus?.name || land.status || 'Status N/A'}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-brand-primary/10 shadow-sm">
+                    <Building2 className="w-4 h-4 text-brand-secondary shrink-0" />
+                    <Select
+                      value={metadata?.external_offices || 'none'}
+                      onValueChange={handleOfficeChange}
+                    >
+                      <SelectTrigger className="h-7 border-0 bg-transparent p-0 gap-2 focus:ring-0 text-sm font-semibold text-brand-primary hover:text-brand-secondary transition-colors w-auto min-w-[120px]">
+                        <SelectValue placeholder="Selecionar Escritório" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none" className="text-brand-primary/60 italic">
+                          Nenhum escritório
+                        </SelectItem>
+                        {offices.map((o) => (
+                          <SelectItem key={o.id} value={o.id}>
+                            {o.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md p-3 rounded-xl border border-brand-primary/10 shadow-sm shrink-0">
+              <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-brand-primary/10 shadow-sm shrink-0">
                 <Avatar className="w-10 h-10 border border-brand-primary/10">
-                  <AvatarFallback className="bg-brand-primary/10 text-brand-primary font-bold">
+                  <AvatarFallback className="bg-slate-100 text-brand-primary font-bold">
                     {responsibleName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -444,14 +512,14 @@ export default function LandDetail() {
                   </span>
                 </div>
               </div>
-            </div>
+            </div>{' '}
           </div>
 
           {/* Body */}
           <div className="p-6 md:p-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="overflow-x-auto pb-2 -mx-6 px-6 md:mx-0 md:px-0 scrollbar-hide">
-                <TabsList className="bg-brand-primary/5 h-12 p-1 rounded-xl w-max md:w-full flex">
+                <TabsList className="bg-white shadow-sm h-12 p-1 rounded-xl w-max md:w-full flex border border-brand-primary/5">
                   <TabsTrigger
                     value="info"
                     className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"

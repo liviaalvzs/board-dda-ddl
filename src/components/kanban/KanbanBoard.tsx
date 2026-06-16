@@ -31,7 +31,7 @@ export function KanbanBoard({
     try {
       const records = await pb
         .collection('land_metadata')
-        .getFullList({ expand: 'responsible_user' })
+        .getFullList({ expand: 'responsible_user,external_offices' })
       const map = records.reduce((acc, r) => ({ ...acc, [r.external_id]: r }), {})
       setMetadataMap(map)
     } catch (e) {
@@ -84,6 +84,7 @@ export function KanbanBoard({
         ...c,
         stageId: meta?.status || c.stageId,
         responsible: meta?.expand?.responsible_user?.name || 'Unassigned',
+        externalOffice: meta?.expand?.external_offices?.name || 'Sem Escritório',
         completedDocs: checks.docs,
         completedDda: checks.dda,
         riskLevel: meta?.risk_level || '',

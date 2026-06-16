@@ -1,4 +1,4 @@
-import { MapPin, User, Clock, FileText } from 'lucide-react'
+import { MapPin, Clock, FileText, Building2 } from 'lucide-react'
 import { KanbanCardType } from '@/types/kanban'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -14,11 +14,6 @@ interface KanbanCardProps {
 export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
   const navigate = useNavigate()
 
-  const responsibleStatus =
-    !card.responsible ||
-    card.responsible === 'Unassigned' ||
-    card.responsible === 'Sem responsável' ||
-    card.responsible === 'NA'
   const createdDate = new Date(card.createdAt || new Date())
   const updatedDate = new Date(card.updatedAt || new Date())
 
@@ -27,9 +22,9 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
 
   const urgencyClass =
     daysInStatus > 14
-      ? 'bg-rose-50 border-rose-200'
+      ? 'bg-white border-rose-200'
       : daysInStatus > 7
-        ? 'bg-amber-50 border-amber-200'
+        ? 'bg-white border-amber-200'
         : 'bg-white border-slate-200'
   const hoverClass =
     daysInStatus > 14
@@ -161,14 +156,16 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
         <div
           className={cn(
             'flex items-center gap-1.5 font-bold text-[10px] px-2 py-1 rounded-md transition-colors max-w-[120px] shadow-sm',
-            responsibleStatus
+            !card.externalOffice ||
+              card.externalOffice === 'Sem Escritório' ||
+              card.externalOffice === 'Pendente'
               ? 'bg-slate-100 text-slate-500 border border-slate-200'
               : 'bg-white text-slate-700 border border-slate-200',
           )}
         >
-          <User className="w-3 h-3 shrink-0" />
-          <span className="truncate" title={card.responsible}>
-            {responsibleStatus ? 'Pendente' : card.responsible}
+          <Building2 className="w-3 h-3 shrink-0" />
+          <span className="truncate" title={card.externalOffice || 'Sem Escritório'}>
+            {card.externalOffice || 'Sem Escritório'}
           </span>
         </div>
       </div>
