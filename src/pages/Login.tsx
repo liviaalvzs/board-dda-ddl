@@ -25,7 +25,7 @@ export default function Login() {
     setIsLoading(false)
 
     if (signInError) {
-      setError('Credenciais inválidas. Tente novamente.')
+      setError('Credenciais inválidas')
     } else {
       navigate('/')
     }
