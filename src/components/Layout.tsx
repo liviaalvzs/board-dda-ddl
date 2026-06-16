@@ -13,7 +13,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-brand-background overflow-hidden">
+    <div className="flex flex-col h-screen bg-white overflow-hidden">
       <header className="bg-white shadow-sm z-10 flex-shrink-0 relative border-b border-brand-primary/10">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">

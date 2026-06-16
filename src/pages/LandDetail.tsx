@@ -315,7 +315,7 @@ export default function LandDetail() {
   if (loading) {
     return (
       <Sheet open={true} onOpenChange={(open) => !open && navigate('/')}>
-        <SheetContent className="sm:max-w-[850px] w-full p-0 flex items-center justify-center bg-brand-background">
+        <SheetContent className="sm:max-w-[850px] w-full p-0 flex items-center justify-center bg-white">
           <Loader2 className="w-10 h-10 animate-spin text-brand-secondary" />
         </SheetContent>
       </Sheet>
@@ -325,7 +325,7 @@ export default function LandDetail() {
   if (!land) {
     return (
       <Sheet open={true} onOpenChange={(open) => !open && navigate('/')}>
-        <SheetContent className="sm:max-w-[850px] w-full p-6 text-center text-brand-primary/60 flex items-center justify-center bg-brand-background">
+        <SheetContent className="sm:max-w-[850px] w-full p-6 text-center text-brand-primary/60 flex items-center justify-center bg-white">
           Terra não encontrada.
         </SheetContent>
       </Sheet>
@@ -367,7 +367,7 @@ export default function LandDetail() {
 
   return (
     <Sheet open={true} onOpenChange={(open) => !open && navigate('/')}>
-      <SheetContent className="sm:max-w-[850px] w-full p-0 flex flex-col h-full bg-brand-background shadow-2xl overflow-hidden border-l border-brand-primary/10">
+      <SheetContent className="sm:max-w-[850px] w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden border-l border-brand-primary/10">
         <VisuallyHidden>
           <DialogTitle>Detalhes da Terra</DialogTitle>
         </VisuallyHidden>

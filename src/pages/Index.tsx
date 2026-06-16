@@ -339,7 +339,7 @@ export default function Index() {
   )
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50 relative">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-white relative">
       <div className="px-4 sm:px-6 py-4 bg-white border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 z-10">
         <div>
           <Breadcrumb className="mb-2">
@@ -378,7 +378,7 @@ export default function Index() {
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-[320px] sm:w-[400px] bg-slate-50 overflow-y-auto">
+            <SheetContent className="w-[320px] sm:w-[400px] bg-white overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Filtros</SheetTitle>
                 <SheetDescription>
@@ -447,7 +447,7 @@ export default function Index() {
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[85vh] bg-slate-50 rounded-t-3xl px-6">
+          <SheetContent side="bottom" className="h-[85vh] bg-white rounded-t-3xl px-6">
             <SheetHeader className="text-left mb-2 mt-2">
               <SheetTitle>Filtros</SheetTitle>
               <SheetDescription>Refine a lista de propriedades.</SheetDescription>
