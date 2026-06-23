@@ -360,16 +360,6 @@ export default function LandDetail() {
     }
   })
 
-  if (loading) {
-    return (
-      <Sheet open={true} onOpenChange={(open) => !open && navigate('/')}>
-        <SheetContent className="sm:max-w-[850px] w-full p-0 flex items-center justify-center bg-white">
-          <Loader2 className="w-10 h-10 animate-spin text-brand-secondary" />
-        </SheetContent>
-      </Sheet>
-    )
-  }
-
   const [historyLogs, setHistoryLogs] = useState<any[]>([])
 
   const fetchHistoryLogs = async () => {
@@ -435,6 +425,16 @@ export default function LandDetail() {
       isMounted = false
     }
   }, [land, id])
+
+  if (loading) {
+    return (
+      <Sheet open={true} onOpenChange={(open) => !open && navigate('/')}>
+        <SheetContent className="sm:max-w-[850px] w-full p-0 flex items-center justify-center bg-white">
+          <Loader2 className="w-10 h-10 animate-spin text-brand-secondary" />
+        </SheetContent>
+      </Sheet>
+    )
+  }
 
   if (!land) {
     return (
