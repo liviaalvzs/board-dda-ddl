@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useNavigate } from 'react-router-dom'
 import { differenceInDays, differenceInHours } from 'date-fns'
+import { useEffect, useState } from 'react'
+import pb from '@/lib/pocketbase/client'
 
 interface KanbanCardProps {
   card: KanbanCardType
@@ -13,12 +15,44 @@ interface KanbanCardProps {
 
 export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
   const navigate = useNavigate()
+  const [apiDaysInStage, setApiDaysInStage] = useState<number | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const code = card.clusterSerial || card.id
+    if (!code || String(code).startsWith('local-')) return
+
+    pb.send(
+      `/backend/v1/land-status?limit=25&offset=0&landCodes=${encodeURIComponent(code)}&statusGroupNames=Due+Diligence`,
+      { method: 'GET' },
+    )
+      .then((res) => {
+        if (!isMounted) return
+        const items = res?.data?.items || res?.items || []
+        if (items.length > 0) {
+          const sortedItems = [...items].sort(
+            (a, b) => new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime(),
+          )
+          const latest = sortedItems[0]
+          if (latest.creationDate) {
+            const diff = differenceInDays(new Date(), new Date(latest.creationDate))
+            setApiDaysInStage(diff)
+          }
+        }
+      })
+      .catch(console.error)
+
+    return () => {
+      isMounted = false
+    }
+  }, [card.clusterSerial, card.id])
 
   const createdDate = new Date(card.createdAt || new Date())
   const updatedDate = new Date(card.updatedAt || new Date())
 
   const isNew = differenceInHours(new Date(), createdDate) <= 48
-  const daysInStatus = differenceInDays(new Date(), updatedDate)
+  const daysInStatus =
+    apiDaysInStage !== null ? apiDaysInStage : differenceInDays(new Date(), updatedDate)
 
   const urgencyClass =
     daysInStatus > 14
