@@ -1,23 +1,17 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { KanbanColumnType, KanbanCardType } from '@/types/kanban'
 import { KanbanCard } from './KanbanCard'
 import { cn } from '@/lib/utils'
-import { Leaf, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Leaf } from 'lucide-react'
 
 interface KanbanColumnProps {
   column: KanbanColumnType
   cards: KanbanCardType[]
   onDropCard: (cardId: string, targetColumnId: string) => void
-  onCreateCard: (columnId: string, title: string) => void
 }
 
-export function KanbanColumn({ column, cards, onDropCard, onCreateCard }: KanbanColumnProps) {
+export function KanbanColumn({ column, cards, onDropCard }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
-  const [isCreating, setIsCreating] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -42,21 +36,6 @@ export function KanbanColumn({ column, cards, onDropCard, onCreateCard }: Kanban
     e.dataTransfer.setData('cardId', cardId)
     e.dataTransfer.effectAllowed = 'move'
   }
-
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newTitle.trim()) {
-      onCreateCard(column.id, newTitle.trim())
-      setNewTitle('')
-      setIsCreating(false)
-    }
-  }
-
-  useEffect(() => {
-    if (isCreating) {
-      inputRef.current?.focus()
-    }
-  }, [isCreating])
 
   return (
     <div
@@ -95,47 +74,6 @@ export function KanbanColumn({ column, cards, onDropCard, onCreateCard }: Kanban
           cards.map((card) => (
             <KanbanCard key={card.id} card={card} onDragStart={handleDragStart} />
           ))
-        )}
-
-        {isCreating ? (
-          <form
-            onSubmit={handleCreateSubmit}
-            className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 animate-fade-in-up"
-          >
-            <Input
-              ref={inputRef}
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Nome da propriedade..."
-              className="text-sm h-8 mb-2"
-              onBlur={() => {
-                if (!newTitle.trim()) setIsCreating(false)
-              }}
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onMouseDown={() => setIsCreating(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" size="sm" className="h-7 text-xs">
-                Salvar
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <Button
-            variant="ghost"
-            onClick={() => setIsCreating(true)}
-            className="w-full mt-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 justify-start h-9 px-3"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar Propriedade
-          </Button>
         )}
       </div>
     </div>

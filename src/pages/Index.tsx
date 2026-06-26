@@ -51,7 +51,6 @@ const KANBAN_COLUMNS: KanbanColumnType[] = [
 
 export default function Index() {
   const [cards, setCards] = useState<KanbanCardType[]>([])
-  const [localCards, setLocalCards] = useState<KanbanCardType[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const { toast } = useToast()
@@ -159,13 +158,6 @@ export default function Index() {
   })
 
   const handleMoveCard = (cardId: string, targetStageId: string) => {
-    if (localCards.find((c) => c.id === cardId)) {
-      setLocalCards((prev) =>
-        prev.map((c) => (c.id === cardId ? { ...c, stageId: targetStageId } : c)),
-      )
-      return
-    }
-
     const card = cards.find((c) => c.id === cardId)
     if (!card || card.stageId === targetStageId) return
 
@@ -178,30 +170,7 @@ export default function Index() {
     })
   }
 
-  const handleCreateCard = (columnId: string, title: string) => {
-    const newCard: KanbanCardType = {
-      id: `local-${Date.now()}`,
-      title,
-      name: title,
-      location: { city: 'Pendente', state: 'NA' },
-      owner: 'Pendente',
-      area: 0,
-      ddaStatus: 'N/A',
-      statusType: 'info',
-      responsible: 'Sem responsável',
-      externalOffice: 'Sem Escritório',
-      stageId: columnId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    setLocalCards((prev) => [...prev, newCard])
-    toast({
-      title: 'Propriedade adicionada',
-      description: `Propriedade criada temporariamente nesta sessão.`,
-    })
-  }
-
-  const allCards = useMemo(() => [...cards, ...localCards], [cards, localCards])
+  const allCards = useMemo(() => cards, [cards])
 
   const uniqueClusters = useMemo(() => {
     const prefixes = allCards
@@ -431,7 +400,6 @@ export default function Index() {
             cards={filteredCards}
             isLoading={isLoading}
             onMoveCard={handleMoveCard}
-            onCreateCard={handleCreateCard}
           />
         )}
       </div>
