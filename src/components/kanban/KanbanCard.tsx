@@ -48,14 +48,16 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
 
         if (items.length > 0) {
           const sortedItems = [...items].sort(
-            (a, b) => new Date(a.creationDate).getTime() - new Date(b.creationDate).getTime(),
+            (a, b) =>
+              new Date(a.startDate || a.creationDate).getTime() -
+              new Date(b.startDate || b.creationDate).getTime(),
           )
 
           const groups: TimelineStep[] = []
           for (const item of sortedItems) {
             const statusName = item.status?.name || 'Desconhecido'
             const groupName = item.status?.statusGroup?.name || ''
-            const date = new Date(item.creationDate)
+            const date = new Date(item.startDate || item.creationDate)
 
             if (groups.length === 0) {
               groups.push({
