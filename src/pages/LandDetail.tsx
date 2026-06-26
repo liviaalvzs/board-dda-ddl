@@ -90,6 +90,8 @@ function CommentsSection({ landId }: { landId: string }) {
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editingContent, setEditingContent] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { user } = useAuth()
   const { toast } = useToast()
@@ -131,6 +133,28 @@ function CommentsSection({ landId }: { landId: string }) {
       setSelectedFile(null)
     } catch (e) {
       toast({ title: 'Erro ao enviar comentário', variant: 'destructive' })
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este comentário?')) return
+    try {
+      await pb.collection('comments').delete(id)
+      toast({ title: 'Comentário excluído com sucesso' })
+    } catch (e) {
+      toast({ title: 'Erro ao excluir comentário', variant: 'destructive' })
+    }
+  }
+
+  const handleEditSave = async (id: string) => {
+    if (!editingContent.trim()) return
+    try {
+      await pb.collection('comments').update(id, { content: editingContent.trim() })
+      setEditingCommentId(null)
+      setEditingContent('')
+      toast({ title: 'Comentário atualizado com sucesso' })
+    } catch (e) {
+      toast({ title: 'Erro ao atualizar comentário', variant: 'destructive' })
     }
   }
 
@@ -234,9 +258,9 @@ function CommentsSection({ landId }: { landId: string }) {
         {comments.map((c) => (
           <div
             key={c.id}
-            className="flex gap-4 animate-slide-up bg-white p-4 rounded-xl border border-brand-primary/5 shadow-sm"
+            className="group flex gap-4 animate-slide-up bg-white p-4 rounded-xl border border-brand-primary/5 shadow-sm"
           >
-            <Avatar className="w-10 h-10 border border-brand-primary/10">
+            <Avatar className="w-10 h-10 border border-brand-primary/10 mt-1">
               <AvatarImage
                 src={
                   c.expand?.user?.avatar ? pb.files.getURL(c.expand.user, c.expand.user.avatar) : ''
@@ -246,18 +270,103 @@ function CommentsSection({ landId }: { landId: string }) {
                 {(c.expand?.user?.name || c.expand?.user?.email || 'U').charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 space-y-1">
+            <div className="flex-1 space-y-1 overflow-hidden">
               <div className="flex justify-between items-baseline">
                 <span className="font-semibold text-brand-primary text-sm">
                   {c.expand?.user?.name || c.expand?.user?.email}
                 </span>
-                <span className="text-xs text-brand-primary/50 font-medium">
-                  {formatDistanceToNow(new Date(c.created), { addSuffix: true, locale: ptBR })}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-brand-primary/50 font-medium">
+                    {formatDistanceToNow(new Date(c.created), { addSuffix: true, locale: ptBR })}
+                    {c.updated !== c.created && ' (editado)'}
+                  </span>
+                  {user?.id === c.user && editingCommentId !== c.id && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => {
+                          setEditingCommentId(c.id)
+                          setEditingContent(c.content)
+                        }}
+                        className="text-brand-primary/40 hover:text-brand-primary p-1.5 rounded transition-colors"
+                        title="Editar"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id)}
+                        className="text-brand-primary/40 hover:text-brand-critical p-1.5 rounded transition-colors"
+                        title="Excluir"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                          <line x1="10" x2="10" y1="11" y2="17" />
+                          <line x1="14" x2="14" y1="11" y2="17" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <p className="text-sm text-brand-primary/80 whitespace-pre-wrap leading-relaxed">
-                {c.content}
-              </p>
+
+              {editingCommentId === c.id ? (
+                <div className="pt-2 pb-1 space-y-3">
+                  <Textarea
+                    value={editingContent}
+                    onChange={(e) => setEditingContent(e.target.value)}
+                    className="min-h-[80px] bg-white resize-none text-sm focus-visible:ring-brand-secondary"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingCommentId(null)
+                        setEditingContent('')
+                      }}
+                      className="h-8 text-xs font-medium"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleEditSave(c.id)}
+                      className="h-8 text-xs font-medium bg-brand-primary hover:bg-brand-primary/90 text-white"
+                      disabled={!editingContent.trim() || editingContent === c.content}
+                    >
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-brand-primary/80 whitespace-pre-wrap leading-relaxed break-words">
+                  {c.content}
+                </p>
+              )}
               {renderAttachment(c)}
             </div>
           </div>
