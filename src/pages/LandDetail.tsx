@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 
 import pb from '@/lib/pocketbase/client'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 import {
   Select,
   SelectContent,
@@ -42,6 +43,7 @@ import {
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
+import { MetadataPanel } from '@/components/kanban/MetadataPanel'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
   <span className="sr-only">{children}</span>
@@ -391,13 +393,25 @@ export default function LandDetail() {
   const [land, setLand] = useState<any>(null)
   const [metadata, setMetadata] = useState<any>(null)
   const [offices, setOffices] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
+  const [updatingOffice, setUpdatingOffice] = useState(false)
 
   const fetchOffices = async () => {
     try {
       const records = await pb.collection('external_offices').getFullList({ sort: 'name' })
       setOffices(records)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const fetchUsers = async () => {
+    try {
+      const res = await pb.send('/backend/v1/users', { method: 'GET' })
+      const items = res?.items || res?.data?.items || []
+      setUsers(items)
     } catch (e) {
       console.error(e)
     }
@@ -433,33 +447,37 @@ export default function LandDetail() {
   useEffect(() => {
     fetchData()
     fetchOffices()
+    fetchUsers()
   }, [id])
 
   useRealtime('external_offices', () => {
     fetchOffices()
   })
 
-  const handleOfficeChange = async (val: string) => {
-    const officeId = val === 'none' ? '' : val
-    try {
-      if (metadata?.id) {
-        await pb.collection('land_metadata').update(metadata.id, { external_offices: officeId })
-      } else {
-        await pb
-          .collection('land_metadata')
-          .create({ external_id: land.clusterSerial || id, external_offices: officeId })
-      }
-
-      setMetadata((prev: any) => ({ ...prev, external_offices: officeId }))
-
-      toast({ title: 'Sucesso', description: 'Escritório atualizado com sucesso.' })
-    } catch (err) {
-      console.error(err)
+  const handleMetadataUpdate = async (field: string, value: any) => {
+    if (!metadata?.id) {
       toast({
         title: 'Erro',
-        description: 'Falha ao atualizar o escritório.',
+        description:
+          'Nenhum metadado encontrado para esta terra. Contate um administrador para criar o registro.',
         variant: 'destructive',
       })
+      return
+    }
+    setUpdatingOffice(true)
+    try {
+      await pb.collection('land_metadata').update(metadata.id, { [field]: value })
+      setMetadata((prev: any) => ({ ...prev, [field]: value }))
+      toast({ title: 'Sucesso', description: 'Registro atualizado com sucesso.' })
+    } catch (err) {
+      const errorMsg = getErrorMessage(err)
+      toast({
+        title: 'Erro ao atualizar registro',
+        description: errorMsg || 'Falha ao atualizar. Verifique suas permissões.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUpdatingOffice(false)
     }
   }
 
@@ -504,16 +522,28 @@ export default function LandDetail() {
   })
 
   const [apiDaysInStage, setApiDaysInStage] = useState<number | null>(null)
+  const [statusFetchError, setStatusFetchError] = useState(false)
 
   useEffect(() => {
     let isMounted = true
-    const code = land?.clusterSerial || land?.external_id || land?.externalId || id
-    if (!code) return
 
-    pb.send(
-      `/backend/v1/land-status?limit=25&offset=0&landCodes=${encodeURIComponent(code)}&statusGroupNames=Due+Diligence`,
-      { method: 'GET' },
-    )
+    // Extract the correct land code from the detail response.
+    // The API returns clusterSerial which is the proper identifier
+    // (e.g., EUN-XB1HX or MAR-DS232).
+    const code = land?.clusterSerial || land?.external_id || land?.externalId || land?.code || id
+    if (!code) {
+      setStatusFetchError(true)
+      return
+    }
+
+    setStatusFetchError(false)
+
+    // Use the simplified format verified by Postman tests:
+    // /backend/v1/land-status?landCodes={code}
+    // No limit, offset, or statusGroupNames — those cause 400 errors.
+    pb.send(`/backend/v1/land-status?landCodes=${encodeURIComponent(code)}`, {
+      method: 'GET',
+    })
       .then((res) => {
         if (!isMounted) return
         const items = res?.data?.items || res?.items || []
@@ -528,7 +558,10 @@ export default function LandDetail() {
           }
         }
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error('Status API error:', err)
+        if (isMounted) setStatusFetchError(true)
+      })
 
     return () => {
       isMounted = false
@@ -557,8 +590,19 @@ export default function LandDetail() {
 
   const updatedDate = new Date(land.updatedAt || land.created || new Date())
   const daysInStatus =
-    apiDaysInStage !== null ? apiDaysInStage : differenceInDays(new Date(), updatedDate)
-  const urgencyStatus = daysInStatus > 14 ? 'delayed' : daysInStatus > 7 ? 'attention' : 'ontrack'
+    apiDaysInStage !== null
+      ? apiDaysInStage
+      : statusFetchError
+        ? null
+        : differenceInDays(new Date(), updatedDate)
+  const urgencyStatus =
+    daysInStatus === null
+      ? 'unknown'
+      : daysInStatus > 14
+        ? 'delayed'
+        : daysInStatus > 7
+          ? 'attention'
+          : 'ontrack'
 
   const urgencyBg = 'bg-white border-brand-primary/10'
 
@@ -566,6 +610,7 @@ export default function LandDetail() {
     delayed: 'text-rose-700',
     attention: 'text-amber-700',
     ontrack: 'text-emerald-700',
+    unknown: 'text-slate-500',
   }[urgencyStatus]
 
   const mockHistory = [
@@ -613,7 +658,9 @@ export default function LandDetail() {
                   <div className="flex items-center gap-1.5 text-xs font-medium text-brand-primary/60">
                     <Clock className="w-3.5 h-3.5" />
                     <span>
-                      {daysInStatus} {daysInStatus === 1 ? 'dia' : 'dias'} na etapa
+                      {daysInStatus === null
+                        ? 'Dados indisponíveis'
+                        : `${daysInStatus} ${daysInStatus === 1 ? 'dia' : 'dias'} na etapa`}
                     </span>
                   </div>
                 </div>
@@ -645,7 +692,9 @@ export default function LandDetail() {
                       )}
                     >
                       <AlertCircle className="w-3 h-3 mr-1" />{' '}
-                      {land.currentStatus?.name || land.status || 'Status N/A'}
+                      {statusFetchError
+                        ? 'Dados indisponíveis'
+                        : land.currentStatus?.name || land.status || 'Status N/A'}
                     </Badge>
                   </div>
 
@@ -653,9 +702,12 @@ export default function LandDetail() {
                     <Building2 className="w-4 h-4 text-brand-secondary shrink-0" />
                     <Select
                       value={metadata?.external_offices || 'none'}
-                      onValueChange={handleOfficeChange}
+                      onValueChange={(val) =>
+                        handleMetadataUpdate('external_offices', val === 'none' ? null : val)
+                      }
+                      disabled={updatingOffice}
                     >
-                      <SelectTrigger className="h-7 border-0 bg-transparent p-0 gap-2 focus:ring-0 text-sm font-semibold text-brand-primary hover:text-brand-secondary transition-colors w-auto min-w-[120px]">
+                      <SelectTrigger className="h-7 border-0 bg-transparent p-0 gap-2 focus:ring-0 text-sm font-semibold text-brand-primary hover:text-brand-secondary transition-colors w-auto min-w-[120px] disabled:opacity-50">
                         <SelectValue placeholder="Selecionar Escritório" />
                       </SelectTrigger>
                       <SelectContent>
@@ -669,6 +721,9 @@ export default function LandDetail() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {updatingOffice && (
+                      <Loader2 className="w-3.5 h-3.5 text-brand-secondary animate-spin shrink-0" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -828,6 +883,14 @@ export default function LandDetail() {
                       </div>
                     </div>
                   </div>
+
+                  <MetadataPanel
+                    metadata={metadata}
+                    users={users}
+                    offices={offices}
+                    onUpdate={handleMetadataUpdate}
+                    disabled={updatingOffice}
+                  />
                 </TabsContent>
 
                 <TabsContent value="docs" className="animate-fade-in-up mt-0 outline-none">
