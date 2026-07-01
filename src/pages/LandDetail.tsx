@@ -464,18 +464,49 @@ export default function LandDetail() {
       })
       return
     }
+    if (updatingOffice) return
     setUpdatingOffice(true)
     try {
-      await pb.collection('land_metadata').update(metadata.id, { [field]: value })
-      setMetadata((prev: any) => ({ ...prev, [field]: value }))
-      toast({ title: 'Sucesso', description: 'Registro atualizado com sucesso.' })
-    } catch (err) {
-      const errorMsg = getErrorMessage(err)
+      const updateValue = value === null ? '' : value
+      await pb.collection('land_metadata').update(metadata.id, { [field]: updateValue })
+      setMetadata((prev: any) => ({ ...prev, [field]: value === null ? '' : value }))
+
+      const successMessages: Record<string, string> = {
+        external_offices: 'Escritório vinculado com sucesso',
+        responsible_user: 'Responsável atualizado com sucesso',
+        risk_level: 'Nível de risco atualizado com sucesso',
+        dda_status: 'Status DDA atualizado com sucesso',
+        owner_marital_status: 'Estado civil atualizado com sucesso',
+        status: 'Status atualizado com sucesso',
+      }
+
       toast({
-        title: 'Erro ao atualizar registro',
-        description: errorMsg || 'Falha ao atualizar. Verifique suas permissões.',
-        variant: 'destructive',
+        title: 'Sucesso',
+        description: successMessages[field] || 'Registro atualizado com sucesso.',
       })
+    } catch (err: any) {
+      const status = err?.status || 0
+      const errorMsg = getErrorMessage(err)
+
+      if (status === 400) {
+        toast({
+          title: 'Erro de validação',
+          description: errorMsg || 'Dados inválidos. Verifique os campos e tente novamente.',
+          variant: 'destructive',
+        })
+      } else if (status >= 500) {
+        toast({
+          title: 'Erro no servidor',
+          description: 'Ocorreu um erro no servidor. Tente novamente mais tarde.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Erro ao atualizar registro',
+          description: errorMsg || 'Falha ao atualizar. Verifique suas permissões.',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setUpdatingOffice(false)
     }
@@ -703,7 +734,7 @@ export default function LandDetail() {
                     <Select
                       value={metadata?.external_offices || 'none'}
                       onValueChange={(val) =>
-                        handleMetadataUpdate('external_offices', val === 'none' ? null : val)
+                        handleMetadataUpdate('external_offices', val === 'none' ? '' : val)
                       }
                       disabled={updatingOffice}
                     >
@@ -915,6 +946,9 @@ export default function LandDetail() {
                               status: 'Status',
                               responsible_user: 'Responsável',
                               external_offices: 'Escritório Externo',
+                              owner_marital_status: 'Estado Civil',
+                              risk_level: 'Nível de Risco',
+                              dda_status: 'Status DDA',
                             }
                             const field =
                               fieldNameMap[item.change_details?.field] ||
