@@ -28,6 +28,22 @@ routerAdd(
       'https://prdfovmhyc.execute-api.us-east-1.amazonaws.com/api/v1/partner/lands/status'
     const targetUrl = queryString ? baseUrl + '?' + queryString : baseUrl
 
+    $app
+      .logger()
+      .info(
+        'Land status proxy — outgoing request',
+        'method',
+        'GET',
+        'url',
+        targetUrl,
+        'queryString',
+        queryString,
+        'hasApiKey',
+        apiKey ? 'true' : 'false',
+        'apiKeyLength',
+        String(apiKey.length),
+      )
+
     try {
       const res = $http.send({
         url: targetUrl,
@@ -39,17 +55,62 @@ routerAdd(
         timeout: 15,
       })
 
+      $app
+        .logger()
+        .info(
+          'Land status proxy — response received',
+          'statusCode',
+          String(res.statusCode),
+          'url',
+          targetUrl,
+        )
+
       if (res.statusCode >= 400) {
+        let errorBody = {}
+        try {
+          errorBody = res.json || {}
+        } catch (_) {
+          errorBody = { raw: String(res.body || '') }
+        }
+
+        $app
+          .logger()
+          .error(
+            'Land status proxy — upstream error',
+            'statusCode',
+            String(res.statusCode),
+            'url',
+            targetUrl,
+            'queryString',
+            queryString,
+            'errorBody',
+            JSON.stringify(errorBody),
+            'hasApiKey',
+            apiKey ? 'true' : 'false',
+          )
+
         return e.json(res.statusCode, {
           error: 'Upstream API error',
           statusCode: res.statusCode,
-          details: res.json || {},
+          details: errorBody,
         })
       }
 
       return e.json(res.statusCode, res.json || {})
     } catch (err) {
-      $app.logger().error('Land status proxy error', 'error', String(err))
+      $app
+        .logger()
+        .error(
+          'Land status proxy — runtime error (network/timeout)',
+          'error',
+          String(err),
+          'url',
+          targetUrl,
+          'queryString',
+          queryString,
+          'hasApiKey',
+          apiKey ? 'true' : 'false',
+        )
       return e.json(500, { error: 'Internal server error' })
     }
   },
