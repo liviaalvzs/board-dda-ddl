@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 
 import pb from '@/lib/pocketbase/client'
-import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { getErrorMessage, extractFieldErrors, type FieldErrors } from '@/lib/pocketbase/errors'
 import {
   Select,
   SelectContent,
@@ -402,6 +402,7 @@ export default function LandDetail() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
   const [updatingOffice, setUpdatingOffice] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   const fetchOffices = async () => {
     try {
@@ -470,18 +471,17 @@ export default function LandDetail() {
       })
       return
     }
-    const RELATION_ARRAY_FIELDS = ['external_offices']
-    const SINGLE_RELATION_FIELDS = ['responsible_user']
 
+    const SINGLE_RELATION_FIELDS = ['responsible_user', 'external_offices']
     let payload: Record<string, any>
-    if (RELATION_ARRAY_FIELDS.includes(field)) {
-      payload = { [field]: value && value !== 'none' && value !== '' ? [value] : [] }
-    } else if (SINGLE_RELATION_FIELDS.includes(field)) {
+
+    if (SINGLE_RELATION_FIELDS.includes(field)) {
       payload = { [field]: value && value !== 'none' && value !== '' ? value : null }
     } else {
       payload = { [field]: value === null ? '' : value }
     }
 
+    setFieldErrors({})
     setUpdatingOffice(true)
     try {
       const updatedRecord = await pb.collection('land_metadata').update(metadata.id, payload)
@@ -507,11 +507,41 @@ export default function LandDetail() {
     } catch (err: any) {
       const status = err?.status || 0
       const errorMsg = getErrorMessage(err)
+      const fieldErrs = extractFieldErrors(err)
+      setFieldErrors(fieldErrs)
 
-      if (status === 400) {
+      console.error('[Metadata Update Error]', {
+        field,
+        payload,
+        status,
+        message: err?.message,
+        responseData: err?.response?.data,
+        fieldErrors: fieldErrs,
+      })
+
+      if (status === 0) {
+        toast({
+          title: 'Erro de conexão',
+          description:
+            'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.',
+          variant: 'destructive',
+        })
+      } else if (status === 400) {
+        const detailMsg =
+          Object.entries(fieldErrs).length > 0
+            ? Object.entries(fieldErrs)
+                .map(([f, msg]) => `${f}: ${msg}`)
+                .join('; ')
+            : errorMsg || 'Dados inválidos. Verifique os campos e tente novamente.'
         toast({
           title: 'Erro de validação',
-          description: errorMsg || 'Dados inválidos. Verifique os campos e tente novamente.',
+          description: detailMsg,
+          variant: 'destructive',
+        })
+      } else if (status === 403 || status === 401) {
+        toast({
+          title: 'Permissão negada',
+          description: 'Você não tem permissão para atualizar este registro.',
           variant: 'destructive',
         })
       } else if (status >= 500) {
@@ -523,7 +553,7 @@ export default function LandDetail() {
       } else {
         toast({
           title: 'Erro ao atualizar registro',
-          description: errorMsg || 'Falha ao atualizar. Verifique suas permissões.',
+          description: errorMsg || 'Falha ao atualizar. Tente novamente.',
           variant: 'destructive',
         })
       }
@@ -776,6 +806,11 @@ export default function LandDetail() {
                       <Loader2 className="w-3.5 h-3.5 text-brand-secondary animate-spin shrink-0" />
                     )}
                   </div>
+                  {fieldErrors.external_offices && (
+                    <p className="text-xs text-red-500 font-medium">
+                      {fieldErrors.external_offices}
+                    </p>
+                  )}
                 </div>
               </div>
 

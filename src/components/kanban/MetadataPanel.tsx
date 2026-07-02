@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useToast } from '@/hooks/use-toast'
+import { getErrorMessage, extractFieldErrors } from '@/lib/pocketbase/errors'
 import {
   Select,
   SelectContent,
@@ -92,6 +94,7 @@ export function MetadataPanel({
   onUpdate,
   disabled,
 }: MetadataPanelProps) {
+  const { toast } = useToast()
   const [updatingField, setUpdatingField] = useState<string | null>(null)
   const [statusValue, setStatusValue] = useState(metadata?.status || '')
 
@@ -103,6 +106,20 @@ export function MetadataPanel({
     setUpdatingField(field)
     try {
       await onUpdate(field, value)
+    } catch (err: any) {
+      console.error('[MetadataPanel Update Error]', {
+        field,
+        value,
+        status: err?.status,
+        message: err?.message,
+        responseData: err?.response?.data,
+        fieldErrors: extractFieldErrors(err),
+      })
+      toast({
+        title: 'Erro ao atualizar',
+        description: getErrorMessage(err) || 'Falha ao atualizar o campo.',
+        variant: 'destructive',
+      })
     } finally {
       setUpdatingField(null)
     }

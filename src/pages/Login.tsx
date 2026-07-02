@@ -40,6 +40,9 @@ export default function Login() {
           </div>
           <CardTitle className="text-2xl text-brand-primary">Board DDL DDA</CardTitle>
           <CardDescription>Faça login para acessar o painel de controle</CardDescription>
+          <p className="text-xs text-muted-foreground mt-1">
+            O cadastro é restrito e por convite apenas.
+          </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4 pt-4">
@@ -80,7 +83,7 @@ export default function Login() {
           <div className="mt-4 text-center text-sm">
             <span className="text-muted-foreground">Não tem uma conta? </span>
             <Link to="/signup" className="text-brand-primary hover:underline font-medium">
-              Criar conta
+              Ativar conta pré-cadastrada
             </Link>
           </div>
         </CardContent>

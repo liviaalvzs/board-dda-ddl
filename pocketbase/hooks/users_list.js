@@ -11,6 +11,8 @@ routerAdd(
           id: r.id,
           name: r.getString('name') || r.getString('email') || 'Usuário',
           email: r.getString('email') || '',
+          verified: r.getBool('verified'),
+          created: r.getString('created') || '',
         })
       }
       return e.json(200, { items: users })

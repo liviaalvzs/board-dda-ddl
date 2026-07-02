@@ -9,6 +9,7 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import LandDetail from './pages/LandDetail'
 import ExternalOffices from './pages/ExternalOffices'
+import UsersManagement from './pages/UsersManagement'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 import { Navigate } from 'react-router-dom'
 
@@ -37,6 +38,7 @@ const App = () => (
           >
             <Route path="/" element={<Index />} />
             <Route path="/external-offices" element={<ExternalOffices />} />
+            <Route path="/users" element={<UsersManagement />} />
             <Route
               path="/land/:id"
               element={
