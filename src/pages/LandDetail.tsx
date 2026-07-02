@@ -49,6 +49,11 @@ const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
   <span className="sr-only">{children}</span>
 )
 
+const getRelationId = (v: any): string => {
+  if (Array.isArray(v)) return v[0] || ''
+  return v || ''
+}
+
 const CopyableField = ({ label, value, icon: Icon }: any) => {
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
@@ -472,37 +477,51 @@ export default function LandDetail() {
       return
     }
 
-    const updateValue = value === null ? '' : value
-    const payload = { [field]: updateValue }
+    const RELATION_ARRAY_FIELDS = ['external_offices']
+    const SINGLE_RELATION_FIELDS = ['responsible_user']
 
-    console.log('[Update Triggered] Land ID:', id, ', Office ID:', value)
-    console.log('[Payload] Sending PATCH to land_metadata collection:', {
-      recordId: metadata.id,
-      field,
-      payload,
-    })
+    let payload: Record<string, any>
+    if (RELATION_ARRAY_FIELDS.includes(field)) {
+      payload = { [field]: value && value !== 'none' && value !== '' ? [value] : [] }
+    } else if (SINGLE_RELATION_FIELDS.includes(field)) {
+      payload = { [field]: value && value !== 'none' && value !== '' ? value : null }
+    } else {
+      payload = { [field]: value === null ? '' : value }
+    }
+
+    console.log('[Update Status] Pending')
+    console.log('[Update Triggered] Land ID:', id, ', Field:', field, ', Value:', value)
+    console.log(
+      '[Payload] Sending PATCH to land_metadata collection:',
+      JSON.stringify({ recordId: metadata.id, field, payload }, null, 2),
+    )
     console.log('[State Before Update] metadata:', {
       id: metadata.id,
       external_id: metadata.external_id,
       current_external_offices: metadata.external_offices,
       current_responsible_user: metadata.responsible_user,
       current_status: metadata.status,
+      current_risk_level: metadata.risk_level,
+      current_dda_status: metadata.dda_status,
     })
 
     setUpdatingOffice(true)
     try {
       const updatedRecord = await pb.collection('land_metadata').update(metadata.id, payload)
 
-      console.log('[Update Success]', {
+      console.log('[Update Status] Success', {
         id: updatedRecord.id,
         external_id: updatedRecord.external_id,
         external_offices: updatedRecord.external_offices,
         responsible_user: updatedRecord.responsible_user,
         status: updatedRecord.status,
+        risk_level: updatedRecord.risk_level,
+        dda_status: updatedRecord.dda_status,
         updated: updatedRecord.updated,
       })
 
-      setMetadata((prev: any) => ({ ...prev, [field]: value === null ? '' : value }))
+      const stateValue = value && value !== 'none' && value !== '' ? value : ''
+      setMetadata((prev: any) => ({ ...prev, [field]: stateValue }))
 
       console.log('[State After Update] metadata updated successfully for field:', field)
 
@@ -520,14 +539,16 @@ export default function LandDetail() {
         description: successMessages[field] || 'Registro atualizado com sucesso.',
       })
     } catch (err: any) {
+      console.error('[Update Status] Error')
       console.error('[Update Failed] Raw error object:', err)
       console.error('[Update Failed] Error status:', err?.status || 'unknown')
       console.error('[Update Failed] Error message:', err?.message || 'No message')
+      console.error('[Update Failed] Error code:', err?.response?.code || err?.code || 'unknown')
 
       if (err?.response?.data) {
         console.error(
           '[Update Failed] PocketBase field-level validation errors:',
-          err.response.data,
+          JSON.stringify(err.response.data, null, 2),
         )
         Object.entries(err.response.data).forEach(([fieldKey, fieldError]: [string, any]) => {
           console.error(`  > Field "${fieldKey}":`, {
@@ -539,7 +560,10 @@ export default function LandDetail() {
 
       if (err?.response) {
         const { token, ...safeResponse } = err.response
-        console.error('[Update Failed] Full response body (sanitized):', safeResponse)
+        console.error(
+          '[Update Failed] Full response body (sanitized):',
+          JSON.stringify(safeResponse, null, 2),
+        )
       }
 
       console.error('[State After Failed Update] metadata remains unchanged:', {
@@ -795,7 +819,7 @@ export default function LandDetail() {
                   <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-brand-primary/10 shadow-sm">
                     <Building2 className="w-4 h-4 text-brand-secondary shrink-0" />
                     <Select
-                      value={metadata?.external_offices || 'none'}
+                      value={getRelationId(metadata?.external_offices) || 'none'}
                       onValueChange={(val) =>
                         handleMetadataUpdate('external_offices', val === 'none' ? '' : val)
                       }

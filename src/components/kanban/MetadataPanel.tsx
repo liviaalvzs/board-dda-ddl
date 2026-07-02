@@ -117,7 +117,10 @@ export function MetadataPanel({
   const isFieldDisabled = (field: string) =>
     disabled || (updatingField !== null && updatingField !== field)
   const isFieldLoading = (field: string) => updatingField === field
-  const selectVal = (v: any) => v || 'none'
+  const selectVal = (v: any) => {
+    if (Array.isArray(v)) return v[0] || 'none'
+    return v || 'none'
+  }
 
   return (
     <div className="bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm space-y-4">
