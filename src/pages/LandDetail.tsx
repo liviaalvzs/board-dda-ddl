@@ -35,6 +35,7 @@ import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
+import { LawFirmSelector } from '@/components/kanban/LawFirmSelector'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
   <span className="sr-only">{children}</span>
@@ -639,20 +640,29 @@ export default function LandDetail() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-brand-primary/10 shadow-sm shrink-0">
-                <Avatar className="w-10 h-10 border border-brand-primary/10">
-                  <AvatarFallback className="bg-slate-100 text-brand-primary font-bold">
-                    {responsibleName.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-brand-primary/60 font-bold uppercase tracking-wider">
-                    Responsável
-                  </span>
-                  <span className="text-sm font-semibold text-brand-primary">
-                    {responsibleName}
-                  </span>
+              <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto">
+                <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-brand-primary/10 shadow-sm">
+                  <Avatar className="w-10 h-10 border border-brand-primary/10">
+                    <AvatarFallback className="bg-slate-100 text-brand-primary font-bold">
+                      {responsibleName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-brand-primary/60 font-bold uppercase tracking-wider">
+                      Responsável
+                    </span>
+                    <span className="text-sm font-semibold text-brand-primary">
+                      {responsibleName}
+                    </span>
+                  </div>
                 </div>
+                <LawFirmSelector
+                  metadata={metadata}
+                  externalId={
+                    land?.clusterSerial || land?.external_id || land?.externalId || id || ''
+                  }
+                  onUpdated={fetchData}
+                />
               </div>
             </div>{' '}
           </div>
