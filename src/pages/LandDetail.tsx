@@ -470,13 +470,6 @@ export default function LandDetail() {
       })
       return
     }
-    if (updatingOffice) {
-      console.warn(
-        '[Update Blocked] A previous update is still in progress. Skipping duplicate request.',
-      )
-      return
-    }
-
     const RELATION_ARRAY_FIELDS = ['external_offices']
     const SINGLE_RELATION_FIELDS = ['responsible_user']
 
@@ -489,41 +482,14 @@ export default function LandDetail() {
       payload = { [field]: value === null ? '' : value }
     }
 
-    console.log('[Update Status] Pending')
-    console.log('[Update Triggered] Land ID:', id, ', Field:', field, ', Value:', value)
-    console.log(
-      '[Payload] Sending PATCH to land_metadata collection:',
-      JSON.stringify({ recordId: metadata.id, field, payload }, null, 2),
-    )
-    console.log('[State Before Update] metadata:', {
-      id: metadata.id,
-      external_id: metadata.external_id,
-      current_external_offices: metadata.external_offices,
-      current_responsible_user: metadata.responsible_user,
-      current_status: metadata.status,
-      current_risk_level: metadata.risk_level,
-      current_dda_status: metadata.dda_status,
-    })
-
     setUpdatingOffice(true)
     try {
       const updatedRecord = await pb.collection('land_metadata').update(metadata.id, payload)
 
-      console.log('[Update Status] Success', {
-        id: updatedRecord.id,
-        external_id: updatedRecord.external_id,
-        external_offices: updatedRecord.external_offices,
-        responsible_user: updatedRecord.responsible_user,
-        status: updatedRecord.status,
-        risk_level: updatedRecord.risk_level,
-        dda_status: updatedRecord.dda_status,
-        updated: updatedRecord.updated,
-      })
-
-      const stateValue = value && value !== 'none' && value !== '' ? value : ''
-      setMetadata((prev: any) => ({ ...prev, [field]: stateValue }))
-
-      console.log('[State After Update] metadata updated successfully for field:', field)
+      setMetadata((prev: any) => ({
+        ...prev,
+        [field]: updatedRecord[field],
+      }))
 
       const successMessages: Record<string, string> = {
         external_offices: 'Escritório vinculado com sucesso',
@@ -539,38 +505,6 @@ export default function LandDetail() {
         description: successMessages[field] || 'Registro atualizado com sucesso.',
       })
     } catch (err: any) {
-      console.error('[Update Status] Error')
-      console.error('[Update Failed] Raw error object:', err)
-      console.error('[Update Failed] Error status:', err?.status || 'unknown')
-      console.error('[Update Failed] Error message:', err?.message || 'No message')
-      console.error('[Update Failed] Error code:', err?.response?.code || err?.code || 'unknown')
-
-      if (err?.response?.data) {
-        console.error(
-          '[Update Failed] PocketBase field-level validation errors:',
-          JSON.stringify(err.response.data, null, 2),
-        )
-        Object.entries(err.response.data).forEach(([fieldKey, fieldError]: [string, any]) => {
-          console.error(`  > Field "${fieldKey}":`, {
-            code: fieldError?.code,
-            message: fieldError?.message,
-          })
-        })
-      }
-
-      if (err?.response) {
-        const { token, ...safeResponse } = err.response
-        console.error(
-          '[Update Failed] Full response body (sanitized):',
-          JSON.stringify(safeResponse, null, 2),
-        )
-      }
-
-      console.error('[State After Failed Update] metadata remains unchanged:', {
-        id: metadata.id,
-        external_offices: metadata.external_offices,
-      })
-
       const status = err?.status || 0
       const errorMsg = getErrorMessage(err)
 
@@ -595,7 +529,6 @@ export default function LandDetail() {
       }
     } finally {
       setUpdatingOffice(false)
-      console.log('[Update Complete] Loading state reset. Field:', field)
     }
   }
 

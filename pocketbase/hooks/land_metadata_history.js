@@ -6,6 +6,13 @@ onRecordAfterUpdateSuccess((e) => {
 
   if (!userId) return e.next()
 
+  function getRelId(record, fieldName) {
+    var val = record.get(fieldName)
+    if (val === null || val === undefined || val === '') return ''
+    if (Array.isArray(val)) return val[0] || ''
+    return String(val)
+  }
+
   const changes = []
 
   if (original.getString('status') !== current.getString('status')) {
@@ -16,50 +23,44 @@ onRecordAfterUpdateSuccess((e) => {
     })
   }
 
-  if (original.getString('responsible_user') !== current.getString('responsible_user')) {
+  const oldResp = getRelId(original, 'responsible_user')
+  const newResp = getRelId(current, 'responsible_user')
+  if (oldResp !== newResp) {
     let oldName = 'N/A'
     let newName = 'N/A'
     try {
-      if (original.getString('responsible_user')) {
-        const u = $app.findRecordById('users', original.getString('responsible_user'))
+      if (oldResp) {
+        const u = $app.findRecordById('users', oldResp)
         oldName = u.getString('name') || u.getString('email')
       }
     } catch (_) {}
     try {
-      if (current.getString('responsible_user')) {
-        const u = $app.findRecordById('users', current.getString('responsible_user'))
+      if (newResp) {
+        const u = $app.findRecordById('users', newResp)
         newName = u.getString('name') || u.getString('email')
       }
     } catch (_) {}
-
-    changes.push({
-      field: 'responsible_user',
-      old: oldName,
-      new: newName,
-    })
+    changes.push({ field: 'responsible_user', old: oldName, new: newName })
   }
 
-  if (original.getString('external_offices') !== current.getString('external_offices')) {
+  const oldOffice = getRelId(original, 'external_offices')
+  const newOffice = getRelId(current, 'external_offices')
+  if (oldOffice !== newOffice) {
     let oldName = 'N/A'
     let newName = 'N/A'
     try {
-      if (original.getString('external_offices')) {
-        const o = $app.findRecordById('external_offices', original.getString('external_offices'))
+      if (oldOffice) {
+        const o = $app.findRecordById('external_offices', oldOffice)
         oldName = o.getString('name')
       }
     } catch (_) {}
     try {
-      if (current.getString('external_offices')) {
-        const o = $app.findRecordById('external_offices', current.getString('external_offices'))
+      if (newOffice) {
+        const o = $app.findRecordById('external_offices', newOffice)
         newName = o.getString('name')
       }
     } catch (_) {}
-
-    changes.push({
-      field: 'external_offices',
-      old: oldName,
-      new: newName,
-    })
+    changes.push({ field: 'external_offices', old: oldName, new: newName })
   }
 
   if (original.getString('owner_marital_status') !== current.getString('owner_marital_status')) {
