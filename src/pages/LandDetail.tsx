@@ -32,27 +32,13 @@ import {
 } from 'lucide-react'
 
 import pb from '@/lib/pocketbase/client'
-import { getErrorMessage, extractFieldErrors, type FieldErrors } from '@/lib/pocketbase/errors'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
-import { MetadataPanel } from '@/components/kanban/MetadataPanel'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
   <span className="sr-only">{children}</span>
 )
-
-const getRelationId = (v: any): string => {
-  if (Array.isArray(v)) return v[0] || ''
-  return v || ''
-}
 
 const CopyableField = ({ label, value, icon: Icon }: any) => {
   const [copied, setCopied] = useState(false)
@@ -397,31 +383,8 @@ export default function LandDetail() {
   const { toast } = useToast()
   const [land, setLand] = useState<any>(null)
   const [metadata, setMetadata] = useState<any>(null)
-  const [offices, setOffices] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
-  const [updatingOffice, setUpdatingOffice] = useState(false)
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-
-  const fetchOffices = async () => {
-    try {
-      const records = await pb.collection('external_offices').getFullList({ sort: 'name' })
-      setOffices(records)
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const fetchUsers = async () => {
-    try {
-      const res = await pb.send('/backend/v1/users', { method: 'GET' })
-      const items = res?.items || res?.data?.items || []
-      setUsers(items)
-    } catch (e) {
-      console.error(e)
-    }
-  }
 
   const fetchData = async () => {
     if (!id) return
@@ -452,115 +415,7 @@ export default function LandDetail() {
 
   useEffect(() => {
     fetchData()
-    fetchOffices()
-    fetchUsers()
   }, [id])
-
-  useRealtime('external_offices', () => {
-    fetchOffices()
-  })
-
-  const handleMetadataUpdate = async (field: string, value: any) => {
-    if (!metadata?.id) {
-      console.error('[Update Error] No metadata record found for this land.')
-      toast({
-        title: 'Erro',
-        description:
-          'Nenhum metadado encontrado para esta terra. Contate um administrador para criar o registro.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    const SINGLE_RELATION_FIELDS = ['responsible_user', 'external_offices']
-    let payload: Record<string, any>
-
-    if (SINGLE_RELATION_FIELDS.includes(field)) {
-      payload = { [field]: value && value !== 'none' && value !== '' ? value : null }
-    } else {
-      payload = { [field]: value === null ? '' : value }
-    }
-
-    setFieldErrors({})
-    setUpdatingOffice(true)
-    try {
-      const updatedRecord = await pb.collection('land_metadata').update(metadata.id, payload)
-
-      setMetadata((prev: any) => ({
-        ...prev,
-        [field]: updatedRecord[field],
-      }))
-
-      const successMessages: Record<string, string> = {
-        external_offices: 'Escritório vinculado com sucesso',
-        responsible_user: 'Responsável atualizado com sucesso',
-        risk_level: 'Nível de risco atualizado com sucesso',
-        dda_status: 'Status DDA atualizado com sucesso',
-        owner_marital_status: 'Estado civil atualizado com sucesso',
-        status: 'Status atualizado com sucesso',
-      }
-
-      toast({
-        title: 'Sucesso',
-        description: successMessages[field] || 'Registro atualizado com sucesso.',
-      })
-    } catch (err: any) {
-      const status = err?.status || 0
-      const errorMsg = getErrorMessage(err)
-      const fieldErrs = extractFieldErrors(err)
-      setFieldErrors(fieldErrs)
-
-      console.error('[Metadata Update Error]', {
-        field,
-        payload,
-        status,
-        message: err?.message,
-        responseData: err?.response?.data,
-        fieldErrors: fieldErrs,
-      })
-
-      if (status === 0) {
-        toast({
-          title: 'Erro de conexão',
-          description:
-            'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.',
-          variant: 'destructive',
-        })
-      } else if (status === 400) {
-        const detailMsg =
-          Object.entries(fieldErrs).length > 0
-            ? Object.entries(fieldErrs)
-                .map(([f, msg]) => `${f}: ${msg}`)
-                .join('; ')
-            : errorMsg || 'Dados inválidos. Verifique os campos e tente novamente.'
-        toast({
-          title: 'Erro de validação',
-          description: detailMsg,
-          variant: 'destructive',
-        })
-      } else if (status === 403 || status === 401) {
-        toast({
-          title: 'Permissão negada',
-          description: 'Você não tem permissão para atualizar este registro.',
-          variant: 'destructive',
-        })
-      } else if (status >= 500) {
-        toast({
-          title: 'Erro no servidor',
-          description: 'Ocorreu um erro no servidor. Tente novamente mais tarde.',
-          variant: 'destructive',
-        })
-      } else {
-        toast({
-          title: 'Erro ao atualizar registro',
-          description: errorMsg || 'Falha ao atualizar. Tente novamente.',
-          variant: 'destructive',
-        })
-      }
-    } finally {
-      setUpdatingOffice(false)
-    }
-  }
 
   useRealtime('land_metadata', (e) => {
     if (e.record.external_id === id || (land && e.record.external_id === land.clusterSerial)) {
@@ -608,9 +463,6 @@ export default function LandDetail() {
   useEffect(() => {
     let isMounted = true
 
-    // Extract the correct land code from the detail response.
-    // The API returns clusterSerial which is the proper identifier
-    // (e.g., EUN-XB1HX or MAR-DS232).
     const code = land?.clusterSerial || land?.external_id || land?.externalId || land?.code || id
     if (!code) {
       setStatusFetchError(true)
@@ -619,9 +471,6 @@ export default function LandDetail() {
 
     setStatusFetchError(false)
 
-    // Use the simplified format verified by Postman tests:
-    // /backend/v1/land-status?landCodes={code}
-    // No limit, offset, or statusGroupNames — those cause 400 errors.
     pb.send(`/backend/v1/land-status?landCodes=${encodeURIComponent(code)}`, {
       method: 'GET',
     })
@@ -710,6 +559,7 @@ export default function LandDetail() {
   const responsibleName =
     land.providerEmployee?.name || metadata?.expand?.responsible_user?.name || 'Não atribuído'
   const locationStr = `${land.geomCityName || land.city || 'N/A'}, ${land.geomAcronymState || land.state || 'N/A'}`
+  const officeName = metadata?.expand?.external_offices?.name
 
   return (
     <Sheet open={true} onOpenChange={(open) => !open && navigate('/')}>
@@ -777,40 +627,15 @@ export default function LandDetail() {
                         ? 'Dados indisponíveis'
                         : land.currentStatus?.name || land.status || 'Status N/A'}
                     </Badge>
-                  </div>
-
-                  <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-brand-primary/10 shadow-sm">
-                    <Building2 className="w-4 h-4 text-brand-secondary shrink-0" />
-                    <Select
-                      value={getRelationId(metadata?.external_offices) || 'none'}
-                      onValueChange={(val) =>
-                        handleMetadataUpdate('external_offices', val === 'none' ? '' : val)
-                      }
-                      disabled={updatingOffice}
-                    >
-                      <SelectTrigger className="h-7 border-0 bg-transparent p-0 gap-2 focus:ring-0 text-sm font-semibold text-brand-primary hover:text-brand-secondary transition-colors w-auto min-w-[120px] disabled:opacity-50">
-                        <SelectValue placeholder="Selecionar Escritório" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none" className="text-brand-primary/60 italic">
-                          Nenhum escritório
-                        </SelectItem>
-                        {offices.map((o) => (
-                          <SelectItem key={o.id} value={o.id}>
-                            {o.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {updatingOffice && (
-                      <Loader2 className="w-3.5 h-3.5 text-brand-secondary animate-spin shrink-0" />
+                    {officeName && (
+                      <Badge
+                        variant="outline"
+                        className="bg-white border-brand-primary/10 text-brand-primary font-semibold shadow-sm"
+                      >
+                        <Building2 className="w-3 h-3 mr-1" /> {officeName}
+                      </Badge>
                     )}
                   </div>
-                  {fieldErrors.external_offices && (
-                    <p className="text-xs text-red-500 font-medium">
-                      {fieldErrors.external_offices}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -969,14 +794,6 @@ export default function LandDetail() {
                       </div>
                     </div>
                   </div>
-
-                  <MetadataPanel
-                    metadata={metadata}
-                    users={users}
-                    offices={offices}
-                    onUpdate={handleMetadataUpdate}
-                    disabled={updatingOffice}
-                  />
                 </TabsContent>
 
                 <TabsContent value="docs" className="animate-fade-in-up mt-0 outline-none">
