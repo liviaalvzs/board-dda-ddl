@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Command,
@@ -12,12 +13,20 @@ import { Button } from '@/components/ui/button'
 import { Check, Building2, Loader2, Pencil, X } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/use-auth'
+import { upsertLandMetadata } from '@/services/land-metadata'
 import { cn } from '@/lib/utils'
+import type { ClientResponseError } from 'pocketbase'
 
 interface LawFirmSelectorProps {
   metadata: any
   externalId: string
   onUpdated?: () => void
+}
+
+function isAuthError(error: unknown): boolean {
+  if (!(error instanceof ClientResponseError)) return false
+  return error.status === 401 || error.status === 403
 }
 
 export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSelectorProps) {
@@ -26,12 +35,24 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
+  const { isAuthenticated, signOut } = useAuth()
+  const navigate = useNavigate()
 
   const expandedOffice = metadata?.expand?.external_offices
   const currentOfficeId = metadata?.external_offices || null
   const currentOfficeName = Array.isArray(expandedOffice)
     ? expandedOffice[0]?.name
     : expandedOffice?.name
+
+  const redirectToLogin = (reason: string) => {
+    signOut()
+    toast({
+      title: 'Sessão expirada',
+      description: reason,
+      variant: 'destructive',
+    })
+    navigate('/login')
+  }
 
   useEffect(() => {
     if (!open) return
@@ -41,6 +62,10 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
         const records = await pb.collection('external_offices').getFullList({ sort: 'name' })
         setOffices(records)
       } catch (e) {
+        if (isAuthError(e)) {
+          redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
+          return
+        }
         console.error('Failed to fetch offices', e)
       } finally {
         setLoading(false)
@@ -50,25 +75,38 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
   }, [open])
 
   const handleSelect = async (officeId: string) => {
+    if (!isAuthenticated) {
+      redirectToLogin('Você precisa estar autenticado para realizar esta ação.')
+      return
+    }
+
+    if (!externalId) {
+      toast({
+        title: 'Erro ao atualizar escritório',
+        description: 'Identificador da terra não encontrado.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setOpen(false)
     setSaving(true)
     try {
-      if (metadata?.id) {
-        await pb.collection('land_metadata').update(metadata.id, {
-          external_offices: officeId,
-        })
-      } else {
-        await pb.collection('land_metadata').create({
-          external_id: externalId,
-          external_offices: officeId,
-        })
-      }
+      await upsertLandMetadata(externalId, { externalOffices: officeId })
       toast({ title: 'Escritório de advocacia atualizado com sucesso' })
       onUpdated?.()
     } catch (error) {
+      if (isAuthError(error)) {
+        redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
+        return
+      }
+      const description =
+        error instanceof ClientResponseError && error.status === 400
+          ? 'Não foi possível salvar. Verifique sua conexão ou faça login novamente.'
+          : 'Verifique sua conexão e tente novamente.'
       toast({
         title: 'Erro ao atualizar escritório de advocacia',
-        description: 'Verifique sua conexão e tente novamente.',
+        description,
         variant: 'destructive',
       })
     } finally {
@@ -77,19 +115,29 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
   }
 
   const handleClear = async () => {
+    if (!isAuthenticated) {
+      redirectToLogin('Você precisa estar autenticado para realizar esta ação.')
+      return
+    }
+
     setOpen(false)
     setSaving(true)
     try {
-      if (metadata?.id) {
-        await pb.collection('land_metadata').update(metadata.id, {
-          external_offices: null,
-        })
-        toast({ title: 'Escritório de advocacia removido' })
-        onUpdated?.()
-      }
+      await upsertLandMetadata(externalId, { externalOffices: null })
+      toast({ title: 'Escritório de advocacia removido' })
+      onUpdated?.()
     } catch (error) {
+      if (isAuthError(error)) {
+        redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
+        return
+      }
+      const description =
+        error instanceof ClientResponseError && error.status === 400
+          ? 'Não foi possível remover. Verifique sua conexão ou faça login novamente.'
+          : 'Verifique sua conexão e tente novamente.'
       toast({
         title: 'Erro ao remover escritório',
+        description,
         variant: 'destructive',
       })
     } finally {
