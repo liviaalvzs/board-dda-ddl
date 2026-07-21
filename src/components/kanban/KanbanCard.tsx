@@ -8,6 +8,7 @@ import { differenceInDays, differenceInHours, format } from 'date-fns'
 import { useEffect, useState } from 'react'
 import pb from '@/lib/pocketbase/client'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 
 interface KanbanCardProps {
   card: KanbanCardType
@@ -28,6 +29,8 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
   const [timelineSteps, setTimelineSteps] = useState<TimelineStep[]>([])
   const [timelineLoading, setTimelineLoading] = useState(true)
   const [isTimelineOpen, setIsTimelineOpen] = useState(false)
+  const { threshold: delayedThreshold } = useDelayedThreshold()
+  const attentionThreshold = Math.max(1, Math.floor(delayedThreshold / 2))
 
   useEffect(() => {
     let isMounted = true
@@ -114,24 +117,24 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
       : differenceInDays(new Date(), updatedDate)
 
   const urgencyClass =
-    daysInStatus > 14
+    daysInStatus > delayedThreshold
       ? 'bg-white border-rose-200'
-      : daysInStatus > 7
+      : daysInStatus > attentionThreshold
         ? 'bg-white border-amber-200'
         : 'bg-white border-slate-200'
   const hoverClass =
-    daysInStatus > 14
+    daysInStatus > delayedThreshold
       ? 'hover:border-rose-400'
-      : daysInStatus > 7
+      : daysInStatus > attentionThreshold
         ? 'hover:border-amber-400'
         : 'hover:border-brand-secondary/60'
 
   const urgencyBadge =
-    daysInStatus > 14 ? (
+    daysInStatus > delayedThreshold ? (
       <Badge className="bg-rose-500 hover:bg-rose-600 text-white text-[9px] px-1.5 py-0 border-none font-bold">
         ATRASADO
       </Badge>
-    ) : daysInStatus > 7 ? (
+    ) : daysInStatus > attentionThreshold ? (
       <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] px-1.5 py-0 border-none font-bold">
         ATENÇÃO
       </Badge>
@@ -233,9 +236,9 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
         <div
           className={cn(
             'flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-md',
-            daysInStatus > 14
+            daysInStatus > delayedThreshold
               ? 'bg-rose-100 text-rose-700'
-              : daysInStatus > 7
+              : daysInStatus > attentionThreshold
                 ? 'bg-amber-100 text-amber-700'
                 : 'bg-emerald-100 text-emerald-700',
           )}
@@ -316,7 +319,9 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
                       <span>•</span>
                       <span
                         className={cn(
-                          step.isCurrent && step.durationDays > 14 ? 'text-rose-600 font-bold' : '',
+                          step.isCurrent && step.durationDays > delayedThreshold
+                            ? 'text-rose-600 font-bold'
+                            : '',
                         )}
                       >
                         {step.durationDays} {step.durationDays === 1 ? 'dia' : 'dias'}

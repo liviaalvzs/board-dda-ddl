@@ -34,6 +34,7 @@ import {
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
+import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
 import { LawFirmSelector } from '@/components/kanban/LawFirmSelector'
 
@@ -460,6 +461,8 @@ export default function LandDetail() {
 
   const [apiDaysInStage, setApiDaysInStage] = useState<number | null>(null)
   const [statusFetchError, setStatusFetchError] = useState(false)
+  const { threshold: delayedThreshold } = useDelayedThreshold()
+  const attentionThreshold = Math.max(1, Math.floor(delayedThreshold / 2))
 
   useEffect(() => {
     let isMounted = true
@@ -529,9 +532,9 @@ export default function LandDetail() {
   const urgencyStatus =
     daysInStatus === null
       ? 'unknown'
-      : daysInStatus > 14
+      : daysInStatus > delayedThreshold
         ? 'delayed'
-        : daysInStatus > 7
+        : daysInStatus > attentionThreshold
           ? 'attention'
           : 'ontrack'
 
@@ -628,6 +631,11 @@ export default function LandDetail() {
                         ? 'Dados indisponíveis'
                         : land.currentStatus?.name || land.status || 'Status N/A'}
                     </Badge>
+                    {urgencyStatus === 'delayed' && (
+                      <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-bold shadow-sm">
+                        <Clock className="w-3 h-3 mr-1" /> Atrasada
+                      </Badge>
+                    )}
                     {officeName && (
                       <Badge
                         variant="outline"
