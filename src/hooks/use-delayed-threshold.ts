@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getDelayedThresholdDays } from '@/services/app-settings'
 
-let cachedThreshold: number = 30
+let cachedThreshold: number = 7
 let fetched = false
 
 export function useDelayedThreshold() {

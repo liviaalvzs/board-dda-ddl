@@ -111,10 +111,7 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
   const updatedDate = new Date(card.updatedAt || new Date())
 
   const isNew = differenceInHours(new Date(), createdDate) <= 48
-  const daysInStatus =
-    timelineSteps.length > 0
-      ? timelineSteps[timelineSteps.length - 1].durationDays
-      : differenceInDays(new Date(), updatedDate)
+  const daysInStatus = differenceInDays(new Date(), updatedDate)
 
   const urgencyClass =
     daysInStatus > delayedThreshold

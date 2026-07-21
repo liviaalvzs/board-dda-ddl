@@ -20,6 +20,6 @@ export async function updateSetting(key: string, value: string): Promise<void> {
 
 export async function getDelayedThresholdDays(): Promise<number> {
   const value = await getSetting('delayed_threshold_days')
-  const parsed = parseInt(value || '30', 10)
-  return isNaN(parsed) || parsed <= 0 ? 30 : parsed
+  const parsed = parseInt(value || '7', 10)
+  return isNaN(parsed) || parsed <= 0 ? 7 : parsed
 }

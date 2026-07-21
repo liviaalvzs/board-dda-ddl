@@ -29,6 +29,7 @@ import {
   Clock,
   FileIcon,
   Building2,
+  Timer,
 } from 'lucide-react'
 
 import pb from '@/lib/pocketbase/client'
@@ -37,6 +38,7 @@ import { useRealtime } from '@/hooks/use-realtime'
 import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
 import { LawFirmSelector } from '@/components/kanban/LawFirmSelector'
+import { StageTimeline } from '@/components/kanban/StageTimeline'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
   <span className="sr-only">{children}</span>
@@ -540,12 +542,7 @@ export default function LandDetail() {
 
   const urgencyBg = 'bg-white border-brand-primary/10'
 
-  const statusColor = {
-    delayed: 'text-rose-700',
-    attention: 'text-amber-700',
-    ontrack: 'text-emerald-700',
-    unknown: 'text-slate-500',
-  }[urgencyStatus]
+  const statusColor = 'text-slate-700'
 
   const mockHistory = [
     {
@@ -631,11 +628,6 @@ export default function LandDetail() {
                         ? 'Dados indisponíveis'
                         : land.currentStatus?.name || land.status || 'Status N/A'}
                     </Badge>
-                    {urgencyStatus === 'delayed' && (
-                      <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-bold shadow-sm">
-                        <Clock className="w-3 h-3 mr-1" /> Atrasada
-                      </Badge>
-                    )}
                     {officeName && (
                       <Badge
                         variant="outline"
@@ -703,6 +695,12 @@ export default function LandDetail() {
                     className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
                   >
                     <History className="w-4 h-4 mr-2" /> Histórico
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="deadlines"
+                    className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
+                  >
+                    <Timer className="w-4 h-4 mr-2" /> Prazos e Etapas
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -902,6 +900,15 @@ export default function LandDetail() {
                           ))}
                     </div>
                   </div>
+                </TabsContent>
+
+                <TabsContent value="deadlines" className="animate-fade-in-up mt-0 outline-none">
+                  <StageTimeline
+                    historyLogs={historyLogs}
+                    metadata={metadata}
+                    land={land}
+                    landId={id!}
+                  />
                 </TabsContent>
               </div>
             </Tabs>
