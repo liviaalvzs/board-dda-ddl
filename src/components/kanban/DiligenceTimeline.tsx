@@ -11,6 +11,7 @@ import { getStatusLabel } from '@/lib/status-mapping'
 interface DiligenceTimelineProps {
   land: any
   landId: string
+  metadata?: any
 }
 
 interface ExternalStage {
@@ -34,31 +35,107 @@ function formatDuration(ms: number): string {
   return '< 1min'
 }
 
-export function DiligenceTimeline({ land, landId }: DiligenceTimelineProps) {
+export function DiligenceTimeline({ land, landId, metadata }: DiligenceTimelineProps) {
   const [stages, setStages] = useState<ExternalStage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [noIdentifier, setNoIdentifier] = useState(false)
 
   useEffect(() => {
     let isMounted = true
-    const code = land?.clusterSerial || land?.external_id || land?.externalId || landId
-    if (!code) {
+
+    const externalId = metadata?.external_id || land?.external_id || land?.externalId || ''
+    const landCode = land?.clusterSerial || land?.code || ''
+
+    const hasLandIds = !!externalId
+    const hasLandCodes = !!landCode
+
+    console.log('[DiligenceTimeline] Identifier extraction:', {
+      landId,
+      metadataExternalId: metadata?.external_id || null,
+      landExternalId: land?.external_id || land?.externalId || null,
+      landClusterSerial: land?.clusterSerial || null,
+      landCode: land?.code || null,
+      resolvedExternalId: externalId || null,
+      resolvedLandCode: landCode || null,
+      hasLandIds,
+      hasLandCodes,
+    })
+
+    if (!hasLandIds && !hasLandCodes) {
+      console.warn('[DiligenceTimeline] No identifiers available — skipping request', {
+        landId,
+        metadata: metadata ? { external_id: metadata.external_id } : null,
+        land: land
+          ? {
+              clusterSerial: land.clusterSerial,
+              code: land.code,
+              external_id: land.external_id,
+              externalId: land.externalId,
+            }
+          : null,
+      })
+      setStages([])
       setLoading(false)
-      setError(true)
+      setError(false)
+      setNoIdentifier(true)
       return
     }
 
+    setNoIdentifier(false)
     setLoading(true)
     setError(false)
 
-    pb.send(`/backend/v1/land-status?landCodes=${encodeURIComponent(code)}`, {
+    const params: string[] = []
+    if (hasLandIds) {
+      params.push(`landIds=${encodeURIComponent(externalId)}`)
+    }
+    if (hasLandCodes) {
+      params.push(`landCodes=${encodeURIComponent(landCode)}`)
+    }
+
+    const queryString = params.join('&')
+    const requestUrl = `/backend/v1/land-status?${queryString}`
+
+    console.log('[DiligenceTimeline] Sending request to backend:', {
+      requestUrl,
+      method: 'GET',
+      params: {
+        landIds: hasLandIds ? externalId : null,
+        landCodes: hasLandCodes ? landCode : null,
+      },
+      rawQueryString: queryString,
+    })
+
+    pb.send(requestUrl, {
       method: 'GET',
     })
       .then((res) => {
         if (!isMounted) return
         const items = res?.data?.items || res?.items || []
 
+        console.log('[DiligenceTimeline] Response received:', {
+          requestUrl,
+          hasData: !!res,
+          hasDataItems: !!res?.data?.items,
+          hasItems: !!res?.items,
+          itemCount: items.length,
+          rawResponseKeys: res ? Object.keys(res) : [],
+          firstItemPreview:
+            items.length > 0
+              ? {
+                  statusName: items[0]?.status?.name,
+                  startDate: items[0]?.startDate,
+                  creationDate: items[0]?.creationDate,
+                }
+              : null,
+        })
+
         if (items.length === 0) {
+          console.log('[DiligenceTimeline] API returned 0 items — confirmed empty response', {
+            requestUrl,
+            params: { landIds: externalId, landCodes: landCode },
+          })
           setStages([])
           return
         }
@@ -94,7 +171,13 @@ export function DiligenceTimeline({ land, landId }: DiligenceTimelineProps) {
 
         setStages(mapped)
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[DiligenceTimeline] Request failed:', {
+          requestUrl,
+          params: { landIds: externalId, landCodes: landCode },
+          error: err?.message || err,
+          status: err?.status,
+        })
         if (isMounted) setError(true)
       })
       .finally(() => {
@@ -104,7 +187,7 @@ export function DiligenceTimeline({ land, landId }: DiligenceTimelineProps) {
     return () => {
       isMounted = false
     }
-  }, [land, landId])
+  }, [land, landId, metadata])
 
   const totalDiligenceMs = stages.reduce((sum, s) => sum + s.durationMs, 0)
   const reversedStages = [...stages].reverse()
@@ -160,6 +243,13 @@ export function DiligenceTimeline({ land, landId }: DiligenceTimelineProps) {
               <AlertCircle className="w-8 h-8 text-brand-primary/30 mx-auto mb-3" />
               <p className="text-sm text-brand-primary/60">
                 Não foi possível carregar os dados de diligência externa
+              </p>
+            </div>
+          ) : noIdentifier ? (
+            <div className="text-center py-10">
+              <AlertCircle className="w-8 h-8 text-brand-primary/30 mx-auto mb-3" />
+              <p className="text-sm text-brand-primary/60">
+                Nenhum identificador externo disponível para esta propriedade
               </p>
             </div>
           ) : stages.length > 0 ? (

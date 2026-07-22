@@ -910,7 +910,7 @@ export default function LandDetail() {
 
                 <TabsContent value="deadlines" className="animate-fade-in-up mt-0 outline-none">
                   <div className="space-y-6">
-                    <DiligenceTimeline land={land} landId={id!} />
+                    <DiligenceTimeline land={land} landId={id!} metadata={metadata} />
                     <StageTimeline
                       historyLogs={historyLogs}
                       metadata={metadata}
