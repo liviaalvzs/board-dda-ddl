@@ -31,20 +31,21 @@ import {
 import { useRealtime } from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Badge } from '@/components/ui/badge'
+import { getStatusLabel } from '@/lib/status-mapping'
 
 const KANBAN_COLUMNS: KanbanColumnType[] = [
-  { id: 'assinatura-carta', title: 'Assinatura da carta proposta', color: 'bg-slate-400' },
-  { id: 'aguardando-doc', title: 'Aguardando documentação básica', color: 'bg-amber-400' },
-  { id: 'emissao-certidoes', title: 'Emissão das certidões', color: 'bg-sky-400' },
+  { id: 'assinatura-carta', title: getStatusLabel('assinatura-carta'), color: 'bg-slate-400' },
+  { id: 'aguardando-doc', title: getStatusLabel('aguardando-doc'), color: 'bg-amber-400' },
+  { id: 'emissao-certidoes', title: getStatusLabel('emissao-certidoes'), color: 'bg-sky-400' },
   {
     id: 'analise-interna-preliminar',
-    title: 'Análise interna DD preliminar',
+    title: getStatusLabel('analise-interna-preliminar'),
     color: 'bg-indigo-400',
   },
-  { id: 'dd-conclusiva', title: 'DD conclusiva', color: 'bg-fuchsia-400' },
+  { id: 'dd-conclusiva', title: getStatusLabel('dd-conclusiva'), color: 'bg-fuchsia-400' },
   {
     id: 'analise-interna-conclusiva',
-    title: 'Análise interna DD conclusiva',
+    title: getStatusLabel('analise-interna-conclusiva'),
     color: 'bg-emerald-500',
   },
 ]

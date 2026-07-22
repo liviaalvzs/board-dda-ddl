@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import pb from '@/lib/pocketbase/client'
+import { getStatusLabel } from '@/lib/status-mapping'
 
 interface StageTimelineProps {
   historyLogs: any[]
@@ -20,34 +21,6 @@ interface StageEntry {
   endDate: Date | null
   durationMs: number
   isCurrent: boolean
-}
-
-const STATUS_LABEL_MAP: Record<string, string> = {
-  assinatura: 'Assinatura da Carta Proposta',
-  assinatura_carta: 'Assinatura da Carta Proposta',
-  assinatura_carta_proposta: 'Assinatura da Carta Proposta',
-  awaiting_docs: 'Aguardando Documentação',
-  doc_basica: 'Aguardando Documentação Básica',
-  documentacao_basica: 'Aguardando Documentação Básica',
-  certidoes: 'Emissão das Certidões',
-  emissao_certidoes: 'Emissão das Certidões',
-  escritorio: 'Distribuída ao Escritório Externo',
-  escritorio_externo: 'Distribuída ao Escritório Externo',
-  dda: 'DDA',
-  dd_preliminar: 'Análise Interna DD Preliminar',
-  dd_conclusiva: 'DD Conclusiva',
-  analise_conclusiva: 'Análise Interna DD Conclusiva',
-  analise_preliminar: 'Análise Interna DD Preliminar',
-}
-
-function mapStatusLabel(rawStatus: string): string {
-  if (!rawStatus) return 'Status Desconhecido'
-  const lower = rawStatus.toLowerCase().trim()
-  if (STATUS_LABEL_MAP[lower]) return STATUS_LABEL_MAP[lower]
-  for (const key of Object.keys(STATUS_LABEL_MAP)) {
-    if (lower.includes(key) || key.includes(lower)) return STATUS_LABEL_MAP[key]
-  }
-  return rawStatus
 }
 
 function formatDuration(ms: number): string {
@@ -153,7 +126,7 @@ export function StageTimeline({ historyLogs, metadata, land, landId }: StageTime
       const firstChangeDate = new Date(firstChange.created)
       const firstDetails = getChangeDetails(firstChange)
       result.push({
-        statusName: mapStatusLabel(firstDetails.old || 'Inicial'),
+        statusName: getStatusLabel(firstDetails.old || 'Inicial'),
         startDate,
         endDate: firstChangeDate,
         durationMs: firstChangeDate.getTime() - startDate.getTime(),
@@ -168,7 +141,7 @@ export function StageTimeline({ historyLogs, metadata, land, landId }: StageTime
           i < statusChanges.length - 1 ? new Date(statusChanges[i + 1].created) : null
 
         result.push({
-          statusName: mapStatusLabel(details.new || 'Desconhecido'),
+          statusName: getStatusLabel(details.new || 'Desconhecido'),
           startDate: changeDate,
           endDate: nextDate,
           durationMs: nextDate
@@ -180,7 +153,7 @@ export function StageTimeline({ historyLogs, metadata, land, landId }: StageTime
     } else {
       const currentStatus = metadata?.status || land?.currentStatus?.name || land?.status || 'Atual'
       result.push({
-        statusName: mapStatusLabel(currentStatus),
+        statusName: getStatusLabel(currentStatus),
         startDate,
         endDate: null,
         durationMs: Date.now() - startDate.getTime(),

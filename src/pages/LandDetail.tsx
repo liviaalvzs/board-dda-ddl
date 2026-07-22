@@ -39,6 +39,7 @@ import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
 import { LawFirmSelector } from '@/components/kanban/LawFirmSelector'
 import { StageTimeline } from '@/components/kanban/StageTimeline'
+import { getStatusLabel } from '@/lib/status-mapping'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
   <span className="sr-only">{children}</span>
@@ -547,7 +548,7 @@ export default function LandDetail() {
   const mockHistory = [
     {
       id: 1,
-      action: `Movido para "${land.currentStatus?.name || land.status || 'Nova Etapa'}"`,
+      action: `Movido para "${getStatusLabel(land.currentStatus?.name || land.status || 'Nova Etapa')}"`,
       date: updatedDate,
     },
     {
@@ -626,7 +627,7 @@ export default function LandDetail() {
                       <AlertCircle className="w-3 h-3 mr-1" />{' '}
                       {statusFetchError
                         ? 'Dados indisponíveis'
-                        : land.currentStatus?.name || land.status || 'Status N/A'}
+                        : getStatusLabel(land.currentStatus?.name || land.status || 'Status N/A')}
                     </Badge>
                     {officeName && (
                       <Badge
@@ -794,7 +795,7 @@ export default function LandDetail() {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <CopyableField
                           label="Status da Operação"
-                          value={land.currentStatus?.name || land.status}
+                          value={getStatusLabel(land.currentStatus?.name || land.status)}
                           icon={AlertCircle}
                         />
                         <CopyableField
@@ -858,12 +859,16 @@ export default function LandDetail() {
                                     <span className="text-xs text-brand-primary/70 mt-1">
                                       De:{' '}
                                       <span className="font-semibold">
-                                        {item.change_details?.old || 'N/A'}
+                                        {item.change_details?.field === 'status'
+                                          ? getStatusLabel(item.change_details?.old)
+                                          : item.change_details?.old || 'N/A'}
                                       </span>{' '}
                                       <br />
                                       Para:{' '}
                                       <span className="font-semibold">
-                                        {item.change_details?.new || 'N/A'}
+                                        {item.change_details?.field === 'status'
+                                          ? getStatusLabel(item.change_details?.new)
+                                          : item.change_details?.new || 'N/A'}
                                       </span>
                                     </span>
                                   </div>
