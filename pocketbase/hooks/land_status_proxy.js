@@ -8,27 +8,40 @@ routerAdd(
       $app.logger().warn('VITE_CORE_KEY secret is not set')
     }
 
-    // Extract landCodes from the incoming query string
-    let landCodes = ''
+    var landIds = ''
+
     try {
-      landCodes = e.request.url.query().get('landCodes') || ''
+      landIds = e.request.url.query().get('landIds') || ''
     } catch (_) {}
 
-    if (!landCodes) {
-      // Fallback: try requestInfo().query
+    if (!landIds) {
       try {
         const queryMap = e.requestInfo().query || {}
-        landCodes = queryMap['landCodes'] || queryMap['landcodes'] || ''
+        if (!landIds) {
+          landIds = queryMap['landIds'] || queryMap['landids'] || ''
+        }
       } catch (_) {}
     }
 
-    // Build the target URL — only send landCodes to the external AWS API
-    // Omit limit, offset, statusGroupNames and any other unsupported params
+    $app
+      .logger()
+      .info(
+        'Land status proxy — parsed query parameters',
+        'landIds',
+        landIds,
+        'rawQueryMap',
+        JSON.stringify(e.requestInfo().query || {}),
+      )
+
+    var params = []
+    if (landIds) {
+      params.push('landIds=' + encodeURIComponent(landIds))
+    }
+
     const baseUrl =
       'https://prdfovmhyc.execute-api.us-east-1.amazonaws.com/api/v1/partner/land-status'
-    const targetUrl = landCodes ? baseUrl + '?landCodes=' + encodeURIComponent(landCodes) : baseUrl
+    const targetUrl = params.length > 0 ? baseUrl + '?' + params.join('&') : baseUrl
 
-    // Mask the API key for logging (show only first 4 and last 4 characters)
     var maskedKey = ''
     if (apiKey.length > 8) {
       maskedKey = apiKey.substring(0, 4) + '****' + apiKey.substring(apiKey.length - 4)
@@ -46,8 +59,8 @@ routerAdd(
         'GET',
         'url',
         targetUrl,
-        'landCodes',
-        landCodes,
+        'landIds',
+        landIds,
         'headers',
         JSON.stringify({ 'X-API-Key': maskedKey, Accept: 'application/json' }),
         'hasApiKey',
@@ -67,7 +80,6 @@ routerAdd(
         timeout: 15,
       })
 
-      // Capture the raw response body for logging
       var rawBody = ''
       try {
         rawBody = String(res.body || '')
@@ -105,8 +117,8 @@ routerAdd(
             String(res.statusCode),
             'url',
             targetUrl,
-            'landCodes',
-            landCodes,
+            'landIds',
+            landIds,
             'errorBody',
             JSON.stringify(errorBody),
             'rawBody',
@@ -135,8 +147,8 @@ routerAdd(
           String(err),
           'url',
           targetUrl,
-          'landCodes',
-          landCodes,
+          'landIds',
+          landIds,
           'hasApiKey',
           apiKey ? 'true' : 'false',
           'maskedKey',
