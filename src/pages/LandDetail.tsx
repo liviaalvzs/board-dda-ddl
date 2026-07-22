@@ -39,6 +39,7 @@ import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
 import { LawFirmSelector } from '@/components/kanban/LawFirmSelector'
 import { StageTimeline } from '@/components/kanban/StageTimeline'
+import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
 import { getStatusLabel } from '@/lib/status-mapping'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
@@ -908,12 +909,15 @@ export default function LandDetail() {
                 </TabsContent>
 
                 <TabsContent value="deadlines" className="animate-fade-in-up mt-0 outline-none">
-                  <StageTimeline
-                    historyLogs={historyLogs}
-                    metadata={metadata}
-                    land={land}
-                    landId={id!}
-                  />
+                  <div className="space-y-6">
+                    <DiligenceTimeline land={land} landId={id!} />
+                    <StageTimeline
+                      historyLogs={historyLogs}
+                      metadata={metadata}
+                      land={land}
+                      landId={id!}
+                    />
+                  </div>
                 </TabsContent>
               </div>
             </Tabs>
