@@ -16,7 +16,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 import { upsertLandMetadata } from '@/services/land-metadata'
 import { cn } from '@/lib/utils'
-import type { ClientResponseError } from 'pocketbase'
+import { ClientResponseError } from 'pocketbase'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 
 interface LawFirmSelectorProps {
   metadata: any
@@ -39,7 +40,8 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
   const navigate = useNavigate()
 
   const expandedOffice = metadata?.expand?.external_offices
-  const currentOfficeId = metadata?.external_offices || null
+  const rawOfficeId = metadata?.external_offices
+  const currentOfficeId = Array.isArray(rawOfficeId) ? rawOfficeId[0] || null : rawOfficeId || null
   const currentOfficeName = Array.isArray(expandedOffice)
     ? expandedOffice[0]?.name
     : expandedOffice?.name
@@ -89,6 +91,15 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
       return
     }
 
+    if (!officeId || typeof officeId !== 'string') {
+      toast({
+        title: 'Erro ao atualizar escritório',
+        description: 'Seleção de escritório inválida.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setOpen(false)
     setSaving(true)
     try {
@@ -96,17 +107,14 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
       toast({ title: 'Escritório de advocacia atualizado com sucesso' })
       onUpdated?.()
     } catch (error) {
+      console.error('[LawFirmSelector] Failed to update office:', error)
       if (isAuthError(error)) {
         redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
         return
       }
-      const description =
-        error instanceof ClientResponseError && error.status === 400
-          ? 'Não foi possível salvar. Verifique sua conexão ou faça login novamente.'
-          : 'Verifique sua conexão e tente novamente.'
       toast({
         title: 'Erro ao atualizar escritório de advocacia',
-        description,
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
@@ -127,17 +135,14 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
       toast({ title: 'Escritório de advocacia removido' })
       onUpdated?.()
     } catch (error) {
+      console.error('[LawFirmSelector] Failed to clear office:', error)
       if (isAuthError(error)) {
         redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
         return
       }
-      const description =
-        error instanceof ClientResponseError && error.status === 400
-          ? 'Não foi possível remover. Verifique sua conexão ou faça login novamente.'
-          : 'Verifique sua conexão e tente novamente.'
       toast({
         title: 'Erro ao remover escritório',
-        description,
+        description: getErrorMessage(error),
         variant: 'destructive',
       })
     } finally {
