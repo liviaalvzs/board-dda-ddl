@@ -3,7 +3,14 @@ onRecordAfterUpdateSuccess((e) => {
     const original = e.record.original()
     const current = e.record
     const landId = current.getString('external_id')
-    const userId = e.requestInfo().auth?.id
+
+    var userId = ''
+    try {
+      var auth = e.requestInfo().auth
+      if (auth) {
+        userId = auth.id || ''
+      }
+    } catch (_) {}
 
     if (!userId) return e.next()
 
@@ -16,16 +23,8 @@ onRecordAfterUpdateSuccess((e) => {
 
     const changes = []
 
-    if (original.getString('status') !== current.getString('status')) {
-      changes.push({
-        field: 'status',
-        old: original.getString('status') || 'N/A',
-        new: current.getString('status') || 'N/A',
-      })
-    }
-
-    const oldResp = getRelId(original, 'responsible_user')
-    const newResp = getRelId(current, 'responsible_user')
+    var oldResp = getRelId(original, 'responsible_user')
+    var newResp = getRelId(current, 'responsible_user')
     if (oldResp !== newResp) {
       var oldName = 'N/A'
       var newName = 'N/A'
@@ -44,8 +43,8 @@ onRecordAfterUpdateSuccess((e) => {
       changes.push({ field: 'responsible_user', old: oldName, new: newName })
     }
 
-    const oldOffice = getRelId(original, 'external_offices')
-    const newOffice = getRelId(current, 'external_offices')
+    var oldOffice = getRelId(original, 'external_offices')
+    var newOffice = getRelId(current, 'external_offices')
     if (oldOffice !== newOffice) {
       var oldOfficeName = 'N/A'
       var newOfficeName = 'N/A'
@@ -90,7 +89,6 @@ onRecordAfterUpdateSuccess((e) => {
 
     if (changes.length > 0) {
       var fieldLabels = {
-        status: 'Status',
         responsible_user: 'Responsável',
         external_offices: 'Escritório Externo',
         owner_marital_status: 'Estado Civil',

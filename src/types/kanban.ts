@@ -23,6 +23,7 @@ export interface KanbanCardType {
   ddaStatusLabel?: 'existing' | 'distributed' | 'none' | ''
   createdAt?: string
   updatedAt?: string
+  isSaving?: boolean
 }
 
 export interface KanbanColumnType {

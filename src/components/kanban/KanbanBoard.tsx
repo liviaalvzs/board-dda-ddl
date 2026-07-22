@@ -1,10 +1,11 @@
 import { KanbanColumnType, KanbanCardType } from '@/types/kanban'
 import { KanbanColumn } from './KanbanColumn'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
+import { upsertLandMetadata } from '@/services/land-metadata'
 
 interface KanbanBoardProps {
   columns: KanbanColumnType[]
@@ -25,6 +26,8 @@ export function KanbanBoard({
   const [docChecksMap, setDocChecksMap] = useState<Record<string, { docs: number; dda: number }>>(
     {},
   )
+  const [savingCards, setSavingCards] = useState<Set<string>>(new Set())
+  const pendingUpdatesRef = useRef<Record<string, string>>({})
   const { toast } = useToast()
 
   const fetchMetadata = async () => {
@@ -33,6 +36,13 @@ export function KanbanBoard({
         .collection('land_metadata')
         .getFullList({ expand: 'responsible_user,external_offices' })
       const map = records.reduce((acc, r) => ({ ...acc, [r.external_id]: r }), {})
+      for (const [cardId, status] of Object.entries(pendingUpdatesRef.current)) {
+        if (map[cardId]) {
+          map[cardId] = { ...map[cardId], status }
+        } else {
+          map[cardId] = { external_id: cardId, status }
+        }
+      }
       setMetadataMap(map)
     } catch (e) {
       console.error(e)
@@ -83,6 +93,7 @@ export function KanbanBoard({
       return {
         ...c,
         stageId: meta?.status || c.stageId,
+        isSaving: savingCards.has(c.id),
         responsible: meta?.expand?.responsible_user?.name || 'Unassigned',
         externalOffice: meta?.expand?.external_offices?.name || 'Sem Escritório',
         completedDocs: checks.docs,
@@ -93,26 +104,80 @@ export function KanbanBoard({
         updatedAt: meta?.updated || new Date().toISOString(),
       }
     })
-  }, [cards, metadataMap, docChecksMap])
+  }, [cards, metadataMap, docChecksMap, savingCards])
+
+  const validStatuses = useMemo(() => columns.map((c) => c.id), [columns])
 
   const handleMoveCard = async (cardId: string, targetColumnId: string) => {
-    onMoveCard(cardId, targetColumnId)
-    try {
-      const record = await pb
-        .collection('land_metadata')
-        .getFirstListItem(`external_id="${cardId}"`)
-      await pb.collection('land_metadata').update(record.id, { status: targetColumnId })
-    } catch (e) {
-      try {
-        await pb.collection('land_metadata').create({ external_id: cardId, status: targetColumnId })
-      } catch (err) {
-        console.error('Failed to update status', err)
-        toast({
-          title: 'Erro de conexão',
-          description: 'Não foi possível salvar o novo status.',
-          variant: 'destructive',
-        })
+    if (!validStatuses.includes(targetColumnId)) {
+      toast({
+        title: 'Status inválido',
+        description: 'O status selecionado não é válido.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const card = enrichedCards.find((c) => c.id === cardId)
+    const originalStageId = card?.stageId || ''
+
+    if (originalStageId === targetColumnId) return
+
+    const metaKey = metadataMap[cardId] ? cardId : card?.clusterSerial || cardId
+
+    setSavingCards((prev) => new Set(prev).add(cardId))
+    pendingUpdatesRef.current[cardId] = targetColumnId
+
+    setMetadataMap((prev) => {
+      if (prev[metaKey]) {
+        return { ...prev, [metaKey]: { ...prev[metaKey], status: targetColumnId } }
       }
+      return {
+        ...prev,
+        [cardId]: { external_id: cardId, status: targetColumnId },
+      }
+    })
+    onMoveCard(cardId, targetColumnId)
+
+    try {
+      const record = await upsertLandMetadata(cardId, { status: targetColumnId })
+
+      delete pendingUpdatesRef.current[cardId]
+
+      setMetadataMap((prev) => ({
+        ...prev,
+        [cardId]: record,
+      }))
+
+      toast({
+        title: 'Status atualizado',
+        description: 'A propriedade foi movida com sucesso.',
+      })
+    } catch (e) {
+      delete pendingUpdatesRef.current[cardId]
+
+      setMetadataMap((prev) => {
+        if (prev[metaKey]) {
+          return { ...prev, [metaKey]: { ...prev[metaKey], status: originalStageId } }
+        }
+        const next = { ...prev }
+        delete next[cardId]
+        return next
+      })
+      if (originalStageId) {
+        onMoveCard(cardId, originalStageId)
+      }
+      toast({
+        title: 'Erro ao atualizar status',
+        description: 'Não foi possível mover a propriedade. O card retornou à coluna original.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingCards((prev) => {
+        const next = new Set(prev)
+        next.delete(cardId)
+        return next
+      })
     }
   }
 

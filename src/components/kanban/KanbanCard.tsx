@@ -1,4 +1,4 @@
-import { MapPin, Clock, FileText, Building2, ChevronDown, ChevronUp } from 'lucide-react'
+import { MapPin, Clock, FileText, Building2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { KanbanCardType } from '@/types/kanban'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -156,15 +156,28 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
 
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, card.id)}
-      onClick={() => navigate(`/land/${card.id}`)}
+      draggable={!card.isSaving}
+      onDragStart={(e) => {
+        if (!card.isSaving) onDragStart(e, card.id)
+      }}
+      onClick={() => {
+        if (!card.isSaving) navigate(`/land/${card.id}`)
+      }}
       className={cn(
-        'rounded-xl p-4 shadow-sm border transition-all duration-200 cursor-grab active:cursor-grabbing group animate-slide-up flex flex-col gap-3',
+        'relative rounded-xl p-4 shadow-sm border transition-all duration-200 group animate-slide-up flex flex-col gap-3',
         urgencyClass,
         hoverClass,
+        card.isSaving ? 'cursor-wait opacity-60' : 'cursor-grab active:cursor-grabbing',
       )}
     >
+      {card.isSaving && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-white/50 backdrop-blur-sm">
+          <div className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 shadow-md">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-primary" />
+            <span className="text-xs font-semibold text-slate-700">Salvando...</span>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-start gap-2">
           <span className="text-slate-500 font-bold text-[10px] tracking-widest uppercase bg-white/60 px-1.5 py-0.5 rounded">
