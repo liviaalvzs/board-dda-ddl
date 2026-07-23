@@ -32,6 +32,19 @@ import { useRealtime } from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Badge } from '@/components/ui/badge'
 import { getStatusLabel } from '@/lib/status-mapping'
+import { useAuth } from '@/hooks/use-auth'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Trash2, Loader2 } from 'lucide-react'
 
 const KANBAN_COLUMNS: KanbanColumnType[] = [
   { id: 'assinatura-carta', title: getStatusLabel('assinatura-carta'), color: 'bg-slate-400' },
@@ -64,6 +77,34 @@ export default function Index() {
 
   const [users, setUsers] = useState<any[]>([])
   const [metadata, setMetadata] = useState<Record<string, any>>({})
+  const { isAdmin } = useAuth()
+  const [isResetting, setIsResetting] = useState(false)
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+  const [resetError, setResetError] = useState(false)
+
+  const handleResetAllLands = async () => {
+    setIsResetting(true)
+    setResetError(false)
+    try {
+      const result = await pb.send('/backend/v1/reset-all-lands', { method: 'POST' })
+      const c = result.counts || {}
+      console.log(
+        `[Admin] All lands reset. Deleted ${c.land_metadata || 0} lands, ${c.comments || 0} comments, ${c.document_checks || 0} documents, ${c.history_logs || 0} history logs. Re-import triggered.`,
+      )
+      setIsResetDialogOpen(false)
+      toast({
+        title: 'Reset concluído',
+        description: 'Todos os dados foram resetados. Reimportando terras...',
+        duration: 3000,
+      })
+      await fetchData()
+    } catch (err) {
+      console.error('[Admin] Reset failed:', err)
+      setResetError(true)
+    } finally {
+      setIsResetting(false)
+    }
+  }
 
   useEffect(() => {
     pb.collection('users').getFullList().then(setUsers).catch(console.error)
@@ -339,29 +380,85 @@ export default function Index() {
           </div>
         </div>
 
-        <div className="hidden lg:flex items-center">
-          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2 border-slate-200">
-                <SlidersHorizontal className="w-4 h-4" />
-                Filtros
-                {activeFilterCount > 0 && (
-                  <span className="ml-1 bg-brand-primary text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold">
-                    {activeFilterCount}
-                  </span>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <AlertDialog
+              open={isResetDialogOpen}
+              onOpenChange={(open) => {
+                setIsResetDialogOpen(open)
+                setResetError(false)
+              }}
+            >
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2 border-rose-200 text-rose-600 hover:bg-rose-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Reset All Lands</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset All Lands?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all land records, including comments, documents,
+                    and history logs. Land data will be re-imported from the API on the next fetch.
+                    Are you sure?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                {resetError && (
+                  <p className="text-sm text-rose-600 font-medium">
+                    Reset failed. Please try again.
+                  </p>
                 )}
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[320px] sm:w-[400px] bg-white overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Filtros</SheetTitle>
-                <SheetDescription>
-                  Refine a visualização das propriedades no board.
-                </SheetDescription>
-              </SheetHeader>
-              <FilterPanel />
-            </SheetContent>
-          </Sheet>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isResetting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleResetAllLands()
+                    }}
+                    disabled={isResetting}
+                    className="bg-rose-600 hover:bg-rose-700 text-white"
+                  >
+                    {isResetting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Resetting...
+                      </>
+                    ) : (
+                      'Confirm'
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <div className="hidden lg:flex items-center">
+            <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2 border-slate-200">
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filtros
+                  {activeFilterCount > 0 && (
+                    <span className="ml-1 bg-brand-primary text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-[320px] sm:w-[400px] bg-white overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Filtros</SheetTitle>
+                  <SheetDescription>
+                    Refine a visualização das propriedades no board.
+                  </SheetDescription>
+                </SheetHeader>
+                <FilterPanel />
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </div>
 

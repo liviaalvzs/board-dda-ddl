@@ -4,6 +4,7 @@ import pb from '@/lib/pocketbase/client'
 interface AuthContextType {
   user: any
   isAuthenticated: boolean
+  isAdmin: boolean
   activateAccount: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => void
@@ -21,12 +22,14 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any>(pb.authStore.isValid ? pb.authStore.record : null)
   const [isAuthenticated, setIsAuthenticated] = useState(pb.authStore.isValid)
+  const [isAdmin, setIsAdmin] = useState(pb.authStore.isAdmin || false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const unsubscribe = pb.authStore.onChange((_token, record) => {
       setUser(pb.authStore.isValid ? record : null)
       setIsAuthenticated(pb.authStore.isValid)
+      setIsAdmin(pb.authStore.isAdmin || false)
     })
 
     if (pb.authStore.isValid) {
@@ -76,6 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{
         user,
         isAuthenticated,
+        isAdmin,
         activateAccount,
         signIn,
         signOut,
