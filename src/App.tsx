@@ -6,7 +6,6 @@ import Index from './pages/Index'
 import NotFound from './pages/NotFound'
 import Layout from './components/Layout'
 import Login from './pages/Login'
-import Signup from './pages/Signup'
 import LandDetail from './pages/LandDetail'
 import ExternalOffices from './pages/ExternalOffices'
 import UsersManagement from './pages/UsersManagement'
@@ -29,7 +28,7 @@ const App = () => (
         <Sonner />
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/signup" element={<Navigate to="/login" replace />} />
           <Route
             element={
               <ProtectedRoute>

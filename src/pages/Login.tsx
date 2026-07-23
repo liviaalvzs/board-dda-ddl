@@ -79,13 +79,6 @@ export default function Login() {
               {isLoading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
-
-          <div className="mt-4 text-center text-sm">
-            <span className="text-muted-foreground">Não tem uma conta? </span>
-            <Link to="/signup" className="text-brand-primary hover:underline font-medium">
-              Ativar conta pré-cadastrada
-            </Link>
-          </div>
         </CardContent>
       </Card>
     </div>

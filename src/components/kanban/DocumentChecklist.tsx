@@ -223,7 +223,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                 DDA Distribuída ao Escritório Externo
               </Label>
               <p className="text-[11px] text-brand-primary/60 leading-tight mt-0.5">
-                Situação da Due Diligence Assessment.
+                Situação da Diligência Ambiental.
               </p>
             </div>
           </div>
