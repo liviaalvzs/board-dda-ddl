@@ -44,7 +44,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Trash2, Loader2 } from 'lucide-react'
+import { Trash2, Loader2, FileX2 } from 'lucide-react'
 
 const KANBAN_COLUMNS: KanbanColumnType[] = [
   { id: 'assinatura-carta', title: getStatusLabel('assinatura-carta'), color: 'bg-slate-400' },
@@ -81,6 +81,9 @@ export default function Index() {
   const [isResetting, setIsResetting] = useState(false)
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
   const [resetError, setResetError] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState(false)
 
   const handleResetAllLands = async () => {
     setIsResetting(true)
@@ -103,6 +106,32 @@ export default function Index() {
       setResetError(true)
     } finally {
       setIsResetting(false)
+    }
+  }
+
+  const handleDeleteAllLandMetadata = async () => {
+    setIsDeleting(true)
+    setDeleteError(false)
+    try {
+      const result = await pb.send('/backend/v1/delete-all-land-metadata', { method: 'POST' })
+      const c = result.counts || {}
+      const deletedCount = c.land_metadata || 0
+      console.log(
+        `[Admin] All land metadata deleted (no reimport). Deleted ${deletedCount} lands, ${c.comments || 0} comments, ${c.document_checks || 0} documents, ${c.history_logs || 0} history logs.`,
+      )
+      setIsDeleteDialogOpen(false)
+      toast({
+        title: 'Exclusão concluída',
+        description: `${deletedCount} ${deletedCount === 1 ? 'propriedade excluída' : 'propriedades excluídas'} com sucesso.`,
+        duration: 4000,
+      })
+      setCards([])
+      setMetadata({})
+    } catch (err) {
+      console.error('[Admin] Delete all land metadata failed:', err)
+      setDeleteError(true)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -382,58 +411,112 @@ export default function Index() {
 
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <AlertDialog
-              open={isResetDialogOpen}
-              onOpenChange={(open) => {
-                setIsResetDialogOpen(open)
-                setResetError(false)
-              }}
-            >
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2 border-rose-200 text-rose-600 hover:bg-rose-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Reset All Lands</span>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reset All Lands?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete all land records, including comments, documents,
-                    and history logs. Land data will be re-imported from the API on the next fetch.
-                    Are you sure?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                {resetError && (
-                  <p className="text-sm text-rose-600 font-medium">
-                    Reset failed. Please try again.
-                  </p>
-                )}
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isResetting}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={(e) => {
-                      e.preventDefault()
-                      handleResetAllLands()
-                    }}
-                    disabled={isResetting}
-                    className="bg-rose-600 hover:bg-rose-700 text-white"
+            <>
+              <AlertDialog
+                open={isDeleteDialogOpen}
+                onOpenChange={(open) => {
+                  setIsDeleteDialogOpen(open)
+                  setDeleteError(false)
+                }}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="flex items-center gap-2 border-amber-200 text-amber-700 hover:bg-amber-50"
                   >
-                    {isResetting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Resetting...
-                      </>
-                    ) : (
-                      'Confirm'
-                    )}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    <FileX2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Delete All Land Metadata</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete All Land Metadata?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete <strong>all</strong> land metadata records?
+                      This will also delete all associated comments, document checks, and history
+                      logs. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  {deleteError && (
+                    <p className="text-sm text-rose-600 font-medium">
+                      Delete failed. Data may be in an inconsistent state. Please try again.
+                    </p>
+                  )}
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleDeleteAllLandMetadata()
+                      }}
+                      disabled={isDeleting}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        'Delete All'
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <AlertDialog
+                open={isResetDialogOpen}
+                onOpenChange={(open) => {
+                  setIsResetDialogOpen(open)
+                  setResetError(false)
+                }}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="flex items-center gap-2 border-rose-200 text-rose-600 hover:bg-rose-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Reset All Lands</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Reset All Lands?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all land records, including comments, documents,
+                      and history logs. Land data will be re-imported from the API on the next
+                      fetch. Are you sure?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  {resetError && (
+                    <p className="text-sm text-rose-600 font-medium">
+                      Reset failed. Please try again.
+                    </p>
+                  )}
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isResetting}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleResetAllLands()
+                      }}
+                      disabled={isResetting}
+                      className="bg-rose-600 hover:bg-rose-700 text-white"
+                    >
+                      {isResetting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Resetting...
+                        </>
+                      ) : (
+                        'Confirm'
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
           <div className="hidden lg:flex items-center">
             <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
