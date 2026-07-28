@@ -48,6 +48,12 @@ export default function DocumentUpload() {
     }
   })
 
+  useEffect(() => {
+    if (!selectedLand) {
+      setChecks({})
+    }
+  }, [selectedLand])
+
   const completedCount = documentTypes.filter((type) => {
     const check = checks[type]
     const fileName = check?.document_file

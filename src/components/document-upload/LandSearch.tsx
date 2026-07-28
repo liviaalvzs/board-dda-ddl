@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Search, Loader2, X, MapPin } from 'lucide-react'
+import { Search, Loader2, X, MapPin, AlertCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { searchLands } from '@/services/document-upload'
@@ -16,22 +16,27 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (query.trim().length < 2) {
       setResults([])
+      setError('')
       return
     }
     const timer = setTimeout(async () => {
       setLoading(true)
+      setError('')
       try {
         const lands = await searchLands(query)
         setResults(lands)
         setShowDropdown(true)
       } catch {
         setResults([])
+        setError('Não foi possível carregar as terras. Tente novamente.')
+        setShowDropdown(true)
       } finally {
         setLoading(false)
       }
@@ -52,6 +57,8 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
   const handleSelect = (land: any) => {
     onSelect(land)
     setQuery('')
+    setResults([])
+    setError('')
     setShowDropdown(false)
   }
 
@@ -77,6 +84,7 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
         <button
           onClick={onClear}
           className="text-brand-primary/40 hover:text-brand-critical transition-colors p-2"
+          aria-label="Limpar seleção"
         >
           <X className="w-4 h-4" />
         </button>
@@ -92,8 +100,11 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
           placeholder="Buscar terra por código (external_id)..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => results.length > 0 && setShowDropdown(true)}
-          className="pl-9 bg-white border-brand-primary/20 rounded-xl h-12 text-brand-primary"
+          onFocus={() => (results.length > 0 || error) && setShowDropdown(true)}
+          className={cn(
+            'pl-9 bg-white border-brand-primary/20 rounded-xl h-12 text-brand-primary',
+            error && 'border-brand-critical/40',
+          )}
         />
         {loading && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-brand-secondary" />
@@ -101,9 +112,16 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
       </div>
       {showDropdown && !loading && (
         <div className="absolute z-50 mt-2 w-full bg-white rounded-xl border border-brand-primary/10 shadow-elevation overflow-hidden max-h-64 overflow-y-auto">
-          {results.length === 0 ? (
+          {error ? (
+            <div className="px-4 py-3 text-sm text-brand-critical flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          ) : results.length === 0 ? (
             <div className="px-4 py-3 text-sm text-brand-primary/50">
-              Nenhum resultado encontrado.
+              {query.trim().length >= 2
+                ? 'Nenhuma terra encontrada.'
+                : 'Digite ao menos 2 caracteres para buscar.'}
             </div>
           ) : (
             results.map((land) => (

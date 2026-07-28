@@ -2,16 +2,12 @@ import pb from '@/lib/pocketbase/client'
 
 export async function searchLands(query: string) {
   if (!query.trim() || query.trim().length < 2) return []
-  try {
-    const escaped = query.replace(/"/g, '\\"')
-    const result = await pb.collection('land_metadata').getList(1, 10, {
-      filter: `external_id ~ "${escaped}"`,
-      sort: 'external_id',
-    })
-    return result.items
-  } catch {
-    return []
-  }
+  const escaped = query.replace(/"/g, '\\"')
+  const result = await pb.collection('land_metadata').getList(1, 20, {
+    filter: `external_id ~ "${escaped}"`,
+    sort: 'external_id',
+  })
+  return result.items
 }
 
 export async function getDocumentChecksForLand(landId: string) {
