@@ -1,74 +1,72 @@
 import pb from '@/lib/pocketbase/client'
 
-export async function searchLands(query: string) {
-  if (!query.trim() || query.trim().length < 2) return []
-  const escaped = query.replace(/"/g, '\\"')
-  const result = await pb.collection('land_metadata').getList(1, 20, {
-    filter: `external_id ~ "${escaped}"`,
-    sort: 'external_id',
-  })
-  return result.items
-}
-
-export async function getDocumentChecksForLand(landId: string) {
-  return pb.collection('document_checks').getFullList({
-    filter: `land_id = "${landId}"`,
-  })
-}
-
-export async function uploadDocument(landId: string, documentKey: string, file: File) {
-  let existing: any = null
+export async function searchLands(query: string): Promise<any[]> {
+  if (!query || query.trim().length < 2) return []
+  const trimmed = query.trim()
+  const filter = `cluster_serial ~ "${trimmed}" || external_id ~ "${trimmed}"`
   try {
-    existing = await pb
+    return await pb.collection('land_metadata').getFullList({
+      filter,
+      sort: '-created',
+    })
+  } catch {
+    return []
+  }
+}
+
+export async function getDocumentChecksForLand(landId: string): Promise<any[]> {
+  return await pb.collection('document_checks').getFullList({
+    filter: `land_id = "${landId}"`,
+    sort: 'document_key',
+  })
+}
+
+export async function uploadDocument(
+  landId: string,
+  documentKey: string,
+  data: { isCompleted?: boolean; documentUrl?: string; documentFile?: File },
+): Promise<any> {
+  try {
+    const existing = await pb
       .collection('document_checks')
       .getFirstListItem(`land_id = "${landId}" && document_key = "${documentKey}"`)
+
+    const payload: Record<string, any> = {}
+    if (data.isCompleted !== undefined) payload.is_completed = data.isCompleted
+    if (data.documentUrl !== undefined) payload.document_url = data.documentUrl
+    if (data.documentFile) payload.document_file = data.documentFile
+    return await pb.collection('document_checks').update(existing.id, payload)
   } catch {
-    /* intentionally ignored */
+    return await pb.collection('document_checks').create({
+      land_id: landId,
+      document_key: documentKey,
+      is_completed: data.isCompleted || false,
+      document_url: data.documentUrl || '',
+      document_file: data.documentFile || null,
+    })
   }
+}
 
-  const formData = new FormData()
-  formData.append('land_id', landId)
-  formData.append('document_key', documentKey)
-  formData.append('is_completed', 'true')
-  formData.append('document_file', file)
-
-  let record: any
-  if (existing) {
-    record = await pb.collection('document_checks').update(existing.id, formData)
-  } else {
-    record = await pb.collection('document_checks').create(formData)
-  }
-
-  const fileName = Array.isArray(record.document_file)
-    ? record.document_file[0]
-    : record.document_file
-
-  if (fileName) {
-    try {
-      const fileUrl = pb.files.getURL(record, fileName)
-      record = await pb.collection('document_checks').update(record.id, {
-        document_url: fileUrl,
-      })
-    } catch (e) {
-      console.error('Failed to set document_url:', e)
-    }
-  }
-
-  return record
+const DOCUMENT_LABELS: Record<string, string> = {
+  cpf: 'CPF',
+  rg: 'RG',
+  'certidao-nascimento': 'Certidão de Nascimento',
+  'certidao-casamento': 'Certidão de Casamento',
+  'certidao-obitos': 'Certidão de Óbito',
+  iptu: 'IPTU',
+  'registro-imovel': 'Registro do Imóvel',
+  matricula: 'Matrícula',
+  escritura: 'Escritura',
+  'contrato-compra-venda': 'Contrato de Compra e Venda',
+  procuracao: 'Procuração',
+  'estatuto-casamento': 'Estatuto de Casamento',
+  'pacto-antinupcial': 'Pacto Antinupcial',
+  'certidao-conjuge': 'Certidão de Casamento do Cônjuge',
+  'comprovante-residencia': 'Comprovante de Residência',
+  cnh: 'CNH',
 }
 
 export function getDocumentLabel(key: string): string {
-  const labels: Record<string, string> = {
-    cpf: 'CPF',
-    rg: 'RG',
-    'certidao-nascimento': 'Certidão de Nascimento',
-    'comprovante-residencia': 'Comprovante de Residência',
-    matricula: 'Matrícula',
-    ccir: 'CCIR',
-    itr: 'ITR',
-    car: 'CAR',
-    ibama: 'IBAMA',
-  }
-  if (labels[key]) return labels[key]
+  if (DOCUMENT_LABELS[key]) return DOCUMENT_LABELS[key]
   return key.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }

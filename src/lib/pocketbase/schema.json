@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T13:43:48.692Z",
+  "generatedAt": "2026-07-28T14:00:43.395Z",
   "collections": [
     {
       "name": "users",
@@ -115,12 +115,19 @@
           "required": false,
           "system": false,
           "selectValues": ["existing", "distributed", "none"]
+        },
+        {
+          "name": "cluster_serial",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX `idx_land_metadata_external_id` ON `land_metadata` (external_id)",
         "CREATE INDEX `idx_land_metadata_status` ON `land_metadata` (status)",
-        "CREATE INDEX `idx_land_metadata_responsible` ON `land_metadata` (responsible_user)"
+        "CREATE INDEX `idx_land_metadata_responsible` ON `land_metadata` (responsible_user)",
+        "CREATE INDEX `idx_land_metadata_cluster_serial` ON `land_metadata` (cluster_serial)"
       ]
     },
     {

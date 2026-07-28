@@ -11,6 +11,7 @@ import ExternalOffices from './pages/ExternalOffices'
 import UsersManagement from './pages/UsersManagement'
 import SettingsPage from './pages/Settings'
 import DocumentUpload from './pages/DocumentUpload'
+import InspectApi from './pages/InspectApi'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 import { Navigate } from 'react-router-dom'
 
@@ -39,6 +40,7 @@ const App = () => (
           >
             <Route path="/" element={<Index />} />
             <Route path="/external-offices" element={<ExternalOffices />} />
+            <Route path="/inspect" element={<InspectApi />} />
             <Route path="/documents" element={<DocumentUpload />} />
             <Route path="/users" element={<UsersManagement />} />
             <Route path="/settings" element={<SettingsPage />} />

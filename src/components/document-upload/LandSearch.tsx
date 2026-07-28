@@ -73,7 +73,14 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
             <span className="text-[10px] text-brand-primary/60 font-bold uppercase tracking-wider">
               Terra Selecionada
             </span>
-            <p className="text-sm font-bold text-brand-primary">{selectedLand.external_id}</p>
+            <p className="text-sm font-bold text-brand-primary">
+              {selectedLand.cluster_serial}
+              {selectedLand.external_id && (
+                <span className="ml-1 text-brand-primary/50 font-normal">
+                  ({selectedLand.external_id})
+                </span>
+              )}
+            </p>
             {selectedLand.status && (
               <Badge variant="outline" className="mt-1 text-xs font-medium border-brand-primary/10">
                 {getStatusLabel(selectedLand.status)}
@@ -97,7 +104,7 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-primary/40" />
         <Input
-          placeholder="Buscar terra por código (external_id)..."
+          placeholder="Buscar terra por código (cluster_serial ou external_id)..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => (results.length > 0 || error) && setShowDropdown(true)}
@@ -130,7 +137,12 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
                 onClick={() => handleSelect(land)}
                 className="w-full text-left px-4 py-3 hover:bg-brand-primary/5 transition-colors border-b border-brand-primary/5 last:border-0"
               >
-                <span className="text-sm font-semibold text-brand-primary">{land.external_id}</span>
+                <span className="text-sm font-semibold text-brand-primary">
+                  {land.cluster_serial}
+                </span>
+                {land.external_id && (
+                  <span className="ml-2 text-xs text-brand-primary/50">({land.external_id})</span>
+                )}
                 {land.status && (
                   <span className="ml-2 text-xs text-brand-primary/50">
                     {getStatusLabel(land.status)}
