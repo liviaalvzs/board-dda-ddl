@@ -1,14 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { loadLeaflet } from '@/lib/leaflet-loader'
 import { getStageColor, getRiskColor, calculateCentroid, parseShapeWgs84 } from '@/lib/map-utils'
-import {
-  fetchLandIds,
-  fetchLandGeometries,
-  fetchAllLandMetadata,
-  fetchOpportunitiesByFilter,
-} from '@/services/lands'
-import { MapFilters, type MapFilterValues } from '@/components/opportunity/MapFilters'
+import { fetchAllLands, fetchAllLandMetadata } from '@/services/lands'
 import { MapLegend } from '@/components/kanban/MapLegend'
 import { LandDetailDrawer } from '@/components/kanban/LandDetailDrawer'
 import { Switch } from '@/components/ui/switch'
@@ -21,7 +14,6 @@ const BRAZIL_CENTER: [number, number] = [-14.235, -51.9253]
 const AMPLIFIED_KEY = 'mapa_amplified_indicators'
 
 export default function Mapa() {
-  const navigate = useNavigate()
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const polygonLayerRef = useRef<any>(null)
@@ -36,14 +28,6 @@ export default function Mapa() {
   const [selectedLandId, setSelectedLandId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [amplified, setAmplified] = useState(() => localStorage.getItem(AMPLIFIED_KEY) === 'true')
-  const [filters, setFilters] = useState<MapFilterValues>({
-    opportunityId: '',
-    companyId: '',
-    primaryOwner: '',
-    stageFilter: '',
-    healthFilter: '',
-  })
-  const [availableStages, setAvailableStages] = useState<string[]>([])
 
   const selectedLayerRef = useRef<any>(null)
   const selectedOriginalStyleRef = useRef<any>(null)
@@ -89,15 +73,6 @@ export default function Mapa() {
       const meta = metadataMap.get(land.id || land.external_id || '')
       const markerColor = getRiskColor(meta?.risk_level) || getStageColor(land.currentStatus?.etapa)
 
-      const marker = L.circleMarker(centroid, {
-        radius: 8,
-        fillColor: markerColor,
-        color: '#fff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8,
-      })
-
       const pulseIcon = L.divIcon({
         className: 'map-pulse-marker',
         html: `<div style="position:relative;width:20px;height:20px;">
@@ -124,47 +99,18 @@ export default function Mapa() {
     setError(null)
 
     try {
-      const [allIds, metaMap] = await Promise.all([fetchLandIds(), fetchAllLandMetadata()])
+      const [allLands, metaMap] = await Promise.all([fetchAllLands(), fetchAllLandMetadata()])
       if (cancelledRef.current) return
 
-      let filteredIds = allIds
-
-      if (filters.opportunityId || filters.companyId || filters.primaryOwner) {
-        try {
-          const matchingLandIds = await fetchOpportunitiesByFilter({
-            opportunityId: filters.opportunityId || undefined,
-            companyId: filters.companyId || undefined,
-            primaryOwner: filters.primaryOwner || undefined,
-          })
-          if (matchingLandIds.length > 0) {
-            filteredIds = allIds.filter((id) => matchingLandIds.includes(id))
-          } else {
-            filteredIds = []
-          }
-        } catch {
-          filteredIds = []
-        }
-      }
-
-      const geometries = await fetchLandGeometries(filteredIds)
-      if (cancelledRef.current) return
-
-      setLands(geometries)
+      setLands(allLands)
       setMetadataMap(metaMap)
-
-      const stages = new Set<string>()
-      for (const land of geometries) {
-        const stage = land.currentStatus?.etapa || land.currentStatus?.name
-        if (stage) stages.add(stage)
-      }
-      setAvailableStages(Array.from(stages))
     } catch (err) {
       console.error('Error loading map data:', err)
       if (!cancelledRef.current) setError('Falha ao carregar dados do mapa.')
     } finally {
       if (!cancelledRef.current) setLoading(false)
     }
-  }, [filters.opportunityId, filters.companyId, filters.primaryOwner])
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -172,30 +118,6 @@ export default function Mapa() {
       cancelledRef.current = true
     }
   }, [loadData, refreshKey])
-
-  const filteredLands = useMemo(() => {
-    return lands.filter((land) => {
-      const stage = land.currentStatus?.etapa || land.currentStatus?.name || ''
-      if (filters.stageFilter && stage !== filters.stageFilter) return false
-
-      if (filters.healthFilter) {
-        const meta = metadataMap.get(land.id || land.external_id || '')
-        const risk = meta?.risk_level
-        if (risk !== filters.healthFilter) return false
-      }
-
-      return true
-    })
-  }, [lands, filters.stageFilter, filters.healthFilter, metadataMap])
-
-  const activeStages = useMemo(() => {
-    const stages = new Set<string>()
-    for (const land of filteredLands) {
-      const stage = land.currentStatus?.etapa || land.currentStatus?.name
-      if (stage) stages.add(stage)
-    }
-    return Array.from(stages)
-  }, [filteredLands])
 
   useEffect(() => {
     let mapInstance: any = null
@@ -252,7 +174,7 @@ export default function Mapa() {
 
     const bounds: any[] = []
 
-    for (const land of filteredLands) {
+    for (const land of lands) {
       const shape = parseShapeWgs84(land.shapeWgs84)
       if (!shape) continue
 
@@ -268,7 +190,6 @@ export default function Mapa() {
         style: style,
         onEachFeature: (feature: any, layer: any) => {
           const landId = land.id || land.external_id
-          const meta = metadataMap.get(landId)
           const landName = land.name || 'Propriedade sem nome'
           const landCode = land.clusterSerial || land.external_id || land.id || 'N/A'
           const city = land.geomCityName || land.city || 'N/A'
@@ -341,7 +262,7 @@ export default function Mapa() {
     if (amplified) {
       renderMarkers()
     }
-  }, [filteredLands, metadataMap, amplified, renderMarkers, restoreSelectedStyle])
+  }, [lands, metadataMap, amplified, renderMarkers, restoreSelectedStyle])
 
   return (
     <div className="flex-1 relative h-full">
@@ -367,9 +288,7 @@ export default function Mapa() {
 
       {!loading && !error && (
         <>
-          <MapFilters filters={filters} onChange={setFilters} availableStages={availableStages} />
-
-          <MapLegend stages={activeStages} />
+          <MapLegend stages={[]} />
 
           <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-xl shadow-lg border border-brand-primary/10 p-4 flex items-center gap-3 animate-fade-in-up">
             <Switch checked={amplified} onCheckedChange={setAmplified} />

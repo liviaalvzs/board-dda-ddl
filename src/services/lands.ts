@@ -16,47 +16,27 @@ interface LandItem {
   shapeWgs84?: any
 }
 
-export async function fetchLandIds(): Promise<string[]> {
-  const res = await pb.send('/backend/v1/lands', { method: 'GET' })
-  const data = res?.data || res?.items || res || []
-  const items = Array.isArray(data) ? data : []
-  return items.map((item: any) => item.id || item.external_id || '').filter(Boolean)
+function extractLands(res: any): LandItem[] {
+  if (!res) return []
+  const data = res.data || res.items || res
+  const items = Array.isArray(data) ? data : Array.isArray(res) ? res : []
+  return items
 }
 
-export async function fetchLandGeometries(ids: string[]): Promise<LandItem[]> {
-  if (ids.length === 0) return []
+export async function fetchAllLands(): Promise<LandItem[]> {
+  const res = await pb.send('/backend/v1/lands?includesShapeWgs84=true', { method: 'GET' })
+  return extractLands(res)
+}
 
-  const batchSize = 25
-  const batches: string[][] = []
+export async function fetchLandIds(): Promise<string[]> {
+  const res = await pb.send('/backend/v1/lands', { method: 'GET' })
+  return extractLands(res)
+    .map((item: any) => item.id || item.external_id || '')
+    .filter(Boolean)
+}
 
-  for (let i = 0; i < ids.length; i += batchSize) {
-    batches.push(ids.slice(i, i + batchSize))
-  }
-
-  const results = await Promise.allSettled(
-    batches.map((batch) => {
-      const idsParam = batch.join(',')
-      return pb.send(
-        `/backend/v1/lands?limit=25&ids=${encodeURIComponent(idsParam)}&includesShapeWgs84=true`,
-        { method: 'GET' },
-      )
-    }),
-  )
-
-  const allLands: LandItem[] = []
-
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      const res = result.value
-      const data = res?.data || res?.items || res || []
-      const items = Array.isArray(data) ? data : []
-      for (const item of items) {
-        allLands.push(item)
-      }
-    }
-  }
-
-  return allLands
+export async function fetchLandGeometries(): Promise<LandItem[]> {
+  return fetchAllLands()
 }
 
 export async function fetchLandDetail(id: string): Promise<any> {
@@ -73,35 +53,4 @@ export async function fetchAllLandMetadata(): Promise<Map<string, any>> {
     map.set(record.external_id, record)
   }
   return map
-}
-
-export async function fetchOpportunitiesByFilter(filter: {
-  opportunityId?: string
-  companyId?: string
-  primaryOwner?: string
-}): Promise<string[]> {
-  const filters: string[] = []
-  if (filter.opportunityId) {
-    filters.push(`external_id="${filter.opportunityId}"`)
-  }
-  if (filter.companyId) {
-    filters.push(`company_id="${filter.companyId}"`)
-  }
-  if (filter.primaryOwner) {
-    filters.push(`primary_owner="${filter.primaryOwner}"`)
-  }
-
-  if (filters.length === 0) return []
-
-  const filterStr = filters.join(' && ')
-  const opportunities = await pb.collection('opportunities').getFullList({ filter: filterStr })
-
-  if (opportunities.length === 0) return []
-
-  const opportunityIds = opportunities.map((o) => o.id)
-  const opportunityLands = await pb.collection('opportunity_lands').getFullList({
-    filter: opportunityIds.map((id) => `opportunity_id="${id}"`).join(' || '),
-  })
-
-  return opportunityLands.map((ol) => ol.external_land_id).filter(Boolean)
 }
