@@ -6,6 +6,8 @@ routerAdd(
       const body = e.requestInfo().body || {}
       const email = (body.email || '').trim().toLowerCase()
       const name = body.name || ''
+      var role = (body.role || 'negociador').trim().toLowerCase()
+      if (role !== 'admin' && role !== 'negociador') role = 'negociador'
 
       if (!email) return e.badRequestError('Email is required')
 
@@ -20,9 +22,10 @@ routerAdd(
       record.setPassword($security.randomString(32))
       record.setVerified(false)
       if (name) record.set('name', name)
+      record.set('role', role)
       $app.save(record)
 
-      return e.json(201, { id: record.id, email: email, name: name })
+      return e.json(201, { id: record.id, email: email, name: name, role: role })
     } catch (err) {
       $app.logger().error('pre_register_user — failed', 'error', String(err))
       return e.json(500, { error: 'Failed to pre-register user' })

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -12,13 +12,21 @@ import UsersManagement from './pages/UsersManagement'
 import SettingsPage from './pages/Settings'
 import DocumentUpload from './pages/DocumentUpload'
 import InspectApi from './pages/InspectApi'
+import Profile from './pages/Profile'
 import { AuthProvider, useAuth } from './hooks/use-auth'
-import { Navigate } from 'react-router-dom'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth()
   if (loading) return null
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, loading, role } = useAuth()
+  if (loading) return null
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (role !== 'admin') return <Navigate to="/documents" replace />
   return <>{children}</>
 }
 
@@ -38,19 +46,55 @@ const App = () => (
               </ProtectedRoute>
             }
           >
-            <Route path="/" element={<Index />} />
-            <Route path="/external-offices" element={<ExternalOffices />} />
-            <Route path="/inspect" element={<InspectApi />} />
+            <Route
+              path="/"
+              element={
+                <AdminRoute>
+                  <Index />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/external-offices"
+              element={
+                <AdminRoute>
+                  <ExternalOffices />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/inspect"
+              element={
+                <AdminRoute>
+                  <InspectApi />
+                </AdminRoute>
+              }
+            />
             <Route path="/documents" element={<DocumentUpload />} />
-            <Route path="/users" element={<UsersManagement />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route
+              path="/users"
+              element={
+                <AdminRoute>
+                  <UsersManagement />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <AdminRoute>
+                  <SettingsPage />
+                </AdminRoute>
+              }
+            />
+            <Route path="/profile" element={<Profile />} />
             <Route
               path="/land/:id"
               element={
-                <>
+                <AdminRoute>
                   <Index />
                   <LandDetail />
-                </>
+                </AdminRoute>
               }
             />
           </Route>

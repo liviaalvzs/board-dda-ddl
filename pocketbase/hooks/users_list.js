@@ -12,6 +12,7 @@ routerAdd(
           name: r.getString('name') || r.getString('email') || 'Usuário',
           email: r.getString('email') || '',
           verified: r.getBool('verified'),
+          role: r.getString('role') || 'negociador',
           created: r.getString('created') || '',
         })
       }

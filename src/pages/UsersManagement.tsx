@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Shield, Loader2, CheckCircle2, Clock } from 'lucide-react'
+import { Plus, Shield, Loader2, CheckCircle2, Clock, UserCog } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +21,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { preRegisterUser } from '@/services/users'
 
 export default function UsersManagement() {
@@ -29,6 +36,7 @@ export default function UsersManagement() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
+  const [role, setRole] = useState<'admin' | 'negociador'>('negociador')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
@@ -51,11 +59,12 @@ export default function UsersManagement() {
     if (!email.trim()) return
     setIsSubmitting(true)
     try {
-      await preRegisterUser(email, name)
+      await preRegisterUser(email, name, role)
       toast({ title: 'Usuário pré-cadastrado com sucesso' })
       setDialogOpen(false)
       setEmail('')
       setName('')
+      setRole('negociador')
       fetchUsers()
     } catch (error: any) {
       toast({ title: error?.response?.error || 'Erro ao pré-cadastrar', variant: 'destructive' })
@@ -99,13 +108,14 @@ export default function UsersManagement() {
               <TableRow className="bg-brand-primary/5 hover:bg-brand-primary/5">
                 <TableHead className="font-semibold text-brand-primary">Nome</TableHead>
                 <TableHead className="font-semibold text-brand-primary">Email</TableHead>
+                <TableHead className="font-semibold text-brand-primary">Função</TableHead>
                 <TableHead className="font-semibold text-brand-primary">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-brand-primary/50">
+                  <TableCell colSpan={4} className="text-center py-8 text-brand-primary/50">
                     Nenhum usuário cadastrado
                   </TableCell>
                 </TableRow>
@@ -116,6 +126,18 @@ export default function UsersManagement() {
                       {u.name || '—'}
                     </TableCell>
                     <TableCell className="text-brand-primary/60 text-sm">{u.email}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={
+                          u.role === 'admin'
+                            ? 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10'
+                            : 'bg-blue-50 text-blue-700 hover:bg-blue-50'
+                        }
+                      >
+                        <UserCog className="w-3 h-3 mr-1" />
+                        {u.role === 'admin' ? 'Administrador' : 'Negociador'}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       {u.verified ? (
                         <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
@@ -159,6 +181,21 @@ export default function UsersManagement() {
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handlePreRegister()}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Função</Label>
+                <Select value={role} onValueChange={(v) => setRole(v as 'admin' | 'negociador')}>
+                  <SelectTrigger id="role">
+                    <SelectValue placeholder="Selecione a função" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="negociador">Negociador</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-brand-primary/50">
+                  Negociadores só podem enviar documentos e alterar sua senha.
+                </p>
               </div>
             </div>
             <DialogFooter>

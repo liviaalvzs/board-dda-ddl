@@ -7,10 +7,10 @@ export const checkEmail = (email: string) =>
     headers: { 'Content-Type': 'application/json' },
   })
 
-export const preRegisterUser = (email: string, name?: string) =>
+export const preRegisterUser = (email: string, name?: string, role?: string) =>
   pb.send('/backend/v1/pre-register-user', {
     method: 'POST',
-    body: JSON.stringify({ email, name }),
+    body: JSON.stringify({ email, name, role }),
     headers: { 'Content-Type': 'application/json' },
   })
 

@@ -1,10 +1,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import pb from '@/lib/pocketbase/client'
 
+type UserRole = 'admin' | 'negociador'
+
 interface AuthContextType {
   user: any
   isAuthenticated: boolean
   isAdmin: boolean
+  role: UserRole
   activateAccount: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => void
@@ -23,6 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<any>(pb.authStore.isValid ? pb.authStore.record : null)
   const [isAuthenticated, setIsAuthenticated] = useState(pb.authStore.isValid)
   const [isAdmin, setIsAdmin] = useState(pb.authStore.isAdmin || false)
+  const [role, setRole] = useState<UserRole>((pb.authStore.record as any)?.role || 'negociador')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -30,6 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(pb.authStore.isValid ? record : null)
       setIsAuthenticated(pb.authStore.isValid)
       setIsAdmin(pb.authStore.isAdmin || false)
+      setRole(((record as any)?.role as UserRole) || 'negociador')
     })
 
     if (pb.authStore.isValid) {
@@ -80,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         isAuthenticated,
         isAdmin,
+        role,
         activateAccount,
         signIn,
         signOut,

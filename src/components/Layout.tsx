@@ -1,17 +1,56 @@
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom'
-import { Leaf, LogOut, Building2, KanbanSquare, Settings, FileText } from 'lucide-react'
+import { Leaf, LogOut, Building2, KanbanSquare, Settings, FileText, User } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export default function Layout() {
-  const { signOut, user } = useAuth()
+  const { signOut, user, role } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const isAdmin = role === 'admin'
 
   const handleLogout = () => {
     signOut()
     navigate('/login')
   }
+
+  const navItems = isAdmin
+    ? [
+        {
+          to: '/',
+          label: 'Board',
+          icon: KanbanSquare,
+          match: (p: string) => p === '/' || p.startsWith('/land/'),
+        },
+        {
+          to: '/external-offices',
+          label: 'Escritórios',
+          icon: Building2,
+          match: (p: string) => p === '/external-offices',
+        },
+        {
+          to: '/documents',
+          label: 'Documentos',
+          icon: FileText,
+          match: (p: string) => p === '/documents',
+        },
+        {
+          to: '/settings',
+          label: 'Configurações',
+          icon: Settings,
+          match: (p: string) => p === '/settings',
+        },
+      ]
+    : [
+        {
+          to: '/documents',
+          label: 'Documentos',
+          icon: FileText,
+          match: (p: string) => p === '/documents',
+        },
+        { to: '/profile', label: 'Perfil', icon: User, match: (p: string) => p === '/profile' },
+      ]
 
   return (
     <div className="flex flex-col h-screen bg-white overflow-hidden">
@@ -28,46 +67,23 @@ export default function Layout() {
             </div>
 
             <nav className="flex items-center gap-6">
-              <Link
-                to="/"
-                className={`flex items-center gap-2 text-sm font-medium transition-colors ${
-                  location.pathname === '/' || location.pathname.startsWith('/land/')
-                    ? 'text-brand-secondary'
-                    : 'text-brand-primary/60 hover:text-brand-primary'
-                }`}
-              >
-                <KanbanSquare className="w-4 h-4" /> Board
-              </Link>
-              <Link
-                to="/external-offices"
-                className={`flex items-center gap-2 text-sm font-medium transition-colors ${
-                  location.pathname === '/external-offices'
-                    ? 'text-brand-secondary'
-                    : 'text-brand-primary/60 hover:text-brand-primary'
-                }`}
-              >
-                <Building2 className="w-4 h-4" /> Escritórios
-              </Link>
-              <Link
-                to="/documents"
-                className={`flex items-center gap-2 text-sm font-medium transition-colors ${
-                  location.pathname === '/documents'
-                    ? 'text-brand-secondary'
-                    : 'text-brand-primary/60 hover:text-brand-primary'
-                }`}
-              >
-                <FileText className="w-4 h-4" /> Documentos
-              </Link>
-              <Link
-                to="/settings"
-                className={`flex items-center gap-2 text-sm font-medium transition-colors ${
-                  location.pathname === '/settings'
-                    ? 'text-brand-secondary'
-                    : 'text-brand-primary/60 hover:text-brand-primary'
-                }`}
-              >
-                <Settings className="w-4 h-4" /> Configurações
-              </Link>
+              {navItems.map((item) => {
+                const isActive = item.match(location.pathname)
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={cn(
+                      'flex items-center gap-2 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'text-brand-secondary'
+                        : 'text-brand-primary/60 hover:text-brand-primary',
+                    )}
+                  >
+                    <item.icon className="w-4 h-4" /> {item.label}
+                  </Link>
+                )
+              })}
             </nav>
           </div>
 
