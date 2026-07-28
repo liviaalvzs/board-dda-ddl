@@ -204,8 +204,9 @@ export default function Mapa() {
       if (!mapContainerRef.current || mapRef.current) return
 
       try {
-        const L = await loadLeaflet()
-        if (cancelledRef.current || !mapContainerRef.current) return
+        await loadLeaflet()
+        const L = (window as any).L
+        if (!L || cancelledRef.current || !mapContainerRef.current) return
 
         mapInstance = L.map(mapContainerRef.current, {
           center: BRAZIL_CENTER,
