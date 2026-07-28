@@ -1,6 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { loadLeaflet } from '@/lib/leaflet-loader'
-import { getStageColor, getRiskColor, calculateCentroid, parseShapeWgs84 } from '@/lib/map-utils'
+import {
+  getStageColor,
+  getRiskColor,
+  calculateCentroid,
+  parseShapeWgs84,
+  buildStatusColorMap,
+} from '@/lib/map-utils'
 import { fetchAllLands, fetchAllLandMetadata } from '@/services/lands'
 import { MapLegend } from '@/components/kanban/MapLegend'
 import { LandDetailDrawer } from '@/components/kanban/LandDetailDrawer'
@@ -25,6 +31,15 @@ export default function Mapa() {
   const [lands, setLands] = useState<any[]>([])
   const [metadataMap, setMetadataMap] = useState<Map<string, any>>(new Map())
   const [refreshKey, setRefreshKey] = useState(0)
+
+  const uniqueStages = useMemo(() => {
+    const names = lands
+      .map((l) => l.currentStatus?.name || l.currentStatus?.etapa)
+      .filter(Boolean) as string[]
+    return [...new Set(names)].sort()
+  }, [lands])
+
+  const statusColorMap = useMemo(() => buildStatusColorMap(uniqueStages), [uniqueStages])
   const [selectedLandId, setSelectedLandId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [amplified, setAmplified] = useState(() => localStorage.getItem(AMPLIFIED_KEY) === 'true')
@@ -71,7 +86,9 @@ export default function Mapa() {
 
       const centroid = calculateCentroid(shape)
       const meta = metadataMap.get(land.id || land.external_id || '')
-      const markerColor = getRiskColor(meta?.risk_level) || getStageColor(land.currentStatus?.etapa)
+      const stageName = land.currentStatus?.name || land.currentStatus?.etapa
+      const markerColor =
+        getRiskColor(meta?.risk_level) || statusColorMap[stageName] || getStageColor(stageName)
 
       const pulseIcon = L.divIcon({
         className: 'map-pulse-marker',
@@ -91,7 +108,7 @@ export default function Mapa() {
       })
       markerLayerRef.current.addLayer(pulseMarker)
     }
-  }, [lands, metadataMap])
+  }, [lands, metadataMap, statusColorMap])
 
   const loadData = useCallback(async () => {
     cancelledRef.current = false
@@ -178,8 +195,8 @@ export default function Mapa() {
       const shape = parseShapeWgs84(land.shapeWgs84)
       if (!shape) continue
 
-      const stageName = land.currentStatus?.etapa || land.currentStatus?.name
-      const fillColor = getStageColor(stageName)
+      const stageName = land.currentStatus?.name || land.currentStatus?.etapa
+      const fillColor = statusColorMap[stageName] || getStageColor(stageName)
       const style = {
         color: fillColor,
         weight: 2,
@@ -196,7 +213,7 @@ export default function Mapa() {
           const state = land.geomAcronymState || land.state || 'N/A'
           const area = (land.area || 0).toLocaleString('pt-BR')
           const stageLabel = getStatusLabel(stageName) || 'Sem etapa'
-          const dotColor = getStageColor(stageName)
+          const dotColor = statusColorMap[stageName] || getStageColor(stageName)
 
           const tooltipContent = `
             <div style="font-family: sans-serif; min-width: 180px;">
@@ -262,7 +279,7 @@ export default function Mapa() {
     if (amplified) {
       renderMarkers()
     }
-  }, [lands, metadataMap, amplified, renderMarkers, restoreSelectedStyle])
+  }, [lands, metadataMap, amplified, renderMarkers, restoreSelectedStyle, statusColorMap])
 
   return (
     <div className="flex-1 relative h-full">
@@ -288,7 +305,7 @@ export default function Mapa() {
 
       {!loading && !error && (
         <>
-          <MapLegend stages={[]} />
+          <MapLegend stages={uniqueStages} colorMap={statusColorMap} />
 
           <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-xl shadow-lg border border-brand-primary/10 p-4 flex items-center gap-3 animate-fade-in-up">
             <Switch checked={amplified} onCheckedChange={setAmplified} />

@@ -7,6 +7,14 @@ export const COLOR_PALETTE: string[] = [
   '#db2777',
   '#ca8a04',
   '#4f46e5',
+  '#dc2626',
+  '#059669',
+  '#7c3aed',
+  '#d97706',
+  '#0d9488',
+  '#be185d',
+  '#4338ca',
+  '#65a30d',
 ]
 
 export const FALLBACK_COLOR = '#999999'
@@ -28,6 +36,45 @@ export function getStageColor(stageName: string | null | undefined): string {
     return COLOR_PALETTE[index]
   }
   return FALLBACK_COLOR
+}
+
+export function buildStatusColorMap(statusNames: string[]): Record<string, string> {
+  const unique = [...new Set(statusNames.filter(Boolean))].sort()
+  const map: Record<string, string> = {}
+  const usedColors = new Set<string>()
+
+  const stageMap: Record<string, number> = {
+    'aguardando-doc': 0,
+    prospeccao: 1,
+    'analise-tecnica': 2,
+    'proposta-assinada': 3,
+    'dda-analise': 4,
+    aprovado: 5,
+    reprovado: 6,
+    'emissao-certidoes': 7,
+  }
+
+  for (const name of unique) {
+    const knownIndex = stageMap[name]
+    if (knownIndex !== undefined && knownIndex < COLOR_PALETTE.length) {
+      map[name] = COLOR_PALETTE[knownIndex]
+      usedColors.add(COLOR_PALETTE[knownIndex])
+    }
+  }
+
+  let paletteIdx = 0
+  for (const name of unique) {
+    if (map[name]) continue
+    while (paletteIdx < COLOR_PALETTE.length && usedColors.has(COLOR_PALETTE[paletteIdx])) {
+      paletteIdx++
+    }
+    const color = COLOR_PALETTE[paletteIdx % COLOR_PALETTE.length]
+    map[name] = color
+    usedColors.add(color)
+    paletteIdx++
+  }
+
+  return map
 }
 
 export function getRiskColor(riskLevel: string | null | undefined): string {

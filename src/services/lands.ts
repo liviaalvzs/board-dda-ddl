@@ -18,9 +18,13 @@ interface LandItem {
 
 function extractLands(res: any): LandItem[] {
   if (!res) return []
-  const data = res.data || res.items || res
-  const items = Array.isArray(data) ? data : Array.isArray(res) ? res : []
-  return items
+  if (Array.isArray(res)) return res
+  if (Array.isArray(res.data)) return res.data
+  if (Array.isArray(res.items)) return res.items
+  if (res.data && typeof res.data === 'object' && Array.isArray(res.data.items)) {
+    return res.data.items
+  }
+  return []
 }
 
 export async function fetchAllLands(): Promise<LandItem[]> {
