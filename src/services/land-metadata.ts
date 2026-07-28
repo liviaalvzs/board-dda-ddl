@@ -104,10 +104,14 @@ export async function upsertLandMetadata(
     }
   } else {
     try {
-      record = await pb.collection('land_metadata').create({
+      const createPayload: Record<string, any> = {
         external_id: externalId,
         ...payload,
-      })
+      }
+      if (!('cluster_serial' in createPayload)) {
+        createPayload.cluster_serial = ''
+      }
+      record = await pb.collection('land_metadata').create(createPayload)
     } catch (err) {
       console.error('[upsertLandMetadata] Create failed:', {
         externalId,

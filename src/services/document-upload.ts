@@ -3,7 +3,8 @@ import pb from '@/lib/pocketbase/client'
 export async function searchLands(query: string): Promise<any[]> {
   if (!query || query.trim().length < 2) return []
   const trimmed = query.trim()
-  const filter = `cluster_serial ~ "${trimmed}" || external_id ~ "${trimmed}"`
+  const escaped = trimmed.replace(/"/g, '\\"')
+  const filter = `cluster_serial ~ "${escaped}" || external_id ~ "${escaped}"`
   try {
     return await pb.collection('land_metadata').getFullList({
       filter,

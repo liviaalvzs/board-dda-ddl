@@ -163,22 +163,36 @@ export default function Index() {
 
       const mappedCards: KanbanCardType[] = list.map((item: any) => {
         let stageId = KANBAN_COLUMNS[0].id
+        const apiClusterSerial = item.external_id || item.clusterSerial || ''
         const displaySerial = item.clusterSerial || item.external_id || item.externalId || item.id
         const meta = metadataMap.get(item.id) || metadataMap.get(displaySerial)
 
         if (meta && meta.status) {
           stageId = meta.status
+          if (!meta.cluster_serial && apiClusterSerial) {
+            newMetadataPromises.push(
+              pb
+                .collection('land_metadata')
+                .update(meta.id, { cluster_serial: apiClusterSerial })
+                .catch((e) => console.error('Failed to update cluster_serial', e)),
+            )
+          }
         } else if (!meta) {
           newMetadataPromises.push(
             pb
               .collection('land_metadata')
-              .create({ external_id: item.id, status: stageId })
+              .create({
+                external_id: item.id,
+                status: stageId,
+                cluster_serial: apiClusterSerial,
+              })
               .catch((e) => console.error('Failed to init land_metadata', e)),
           )
         }
 
         const baseName = item.name || 'Propriedade sem nome'
-        const title = displaySerial ? `${baseName} - ${displaySerial}` : baseName
+        const finalDisplaySerial = meta?.cluster_serial || apiClusterSerial || displaySerial
+        const title = finalDisplaySerial ? `${baseName} - ${finalDisplaySerial}` : baseName
 
         const responsibleName =
           meta?.expand?.responsible_user?.name ||
@@ -191,7 +205,7 @@ export default function Index() {
           id: item.id,
           title,
           name: item.name,
-          clusterSerial: displaySerial,
+          clusterSerial: finalDisplaySerial,
           code: item.code || item.sicarCode || item.agrotoolsCode,
           location: {
             city: item.city || item.geomCityName || 'Desconhecido',
