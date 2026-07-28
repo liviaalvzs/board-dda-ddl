@@ -1,5 +1,14 @@
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom'
-import { Leaf, LogOut, Building2, KanbanSquare, Settings, FileText, User } from 'lucide-react'
+import {
+  Leaf,
+  LogOut,
+  Building2,
+  KanbanSquare,
+  Settings,
+  FileText,
+  User,
+  Map as MapIcon,
+} from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -22,6 +31,12 @@ export default function Layout() {
           label: 'Board',
           icon: KanbanSquare,
           match: (p: string) => p === '/' || p.startsWith('/land/'),
+        },
+        {
+          to: '/mapa',
+          label: 'Mapa',
+          icon: MapIcon,
+          match: (p: string) => p === '/mapa',
         },
         {
           to: '/external-offices',

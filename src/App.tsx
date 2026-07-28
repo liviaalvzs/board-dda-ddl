@@ -13,6 +13,7 @@ import SettingsPage from './pages/Settings'
 import DocumentUpload from './pages/DocumentUpload'
 import InspectApi from './pages/InspectApi'
 import Profile from './pages/Profile'
+import Mapa from './pages/Mapa'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -71,6 +72,14 @@ const App = () => (
               }
             />
             <Route path="/documents" element={<DocumentUpload />} />
+            <Route
+              path="/mapa"
+              element={
+                <AdminRoute>
+                  <Mapa />
+                </AdminRoute>
+              }
+            />
             <Route
               path="/users"
               element={
