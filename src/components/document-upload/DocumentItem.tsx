@@ -88,31 +88,39 @@ export function DocumentItem({
         dragOver && 'border-brand-secondary bg-brand-secondary/5 ring-2 ring-brand-secondary/20',
       )}
     >
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+        <div className="flex items-center gap-3 min-w-0">
           {isUploaded ? (
             <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
           ) : (
             <div className="w-5 h-5 rounded-full border-2 border-brand-primary/20 shrink-0" />
           )}
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-brand-primary/40" />
-            <span className="text-sm font-semibold text-brand-primary">{documentLabel}</span>
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <FileText className="w-4 h-4 text-brand-primary/40 shrink-0" />
+            <span className="text-sm font-semibold text-brand-primary truncate">
+              {documentLabel}
+            </span>
             <span
               className={cn(
-                'text-xs font-medium',
+                'text-xs font-medium shrink-0',
                 isUploaded ? 'text-emerald-600' : 'text-brand-primary/40',
               )}
             >
-              {isUploaded ? 'Enviado' : 'Pendente'}
+              {isUploaded ? '✅ Enviado' : '⬜ Pendente'}
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {isUploaded && fileUrl && (
-            <Button variant="outline" size="sm" asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="min-h-[44px] min-w-[44px] h-auto py-2"
+            >
               <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-3.5 h-3.5 mr-1" /> Ver
+                <ExternalLink className="w-4 h-4 md:mr-1" />
+                <span className="hidden md:inline">Ver</span>
               </a>
             </Button>
           )}
@@ -133,6 +141,7 @@ export function DocumentItem({
             disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
             className={cn(
+              'min-h-[44px] min-w-[44px] h-auto py-2 flex-1 md:flex-none',
               isUploaded
                 ? 'border-brand-primary/20 text-brand-primary/60 hover:text-brand-primary'
                 : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
@@ -140,15 +149,21 @@ export function DocumentItem({
           >
             {uploading ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Enviando...
+                <Loader2 className="w-4 h-4 md:mr-1 animate-spin" />
+                <span className="hidden md:inline">Enviando...</span>
+                <span className="md:hidden">Enviando</span>
               </>
             ) : isUploaded ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 mr-1" /> Reenviar
+                <RefreshCw className="w-4 h-4 md:mr-1" />
+                <span className="hidden md:inline">Reenviar</span>
+                <span className="md:hidden">Reenviar</span>
               </>
             ) : (
               <>
-                <Upload className="w-3.5 h-3.5 mr-1" /> Enviar
+                <Upload className="w-4 h-4 md:mr-1" />
+                <span className="hidden md:inline">Enviar</span>
+                <span className="md:hidden">Enviar</span>
               </>
             )}
           </Button>
