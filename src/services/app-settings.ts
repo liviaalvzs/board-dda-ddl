@@ -37,3 +37,25 @@ export async function getRequiredDocumentTypes(): Promise<string[]> {
 export async function updateRequiredDocumentTypes(types: string[]): Promise<void> {
   await updateSetting('required_document_types', JSON.stringify(types))
 }
+
+export interface DocumentType {
+  key: string
+  label: string
+}
+
+export async function getDocumentTypes(): Promise<DocumentType[]> {
+  try {
+    const value = await getSetting('document_types')
+    const parsed = JSON.parse(value || '[]')
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (item: any) => item && typeof item.key === 'string' && typeof item.label === 'string',
+    )
+  } catch {
+    return []
+  }
+}
+
+export async function updateDocumentTypes(types: DocumentType[]): Promise<void> {
+  await updateSetting('document_types', JSON.stringify(types))
+}

@@ -1,11 +1,13 @@
-import { MapPin, Clock, FileText, Building2, Loader2 } from 'lucide-react'
+import { MapPin, Clock, FileText, Building2, Loader2, CheckCircle2 } from 'lucide-react'
 import { KanbanCardType } from '@/types/kanban'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { useNavigate } from 'react-router-dom'
-import { differenceInDays, differenceInHours } from 'date-fns'
+import { differenceInDays, differenceInHours, format } from 'date-fns'
 import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
+import { getDocumentLabel } from '@/lib/document-labels'
 
 interface KanbanCardProps {
   card: KanbanCardType
@@ -150,6 +152,31 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
           className="h-1.5 bg-slate-200"
           indicatorClassName="bg-brand-secondary"
         />
+        {card.documentChecks && card.documentChecks.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {card.documentChecks.slice(0, 4).map((doc, i) => (
+              <Tooltip key={i}>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default">
+                    <CheckCircle2 className="w-2.5 h-2.5" />
+                    {getDocumentLabel(doc.documentKey)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <p className="font-semibold">Enviado por: {doc.userName}</p>
+                  <p className="text-muted-foreground">
+                    {format(new Date(doc.createdAt), 'dd/MM/yyyy HH:mm')}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+            {card.documentChecks.length > 4 && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                +{card.documentChecks.length - 4}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 mt-1">

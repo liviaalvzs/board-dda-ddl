@@ -23,9 +23,16 @@ export function KanbanBoard({
   onCreateCard,
 }: KanbanBoardProps) {
   const [metadataMap, setMetadataMap] = useState<Record<string, any>>({})
-  const [docChecksMap, setDocChecksMap] = useState<Record<string, { docs: number; dda: number }>>(
-    {},
-  )
+  const [docChecksMap, setDocChecksMap] = useState<
+    Record<
+      string,
+      {
+        count: number
+        dda: number
+        details: Array<{ documentKey: string; userName: string; createdAt: string }>
+      }
+    >
+  >({})
   const [savingCards, setSavingCards] = useState<Set<string>>(new Set())
   const pendingUpdatesRef = useRef<Record<string, string>>({})
   const { toast } = useToast()
@@ -53,18 +60,33 @@ export function KanbanBoard({
     try {
       const records = await pb.collection('document_checks').getFullList({
         filter: 'is_completed = true',
+        expand: 'user',
       })
       const map = records.reduce(
         (acc, r) => {
-          if (!acc[r.land_id]) acc[r.land_id] = { docs: 0, dda: 0 }
+          if (!acc[r.land_id]) acc[r.land_id] = { count: 0, dda: 0, details: [] }
           if (r.document_key === 'dda_existente' || r.document_key === 'dda_distribuida') {
             acc[r.land_id].dda += 1
           } else {
-            acc[r.land_id].docs += 1
+            acc[r.land_id].count += 1
           }
+          const userName =
+            r.expand?.user?.name || r.expand?.user?.email?.split('@')[0] || 'Desconhecido'
+          acc[r.land_id].details.push({
+            documentKey: r.document_key,
+            userName,
+            createdAt: r.created,
+          })
           return acc
         },
-        {} as Record<string, { docs: number; dda: number }>,
+        {} as Record<
+          string,
+          {
+            count: number
+            dda: number
+            details: Array<{ documentKey: string; userName: string; createdAt: string }>
+          }
+        >,
       )
       setDocChecksMap(map)
     } catch (e) {
@@ -89,15 +111,16 @@ export function KanbanBoard({
     return cards.map((c) => {
       const meta = metadataMap[c.id] || metadataMap[c.clusterSerial || '']
       const checks = docChecksMap[c.id] ||
-        docChecksMap[c.clusterSerial || ''] || { docs: 0, dda: 0 }
+        docChecksMap[c.clusterSerial || ''] || { count: 0, dda: 0, details: [] }
       return {
         ...c,
         stageId: meta?.status || c.stageId,
         isSaving: savingCards.has(c.id),
         responsible: meta?.expand?.responsible_user?.name || 'Unassigned',
         externalOffice: meta?.expand?.external_offices?.name || 'Sem Escritório',
-        completedDocs: checks.docs,
+        completedDocs: checks.count,
         completedDda: checks.dda,
+        documentChecks: checks.details,
         riskLevel: meta?.risk_level || '',
         ddaStatusLabel: meta?.dda_status || '',
         createdAt: meta?.created || new Date().toISOString(),

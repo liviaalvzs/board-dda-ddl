@@ -2,22 +2,24 @@ import { useState, useEffect } from 'react'
 import { FileText, Loader2, Info } from 'lucide-react'
 import { LandSearch } from '@/components/document-upload/LandSearch'
 import { DocumentItem } from '@/components/document-upload/DocumentItem'
-import { getDocumentChecksForLand, getDocumentLabel } from '@/services/document-upload'
-import { getRequiredDocumentTypes } from '@/services/app-settings'
+import { DocumentHistory } from '@/components/document-upload/DocumentHistory'
+import { getDocumentChecksForLand } from '@/services/document-upload'
+import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { useRealtime } from '@/hooks/use-realtime'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 
 export default function DocumentUpload() {
   const [selectedLand, setSelectedLand] = useState<any>(null)
-  const [documentTypes, setDocumentTypes] = useState<string[]>([])
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([])
   const [checks, setChecks] = useState<Record<string, any>>({})
+  const [history, setHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getRequiredDocumentTypes()
+    getDocumentTypes()
       .then(setDocumentTypes)
-      .catch(() => setDocumentTypes(['cpf', 'rg', 'certidao-nascimento']))
+      .catch(() => setDocumentTypes([]))
       .finally(() => setLoading(false))
   }, [])
 
@@ -25,19 +27,27 @@ export default function DocumentUpload() {
     if (!selectedLand) return
     try {
       const records = await getDocumentChecksForLand(selectedLand.external_id)
+      const sorted = [...records].sort(
+        (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
+      )
+      setHistory(sorted)
       const map: Record<string, any> = {}
-      records.forEach((r) => {
-        map[r.document_key] = r
-      })
+      for (const r of sorted) {
+        if (!map[r.document_key]) {
+          map[r.document_key] = r
+        }
+      }
       setChecks(map)
     } catch {
       setChecks({})
+      setHistory([])
     }
   }
 
   useEffect(() => {
     if (selectedLand) {
       setChecks({})
+      setHistory([])
       fetchChecks()
     }
   }, [selectedLand])
@@ -51,11 +61,12 @@ export default function DocumentUpload() {
   useEffect(() => {
     if (!selectedLand) {
       setChecks({})
+      setHistory([])
     }
   }, [selectedLand])
 
-  const completedCount = documentTypes.filter((type) => {
-    const check = checks[type]
+  const completedCount = documentTypes.filter((doc) => {
+    const check = checks[doc.key]
     const fileName = check?.document_file
       ? Array.isArray(check.document_file)
         ? check.document_file[0]
@@ -103,13 +114,13 @@ export default function DocumentUpload() {
                     {completedCount} de {documentTypes.length}
                   </span>
                 </div>
-                {documentTypes.map((type) => (
+                {documentTypes.map((doc) => (
                   <DocumentItem
-                    key={type}
+                    key={doc.key}
                     landId={selectedLand.external_id}
-                    documentKey={type}
-                    documentLabel={getDocumentLabel(type)}
-                    check={checks[type]}
+                    documentKey={doc.key}
+                    documentLabel={doc.label}
+                    check={checks[doc.key]}
                     onUploaded={fetchChecks}
                   />
                 ))}
@@ -125,6 +136,7 @@ export default function DocumentUpload() {
                 </Button>
               </div>
             )}
+            <DocumentHistory records={history} />
           </div>
         )}
 

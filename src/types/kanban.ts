@@ -1,5 +1,11 @@
 export type CardStatus = 'info' | 'warning' | 'alert' | 'critical'
 
+export interface DocumentCheckInfo {
+  documentKey: string
+  userName: string
+  createdAt: string
+}
+
 export interface KanbanCardType {
   id: string
   title: string
@@ -24,6 +30,7 @@ export interface KanbanCardType {
   createdAt?: string
   updatedAt?: string
   isSaving?: boolean
+  documentChecks?: DocumentCheckInfo[]
 }
 
 export interface KanbanColumnType {

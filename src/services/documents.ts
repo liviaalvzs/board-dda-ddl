@@ -21,6 +21,7 @@ export async function toggleDocumentCheck(
       land_id: landId,
       document_key: documentKey,
       is_completed: isCompleted,
+      user: pb.authStore.record?.id || '',
     })
   }
 }
@@ -37,6 +38,7 @@ export async function setDocumentUrl(landId: string, documentKey: string, docume
       document_key: documentKey,
       document_url: documentUrl,
       is_completed: false,
+      user: pb.authStore.record?.id || '',
     })
   }
 }
