@@ -73,14 +73,7 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
             <span className="text-[10px] text-brand-primary/60 font-bold uppercase tracking-wider">
               Terra Selecionada
             </span>
-            <p className="text-sm font-bold text-brand-primary">
-              {selectedLand.cluster_serial}
-              {selectedLand.external_id && (
-                <span className="ml-1 text-brand-primary/50 font-normal">
-                  ({selectedLand.external_id})
-                </span>
-              )}
-            </p>
+            <p className="text-sm font-bold text-brand-primary">{selectedLand.cluster_serial}</p>
             {selectedLand.status && (
               <Badge variant="outline" className="mt-1 text-xs font-medium border-brand-primary/10">
                 {getStatusLabel(selectedLand.status)}
@@ -90,7 +83,7 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
         </div>
         <button
           onClick={onClear}
-          className="text-brand-primary/40 hover:text-brand-critical transition-colors p-2"
+          className="text-brand-primary/40 hover:text-rose-500 transition-colors p-2"
           aria-label="Limpar seleção"
         >
           <X className="w-4 h-4" />
@@ -104,13 +97,13 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-primary/40" />
         <Input
-          placeholder="Buscar terra por código (cluster_serial ou external_id)..."
+          placeholder="Buscar terra por código (ex: CAM-0193)..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => (results.length > 0 || error) && setShowDropdown(true)}
           className={cn(
-            'pl-9 bg-white border-brand-primary/20 rounded-xl h-12 text-brand-primary',
-            error && 'border-brand-critical/40',
+            'pl-9 bg-white border-brand-primary/10 rounded-xl h-12 text-brand-primary placeholder:text-brand-primary/40 shadow-sm',
+            error && 'border-rose-400',
           )}
         />
         {loading && (
@@ -118,9 +111,9 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
         )}
       </div>
       {showDropdown && !loading && (
-        <div className="absolute z-50 mt-2 w-full bg-white rounded-xl border border-brand-primary/10 shadow-elevation overflow-hidden max-h-64 overflow-y-auto">
+        <div className="absolute z-50 mt-2 w-full bg-white rounded-xl border border-brand-primary/10 shadow-md overflow-hidden max-h-64 overflow-y-auto">
           {error ? (
-            <div className="px-4 py-3 text-sm text-brand-critical flex items-center gap-2">
+            <div className="px-4 py-3 text-sm text-rose-500 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               {error}
             </div>
@@ -135,19 +128,11 @@ export function LandSearch({ onSelect, selectedLand, onClear }: LandSearchProps)
               <button
                 key={land.id}
                 onClick={() => handleSelect(land)}
-                className="w-full text-left px-4 py-3 hover:bg-brand-primary/5 transition-colors border-b border-brand-primary/5 last:border-0"
+                className="w-full text-left px-4 py-3 hover:bg-brand-primary/[0.02] transition-colors border-b border-brand-primary/5 last:border-0"
               >
                 <span className="text-sm font-semibold text-brand-primary">
                   {land.cluster_serial}
                 </span>
-                {land.external_id && (
-                  <span className="ml-2 text-xs text-brand-primary/50">({land.external_id})</span>
-                )}
-                {land.status && (
-                  <span className="ml-2 text-xs text-brand-primary/50">
-                    {getStatusLabel(land.status)}
-                  </span>
-                )}
               </button>
             ))
           )}
