@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { KANBAN_COLUMN_IDS } from '@/lib/kanban-columns'
 
 interface LandItem {
   id: string
@@ -57,4 +58,20 @@ export async function fetchAllLandMetadata(): Promise<Map<string, any>> {
     map.set(record.external_id, record)
   }
   return map
+}
+
+export async function fetchKanbanLands(): Promise<{
+  lands: LandItem[]
+  metadataMap: Map<string, any>
+}> {
+  const [allLands, metaMap] = await Promise.all([fetchAllLands(), fetchAllLandMetadata()])
+
+  const filteredLands = allLands.filter((land) => {
+    const key1 = land.id || ''
+    const key2 = land.external_id || ''
+    const meta = metaMap.get(key1) || metaMap.get(key2)
+    return meta && typeof meta.status === 'string' && KANBAN_COLUMN_IDS.has(meta.status)
+  })
+
+  return { lands: filteredLands, metadataMap: metaMap }
 }
