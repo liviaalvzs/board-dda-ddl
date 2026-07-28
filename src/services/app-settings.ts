@@ -41,9 +41,22 @@ export async function updateRequiredDocumentTypes(types: string[]): Promise<void
 export interface DocumentType {
   key: string
   label: string
+  category?: string
 }
 
 export async function getDocumentTypes(): Promise<DocumentType[]> {
+  try {
+    const records = await pb.collection('document_types').getFullList({ sort: 'category,name' })
+    if (records.length > 0) {
+      return records.map((r: any) => ({
+        key: r.key,
+        label: r.name,
+        category: r.category,
+      }))
+    }
+  } catch {
+    // fall through to app_settings
+  }
   try {
     const value = await getSetting('document_types')
     const parsed = JSON.parse(value || '[]')

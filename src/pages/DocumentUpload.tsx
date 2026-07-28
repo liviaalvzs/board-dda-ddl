@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react'
-import { FileText, Loader2, Info } from 'lucide-react'
-import { LandSearch } from '@/components/document-upload/LandSearch'
-import { DocumentItem } from '@/components/document-upload/DocumentItem'
+import { useState, useEffect, useMemo } from 'react'
+import { FileText, Loader2, Info, Upload } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Link } from 'react-router-dom'
+import { CompactLandSearch } from '@/components/document-upload/CompactLandSearch'
+import { ProgressRing } from '@/components/document-upload/ProgressRing'
+import { ExpandableSearch } from '@/components/document-upload/ExpandableSearch'
+import { FilterTabs, type FilterType } from '@/components/document-upload/FilterTabs'
+import { DocumentRow } from '@/components/document-upload/DocumentRow'
+import { BulkUploadModal } from '@/components/document-upload/BulkUploadModal'
 import { DocumentHistory } from '@/components/document-upload/DocumentHistory'
 import { getDocumentChecksForLand } from '@/services/document-upload'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { useRealtime } from '@/hooks/use-realtime'
-import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
 
 export default function DocumentUpload() {
   const [selectedLand, setSelectedLand] = useState<any>(null)
@@ -15,6 +19,9 @@ export default function DocumentUpload() {
   const [checks, setChecks] = useState<Record<string, any>>({})
   const [history, setHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all')
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   useEffect(() => {
     getDocumentTypes()
@@ -33,9 +40,7 @@ export default function DocumentUpload() {
       setHistory(sorted)
       const map: Record<string, any> = {}
       for (const r of sorted) {
-        if (!map[r.document_key]) {
-          map[r.document_key] = r
-        }
+        if (!map[r.document_key]) map[r.document_key] = r
       }
       setChecks(map)
     } catch {
@@ -45,35 +50,57 @@ export default function DocumentUpload() {
   }
 
   useEffect(() => {
-    if (selectedLand) {
-      setChecks({})
-      setHistory([])
-      fetchChecks()
-    }
+    setChecks({})
+    setHistory([])
+    if (selectedLand) fetchChecks()
   }, [selectedLand])
 
   useRealtime('document_checks', (e) => {
-    if (selectedLand && e.record.land_id === selectedLand.external_id) {
-      fetchChecks()
-    }
+    if (selectedLand && e.record.land_id === selectedLand.external_id) fetchChecks()
   })
 
-  useEffect(() => {
-    if (!selectedLand) {
-      setChecks({})
-      setHistory([])
-    }
-  }, [selectedLand])
+  const docsWithStatus = useMemo(() => {
+    return documentTypes.map((doc) => {
+      const check = checks[doc.key]
+      const fileName = check?.document_file
+        ? Array.isArray(check.document_file)
+          ? check.document_file[0]
+          : check.document_file
+        : null
+      const isCompleted = check?.is_completed && !!(check?.document_url || fileName)
+      return { doc, check, isCompleted }
+    })
+  }, [documentTypes, checks])
 
-  const completedCount = documentTypes.filter((doc) => {
-    const check = checks[doc.key]
-    const fileName = check?.document_file
-      ? Array.isArray(check.document_file)
-        ? check.document_file[0]
-        : check.document_file
-      : null
-    return check?.is_completed && !!(check?.document_url || fileName)
-  }).length
+  const searchLower = searchQuery.toLowerCase()
+
+  const filteredDocs = useMemo(() => {
+    return docsWithStatus.filter(({ doc, isCompleted }) => {
+      const matchesSearch = doc.label.toLowerCase().includes(searchLower)
+      const matchesFilter =
+        activeFilter === 'all' ||
+        (activeFilter === 'pending' && !isCompleted) ||
+        (activeFilter === 'uploaded' && isCompleted)
+      return matchesSearch && matchesFilter
+    })
+  }, [docsWithStatus, searchLower, activeFilter])
+
+  const counts = useMemo(() => {
+    const matching = docsWithStatus.filter(({ doc }) =>
+      doc.label.toLowerCase().includes(searchLower),
+    )
+    return {
+      all: matching.length,
+      pending: matching.filter((d) => !d.isCompleted).length,
+      uploaded: matching.filter((d) => d.isCompleted).length,
+    }
+  }, [docsWithStatus, searchLower])
+
+  const completedCount = docsWithStatus.filter((d) => d.isCompleted).length
+  const totalCount = documentTypes.length
+  const pendingCount = totalCount - completedCount
+  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
+  const pendingDocs = docsWithStatus.filter((d) => !d.isCompleted).map((d) => d.doc)
 
   if (loading) {
     return (
@@ -83,64 +110,106 @@ export default function DocumentUpload() {
     )
   }
 
+  const renderGroup = (title: string, docs: typeof filteredDocs) => {
+    if (docs.length === 0) return null
+    return (
+      <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
+        <div className="px-4 py-2.5 bg-brand-primary/[0.02] border-b border-brand-primary/5">
+          <h3 className="text-sm font-semibold text-brand-primary">{title}</h3>
+        </div>
+        <div className="divide-y divide-brand-primary/5">
+          {docs.map(({ doc, check }) => (
+            <DocumentRow
+              key={doc.key}
+              landId={selectedLand.external_id}
+              documentKey={doc.key}
+              documentLabel={doc.label}
+              check={check}
+              onUploaded={fetchChecks}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex-1 overflow-auto bg-white p-4 md:p-8">
-      <div className="max-w-3xl mx-auto space-y-4 md:space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-primary flex items-center gap-2">
-            <FileText className="w-6 h-6 text-brand-secondary" />
+    <div className="flex-1 overflow-auto bg-gray-50 p-4 md:p-6">
+      <div className="max-w-3xl mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-brand-primary flex items-center gap-2">
+            <FileText className="w-5 h-5 text-brand-secondary" />
             Documentos
           </h1>
-          <p className="text-sm text-brand-primary/60">
-            Pesquise uma terra e gerencie os documentos necessários.
-          </p>
+          <ExpandableSearch value={searchQuery} onChange={setSearchQuery} />
         </div>
 
-        <LandSearch
+        <CompactLandSearch
           onSelect={setSelectedLand}
           selectedLand={selectedLand}
           onClear={() => setSelectedLand(null)}
         />
 
-        {selectedLand && (
-          <div className="space-y-3 md:space-y-4">
-            {documentTypes.length > 0 ? (
-              <>
-                <div className="bg-white p-4 rounded-xl border border-brand-primary/10 shadow-sm flex items-center justify-between">
-                  <span className="text-sm font-semibold text-brand-primary">
-                    Progresso dos Documentos
-                  </span>
-                  <span className="text-sm font-bold text-brand-secondary">
-                    {completedCount} de {documentTypes.length}
-                  </span>
+        {selectedLand ? (
+          documentTypes.length > 0 ? (
+            <>
+              <div className="bg-white p-4 rounded-xl border border-brand-primary/10 shadow-sm flex items-center gap-4">
+                <ProgressRing percent={progressPercent} />
+                <div>
+                  <p className="text-sm font-semibold text-brand-primary">
+                    {completedCount} de {totalCount} documentos enviados
+                  </p>
+                  <p className="text-xs text-brand-primary/60">
+                    {pendingCount} pendentes para concluir a etapa
+                  </p>
                 </div>
-                {documentTypes.map((doc) => (
-                  <DocumentItem
-                    key={doc.key}
-                    landId={selectedLand.external_id}
-                    documentKey={doc.key}
-                    documentLabel={doc.label}
-                    check={checks[doc.key]}
-                    onUploaded={fetchChecks}
-                  />
-                ))}
-              </>
-            ) : (
-              <div className="bg-white p-6 rounded-xl border border-dashed border-brand-primary/20 text-center">
-                <Info className="w-8 h-8 text-brand-primary/30 mx-auto mb-2" />
-                <p className="text-sm text-brand-primary/60 mb-3">
-                  Nenhum tipo de documento configurado.
-                </p>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/settings">Ir para Configurações</Link>
-                </Button>
               </div>
-            )}
-            <DocumentHistory records={history} />
-          </div>
-        )}
 
-        {!selectedLand && (
+              <FilterTabs active={activeFilter} onChange={setActiveFilter} counts={counts} />
+
+              {renderGroup(
+                'Documentos do imóvel',
+                filteredDocs.filter(
+                  ({ doc }) => (doc.category || 'Documentos do imóvel') === 'Documentos do imóvel',
+                ),
+              )}
+              {renderGroup(
+                'Documentos pessoais',
+                filteredDocs.filter(({ doc }) => doc.category === 'Documentos pessoais'),
+              )}
+
+              {pendingCount > 0 && (
+                <Button
+                  onClick={() => setBulkOpen(true)}
+                  className="w-full min-h-[44px] bg-brand-secondary hover:bg-brand-secondary/90"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Enviar documentos pendentes ({pendingCount})
+                </Button>
+              )}
+
+              <DocumentHistory records={history} />
+
+              <BulkUploadModal
+                open={bulkOpen}
+                onClose={() => setBulkOpen(false)}
+                pendingDocs={pendingDocs}
+                landId={selectedLand.external_id}
+                onComplete={fetchChecks}
+              />
+            </>
+          ) : (
+            <div className="bg-white p-6 rounded-xl border border-dashed border-brand-primary/20 text-center">
+              <Info className="w-8 h-8 text-brand-primary/30 mx-auto mb-2" />
+              <p className="text-sm text-brand-primary/60 mb-3">
+                Nenhum tipo de documento configurado.
+              </p>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/settings">Ir para Configurações</Link>
+              </Button>
+            </div>
+          )
+        ) : (
           <div className="bg-white p-8 rounded-xl border border-dashed border-brand-primary/20 text-center">
             <FileText className="w-10 h-10 text-brand-primary/20 mx-auto mb-3" />
             <p className="text-sm text-brand-primary/50">

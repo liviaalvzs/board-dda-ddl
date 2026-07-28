@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T16:47:34.444Z",
+  "generatedAt": "2026-07-28T17:02:09.716Z",
   "collections": [
     {
       "name": "users",
@@ -377,6 +377,52 @@
         }
       ],
       "indexes": ["CREATE UNIQUE INDEX idx_app_settings_key ON app_settings (key)"]
+    },
+    {
+      "name": "document_types",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_document_types_key ON document_types (key)"]
     }
   ]
 }
