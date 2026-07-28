@@ -9,13 +9,22 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Plus,
+  X,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import { getDelayedThresholdDays, updateSetting } from '@/services/app-settings'
+import {
+  getDelayedThresholdDays,
+  updateSetting,
+  getRequiredDocumentTypes,
+  updateRequiredDocumentTypes,
+} from '@/services/app-settings'
+import { getDocumentLabel } from '@/services/document-upload'
 import { useAuth } from '@/hooks/use-auth'
 import pb from '@/lib/pocketbase/client'
 import { extractFieldErrors, type FieldErrors } from '@/lib/pocketbase/errors'
@@ -37,6 +46,9 @@ export default function Settings() {
   const [savingPassword, setSavingPassword] = useState(false)
   const [passwordErrors, setPasswordErrors] = useState<FieldErrors>({})
   const [passwordFormError, setPasswordFormError] = useState('')
+  const [docTypes, setDocTypes] = useState<string[]>([])
+  const [newDocType, setNewDocType] = useState('')
+  const [savingDocTypes, setSavingDocTypes] = useState(false)
 
   useEffect(() => {
     getDelayedThresholdDays()
@@ -45,7 +57,37 @@ export default function Settings() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+    getRequiredDocumentTypes()
+      .then(setDocTypes)
+      .catch(() => {})
   }, [])
+
+  const handleAddDocType = async () => {
+    if (!newDocType.trim()) return
+    const updated = [...docTypes, newDocType.trim().toLowerCase()]
+    setDocTypes(updated)
+    setNewDocType('')
+    setSavingDocTypes(true)
+    try {
+      await updateRequiredDocumentTypes(updated)
+      toast({ title: 'Tipo de documento adicionado!' })
+    } catch {
+      toast({ title: 'Erro ao salvar', variant: 'destructive' })
+    } finally {
+      setSavingDocTypes(false)
+    }
+  }
+
+  const handleRemoveDocType = async (type: string) => {
+    const updated = docTypes.filter((t) => t !== type)
+    setDocTypes(updated)
+    try {
+      await updateRequiredDocumentTypes(updated)
+      toast({ title: 'Tipo de documento removido!' })
+    } catch {
+      toast({ title: 'Erro ao salvar', variant: 'destructive' })
+    }
+  }
 
   const handleSave = async () => {
     const num = Number(threshold)
@@ -200,6 +242,65 @@ export default function Settings() {
                     Salvar
                   </>
                 )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-brand-primary/10 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-brand-primary flex items-center gap-2">
+              <FileText className="w-5 h-5 text-brand-secondary" />
+              Tipos de Documentos
+            </CardTitle>
+            <CardDescription>
+              Gerencie os tipos de documentos exigidos no upload de documentos. Use slugs separados
+              por hífens (ex: cpf, rg, certidao-nascimento).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {docTypes.map((type) => (
+                <div
+                  key={type}
+                  className="flex items-center gap-2 bg-brand-primary/5 px-3 py-1.5 rounded-lg"
+                >
+                  <span className="text-sm font-medium text-brand-primary">
+                    {getDocumentLabel(type)}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveDocType(type)}
+                    className="text-brand-primary/40 hover:text-brand-critical transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {docTypes.length === 0 && (
+                <p className="text-sm text-brand-primary/50">
+                  Nenhum tipo de documento configurado.
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="novo-tipo-documento"
+                value={newDocType}
+                onChange={(e) => setNewDocType(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddDocType()}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleAddDocType}
+                disabled={!newDocType.trim() || savingDocTypes}
+                className="bg-brand-secondary hover:bg-brand-secondary/90"
+              >
+                {savingDocTypes ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-1" />
+                )}
+                Adicionar
               </Button>
             </div>
           </CardContent>

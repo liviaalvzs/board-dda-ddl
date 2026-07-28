@@ -23,3 +23,17 @@ export async function getDelayedThresholdDays(): Promise<number> {
   const parsed = parseInt(value || '7', 10)
   return isNaN(parsed) || parsed <= 0 ? 7 : parsed
 }
+
+export async function getRequiredDocumentTypes(): Promise<string[]> {
+  try {
+    const value = await getSetting('required_document_types')
+    const parsed = JSON.parse(value || '[]')
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return ['cpf', 'rg', 'certidao-nascimento']
+  }
+}
+
+export async function updateRequiredDocumentTypes(types: string[]): Promise<void> {
+  await updateSetting('required_document_types', JSON.stringify(types))
+}

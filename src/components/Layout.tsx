@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom'
-import { Leaf, LogOut, Building2, KanbanSquare, Settings } from 'lucide-react'
+import { Leaf, LogOut, Building2, KanbanSquare, Settings, FileText } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 
@@ -47,6 +47,16 @@ export default function Layout() {
                 }`}
               >
                 <Building2 className="w-4 h-4" /> Escritórios
+              </Link>
+              <Link
+                to="/documents"
+                className={`flex items-center gap-2 text-sm font-medium transition-colors ${
+                  location.pathname === '/documents'
+                    ? 'text-brand-secondary'
+                    : 'text-brand-primary/60 hover:text-brand-primary'
+                }`}
+              >
+                <FileText className="w-4 h-4" /> Documentos
               </Link>
               <Link
                 to="/settings"

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-23T16:08:45.511Z",
+  "generatedAt": "2026-07-28T13:28:16.895Z",
   "collections": [
     {
       "name": "users",
@@ -222,6 +222,12 @@
         {
           "name": "document_url",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "document_file",
+          "type": "file",
           "required": false,
           "system": false
         }
