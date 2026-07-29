@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T20:21:45.344Z",
+  "generatedAt": "2026-07-29T20:29:51.627Z",
   "collections": [
     {
       "name": "users",
@@ -125,6 +125,12 @@
         },
         {
           "name": "cluster_serial",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "name",
           "type": "text",
           "required": false,
           "system": false

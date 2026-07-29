@@ -10,6 +10,7 @@ export interface LandMetadataUpsertParams {
   ddaStatus?: string | null
   status?: string | null
   clusterSerial?: string | null
+  name?: string | null
 }
 
 function normalizeRelationValue(value: string | null | undefined): string {
@@ -40,6 +41,9 @@ function buildPayload(data: Partial<LandMetadataUpsertParams>): Record<string, a
   }
   if (data.clusterSerial !== undefined) {
     payload.cluster_serial = data.clusterSerial || null
+  }
+  if (data.name !== undefined) {
+    payload.name = data.name || null
   }
   return payload
 }

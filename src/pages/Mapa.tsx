@@ -335,6 +335,24 @@ export default function Mapa() {
           const landId = land.id || land.external_id
           layerByLandIdRef.current.set(landId, layer)
 
+          const farmCode =
+            meta?.external_id || land.external_id || land.clusterSerial || land.id || 'N/A'
+          const farmName = meta?.name || land.name || ''
+          const tooltipHtml = farmName
+            ? `<div style="font-family: sans-serif; min-width: 160px;">
+                <div style="font-weight: 700; font-size: 13px; color: #1a1a1a; margin-bottom: 4px;">${farmName}</div>
+                <div style="font-size: 11px; color: #666;">Código: <strong>${farmCode}</strong></div>
+              </div>`
+            : `<div style="font-family: sans-serif; min-width: 120px;">
+                <div style="font-size: 11px; color: #666;">Código: <strong>${farmCode}</strong></div>
+              </div>`
+
+          layer.bindTooltip(tooltipHtml, {
+            sticky: true,
+            direction: 'top',
+            className: 'map-marker-tooltip',
+          })
+
           layer.on('mouseover', () => {
             layer.setStyle({ fillOpacity: 0.6, weight: 3 })
           })
