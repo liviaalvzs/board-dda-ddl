@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { loadLeaflet } from '@/lib/leaflet-loader'
-import { getRiskColor, calculateCentroid, parseShapeWgs84, FALLBACK_COLOR } from '@/lib/map-utils'
+import { calculateCentroid, parseShapeWgs84, FALLBACK_COLOR } from '@/lib/map-utils'
 import { fetchKanbanLands } from '@/services/lands'
 import { MapLegend } from '@/components/kanban/MapLegend'
 import { LandDetailDrawer } from '@/components/kanban/LandDetailDrawer'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Loader2, MapPin } from 'lucide-react'
+import { Loader2, MapPin, TrendingUp, MapPinned, Maximize } from 'lucide-react'
 import { useRealtime } from '@/hooks/use-realtime'
 import { getStatusLabel } from '@/lib/status-mapping'
-import { KANBAN_COLUMNS, KANBAN_COLUMN_IDS, buildKanbanColorMap } from '@/lib/kanban-columns'
+import { KANBAN_COLUMNS, buildKanbanColorMap } from '@/lib/kanban-columns'
 
 const BRAZIL_CENTER: [number, number] = [-14.235, -51.9253]
 const AMPLIFIED_KEY = 'mapa_amplified_indicators'
@@ -20,6 +20,7 @@ export default function Mapa() {
   const polygonLayerRef = useRef<any>(null)
   const markerLayerRef = useRef<any>(null)
   const cancelledRef = useRef(false)
+  const layerByLandIdRef = useRef<Map<string, any>>(new Map())
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +34,7 @@ export default function Mapa() {
     const ids = new Set<string>()
     for (const land of lands) {
       const meta = metadataMap.get(land.id || '') || metadataMap.get(land.external_id || '')
-      if (meta?.status && KANBAN_COLUMN_IDS.has(meta.status)) {
+      if (meta?.status) {
         ids.add(meta.status)
       }
     }
@@ -43,9 +44,17 @@ export default function Mapa() {
   const [selectedLandId, setSelectedLandId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [amplified, setAmplified] = useState(() => localStorage.getItem(AMPLIFIED_KEY) === 'true')
+  const [zoom, setZoom] = useState(4)
+  const [viewportStats, setViewportStats] = useState<{ count: number; area: number } | null>(null)
 
   const selectedLayerRef = useRef<any>(null)
   const selectedOriginalStyleRef = useRef<any>(null)
+
+  const amplifiedRef = useRef(amplified)
+  amplifiedRef.current = amplified
+  const zoomRef = useRef(zoom)
+  zoomRef.current = zoom
+  const computeViewportStatsRef = useRef<() => void>(() => {})
 
   useRealtime('land_metadata', () => {
     setRefreshKey((k) => k + 1)
@@ -64,15 +73,31 @@ export default function Mapa() {
     restoreSelectedStyle()
   }, [restoreSelectedStyle])
 
-  useEffect(() => {
-    localStorage.setItem(AMPLIFIED_KEY, amplified ? 'true' : 'false')
-    if (mapRef.current && markerLayerRef.current) {
-      markerLayerRef.current.clearLayers()
-      if (amplified && lands.length > 0) {
-        renderMarkers()
+  const computeViewportStats = useCallback(() => {
+    const L = (window as any).L
+    if (!L || !mapRef.current || lands.length === 0) {
+      setViewportStats(null)
+      return
+    }
+    const mapBounds = mapRef.current.getBounds()
+    let count = 0
+    let area = 0
+    for (const land of lands) {
+      const shape = parseShapeWgs84(land.shapeWgs84)
+      if (!shape) continue
+      const centroid = calculateCentroid(shape)
+      const latLng = L.latLng(centroid[0], centroid[1])
+      if (mapBounds.contains(latLng)) {
+        count++
+        area += land.area || 0
       }
     }
-  }, [amplified])
+    setViewportStats({ count, area })
+  }, [lands])
+
+  useEffect(() => {
+    computeViewportStatsRef.current = computeViewportStats
+  }, [computeViewportStats])
 
   const getLandMeta = useCallback(
     (land: any) => metadataMap.get(land.id || '') || metadataMap.get(land.external_id || ''),
@@ -85,6 +110,10 @@ export default function Mapa() {
 
     markerLayerRef.current.clearLayers()
 
+    const currentZoom = zoomRef.current
+    const baseSize = 22
+    const markerSize = Math.max(16, Math.min(34, baseSize + (currentZoom - 4) * 0.8))
+
     for (const land of lands) {
       const shape = parseShapeWgs84(land.shapeWgs84)
       if (!shape) continue
@@ -92,28 +121,82 @@ export default function Mapa() {
       const centroid = calculateCentroid(shape)
       const meta = getLandMeta(land)
       const stageName = meta?.status || ''
-      const markerColor =
-        getRiskColor(meta?.risk_level) || kanbanColorMap[stageName] || FALLBACK_COLOR
+      const markerColor = kanbanColorMap[stageName] || FALLBACK_COLOR
+      const landId = land.id || land.external_id
 
-      const pulseIcon = L.divIcon({
+      const markerHtml = `<div style="position:relative;width:${markerSize}px;height:${markerSize}px;">
+        <div style="position:absolute;inset:0;border-radius:50%;background:${markerColor};opacity:0.3;animation:map-pulse 2s ease-out infinite;"></div>
+        <div style="position:absolute;inset:2px;border-radius:50%;background:${markerColor};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>
+      </div>`
+
+      const markerIcon = L.divIcon({
         className: 'map-pulse-marker',
-        html: `<div style="position:relative;width:20px;height:20px;">
-          <div style="position:absolute;inset:0;border-radius:50%;background:${markerColor};opacity:0.4;animation:map-pulse 1.5s ease-out infinite;"></div>
-          <div style="position:absolute;inset:3px;border-radius:50%;background:${markerColor};border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,0.3);"></div>
-        </div>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
+        html: markerHtml,
+        iconSize: [markerSize, markerSize],
+        iconAnchor: [markerSize / 2, markerSize / 2],
       })
 
-      const pulseMarker = L.marker(centroid, { icon: pulseIcon })
-      pulseMarker.on('click', () => {
-        const landId = land.id || land.external_id
+      const marker = L.marker(centroid, { icon: markerIcon, zIndexOffset: 1000 })
+
+      marker.on('click', () => {
+        const layer = layerByLandIdRef.current.get(landId)
+        if (layer && mapRef.current) {
+          try {
+            const layerBounds = layer.getBounds()
+            mapRef.current.fitBounds(layerBounds, { padding: [60, 60], maxZoom: 16 })
+          } catch {
+            mapRef.current.setView(centroid, 16)
+          }
+        } else if (mapRef.current) {
+          mapRef.current.setView(centroid, 16)
+        }
+
+        restoreSelectedStyle()
+        if (layer) {
+          const style = {
+            color: kanbanColorMap[stageName] || FALLBACK_COLOR,
+            weight: 2,
+            fillOpacity: 0.4,
+          }
+          selectedLayerRef.current = layer
+          selectedOriginalStyleRef.current = style
+          layer.setStyle({
+            color: '#f97316',
+            weight: 4,
+            fillOpacity: 0.5,
+          })
+          layer.bringToFront()
+        }
+
         setSelectedLandId(landId)
         setDrawerOpen(true)
       })
-      markerLayerRef.current.addLayer(pulseMarker)
+
+      markerLayerRef.current.addLayer(marker)
     }
-  }, [lands, getLandMeta, kanbanColorMap])
+  }, [lands, getLandMeta, kanbanColorMap, restoreSelectedStyle])
+
+  useEffect(() => {
+    localStorage.setItem(AMPLIFIED_KEY, amplified ? 'true' : 'false')
+    if (mapRef.current && markerLayerRef.current) {
+      if (amplified && lands.length > 0) {
+        renderMarkers()
+      } else {
+        markerLayerRef.current.clearLayers()
+      }
+    }
+    if (amplified) {
+      computeViewportStats()
+    } else {
+      setViewportStats(null)
+    }
+  }, [amplified, computeViewportStats, renderMarkers, lands])
+
+  useEffect(() => {
+    if (amplified && mapRef.current && markerLayerRef.current && lands.length > 0) {
+      renderMarkers()
+    }
+  }, [zoom, amplified, renderMarkers, lands])
 
   const loadData = useCallback(async () => {
     cancelledRef.current = false
@@ -167,7 +250,18 @@ export default function Mapa() {
         polygonLayerRef.current = L.layerGroup().addTo(mapInstance)
         markerLayerRef.current = L.layerGroup().addTo(mapInstance)
 
+        mapInstance.on('moveend', () => {
+          if (amplifiedRef.current) computeViewportStatsRef.current()
+        })
+        mapInstance.on('zoomend', () => {
+          const z = mapInstance.getZoom()
+          setZoom(z)
+          zoomRef.current = z
+          if (amplifiedRef.current) computeViewportStatsRef.current()
+        })
+
         mapRef.current = mapInstance
+        zoomRef.current = mapInstance.getZoom()
       } catch (err) {
         console.error('Failed to load Leaflet:', err)
         if (!cancelledRef.current) setError('Falha ao carregar o mapa.')
@@ -189,6 +283,7 @@ export default function Mapa() {
     if (!L || !mapRef.current || !polygonLayerRef.current) return
 
     polygonLayerRef.current.clearLayers()
+    layerByLandIdRef.current.clear()
     if (selectedLayerRef.current) {
       selectedLayerRef.current = null
       selectedOriginalStyleRef.current = null
@@ -202,8 +297,7 @@ export default function Mapa() {
 
       const meta = getLandMeta(land)
       const stageName = meta?.status || ''
-      const fillColor = kanbanColorMap[stageName]
-      if (!fillColor) continue
+      const fillColor = kanbanColorMap[stageName] || FALLBACK_COLOR
 
       const style = {
         color: fillColor,
@@ -215,6 +309,8 @@ export default function Mapa() {
         style: style,
         onEachFeature: (feature: any, layer: any) => {
           const landId = land.id || land.external_id
+          layerByLandIdRef.current.set(landId, layer)
+
           const landName = land.name || 'Propriedade sem nome'
           const landCode = land.clusterSerial || land.external_id || land.id || 'N/A'
           const city = land.geomCityName || land.city || 'N/A'
@@ -287,6 +383,10 @@ export default function Mapa() {
     if (amplified) {
       renderMarkers()
     }
+
+    if (amplifiedRef.current) {
+      computeViewportStatsRef.current()
+    }
   }, [
     lands,
     metadataMap,
@@ -323,11 +423,43 @@ export default function Mapa() {
         <>
           <MapLegend stages={activeColumnIds} colorMap={kanbanColorMap} />
 
-          <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-xl shadow-lg border border-brand-primary/10 p-4 flex items-center gap-3 animate-fade-in-up">
-            <Switch checked={amplified} onCheckedChange={setAmplified} />
-            <Label className="text-sm font-medium text-brand-primary cursor-pointer">
-              Indicadores Amplificados
-            </Label>
+          <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-xl shadow-lg border border-brand-primary/10 p-4 flex flex-col gap-3 animate-fade-in-up min-w-[260px]">
+            <div className="flex items-center gap-3">
+              <Switch checked={amplified} onCheckedChange={setAmplified} />
+              <Label className="text-sm font-medium text-brand-primary cursor-pointer">
+                Indicadores Amplificados
+              </Label>
+            </div>
+            {amplified && viewportStats && (
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-brand-primary/10 animate-fade-in">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5 text-brand-primary/50">
+                    <MapPinned className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wide">Visível</span>
+                  </div>
+                  <span className="text-2xl font-bold text-brand-primary leading-none">
+                    {viewportStats.count}
+                  </span>
+                  <span className="text-[11px] text-brand-primary/50">propriedades</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5 text-brand-primary/50">
+                    <Maximize className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-medium uppercase tracking-wide">Área</span>
+                  </div>
+                  <span className="text-2xl font-bold text-brand-primary leading-none">
+                    {viewportStats.area.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-[11px] text-brand-primary/50">hectares</span>
+                </div>
+                <div className="col-span-2 flex items-center gap-1.5 pt-2 border-t border-brand-primary/10">
+                  <TrendingUp className="w-3.5 h-3.5 text-brand-primary/50" />
+                  <span className="text-[11px] text-brand-primary/50">
+                    {lands.length} propriedades no filtro Kanban
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

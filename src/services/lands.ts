@@ -64,14 +64,24 @@ export async function fetchKanbanLands(): Promise<{
   lands: LandItem[]
   metadataMap: Map<string, any>
 }> {
-  const [allLands, metaMap] = await Promise.all([fetchAllLands(), fetchAllLandMetadata()])
+  const metaMap = await fetchAllLandMetadata()
 
-  const filteredLands = allLands.filter((land) => {
-    const key1 = land.id || ''
-    const key2 = land.external_id || ''
-    const meta = metaMap.get(key1) || metaMap.get(key2)
-    return meta && typeof meta.status === 'string' && KANBAN_COLUMN_IDS.has(meta.status)
+  const kanbanIds: string[] = []
+  for (const [externalId, record] of metaMap) {
+    if (typeof record.status === 'string' && record.status !== '') {
+      kanbanIds.push(externalId)
+    }
+  }
+
+  if (kanbanIds.length === 0) {
+    return { lands: [], metadataMap: metaMap }
+  }
+
+  const idsParam = kanbanIds.join(',')
+  const res = await pb.send(`/backend/v1/lands?ids=${idsParam}&includesShapeWgs84=true`, {
+    method: 'GET',
   })
+  const lands = extractLands(res)
 
-  return { lands: filteredLands, metadataMap: metaMap }
+  return { lands, metadataMap: metaMap }
 }
