@@ -3,7 +3,7 @@ import { loadLeaflet } from '@/lib/leaflet-loader'
 import { calculateCentroid, parseShapeWgs84, FALLBACK_COLOR } from '@/lib/map-utils'
 import { fetchKanbanLands } from '@/services/lands'
 import { MapLegend } from '@/components/kanban/MapLegend'
-import { LandDetailDrawer } from '@/components/kanban/LandDetailDrawer'
+import { LandDetailSheet } from '@/components/kanban/LandDetailSheet'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Loader2, MapPin, TrendingUp, MapPinned, Maximize } from 'lucide-react'
@@ -461,7 +461,9 @@ export default function Mapa() {
         </>
       )}
 
-      <LandDetailDrawer landId={selectedLandId} open={drawerOpen} onClose={handleCloseDrawer} />
+      {drawerOpen && selectedLandId && (
+        <LandDetailSheet landId={selectedLandId} onClose={handleCloseDrawer} />
+      )}
     </div>
   )
 }
