@@ -72,6 +72,10 @@
     z-index: 1199;
   }
 
+  [role='dialog'][data-state='open'] {
+    z-index: 1200;
+  }
+
   .rg-label {
     @apply font-label font-semibold uppercase tracking-rg text-[11px];
   }
