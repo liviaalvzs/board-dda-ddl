@@ -110,9 +110,7 @@ export default function Mapa() {
 
     markerLayerRef.current.clearLayers()
 
-    const currentZoom = zoomRef.current
-    const baseSize = 22
-    const markerSize = Math.max(16, Math.min(34, baseSize + (currentZoom - 4) * 0.8))
+    const markerSize = 26
 
     for (const land of lands) {
       const shape = parseShapeWgs84(land.shapeWgs84)
@@ -124,19 +122,45 @@ export default function Mapa() {
       const markerColor = kanbanColorMap[stageName] || FALLBACK_COLOR
       const landId = land.id || land.external_id
 
-      const markerHtml = `<div style="position:relative;width:${markerSize}px;height:${markerSize}px;">
-        <div style="position:absolute;inset:0;border-radius:50%;background:${markerColor};opacity:0.3;animation:map-pulse 2s ease-out infinite;"></div>
-        <div style="position:absolute;inset:2px;border-radius:50%;background:${markerColor};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>
+      const markerHtml = `<div class="pulse-marker" style="--marker-color:${markerColor};width:${markerSize}px;height:${markerSize}px;">
+        <div class="pulse-marker-ring"></div>
+        <div class="pulse-marker-dot"></div>
       </div>`
 
       const markerIcon = L.divIcon({
-        className: 'map-pulse-marker',
+        className: 'pulse-marker-icon',
         html: markerHtml,
         iconSize: [markerSize, markerSize],
         iconAnchor: [markerSize / 2, markerSize / 2],
       })
 
       const marker = L.marker(centroid, { icon: markerIcon, zIndexOffset: 1000 })
+
+      const landName = land.name || 'Propriedade sem nome'
+      const landCode = land.clusterSerial || land.external_id || land.id || 'N/A'
+      const city = land.geomCityName || land.city || 'N/A'
+      const state = land.geomAcronymState || land.state || 'N/A'
+      const area = (land.area || 0).toLocaleString('pt-BR')
+      const stageLabel = getStatusLabel(stageName) || 'Sem etapa'
+
+      const tooltipContent = `
+        <div style="font-family: sans-serif; min-width: 180px;">
+          <div style="font-weight: 700; font-size: 13px; color: #1a1a1a; margin-bottom: 4px;">${landName}</div>
+          <div style="font-size: 11px; color: #666; margin-bottom: 2px;">Código: <strong>${landCode}</strong></div>
+          <div style="font-size: 11px; color: #666; margin-bottom: 2px;">Local: ${city}, ${state}</div>
+          <div style="font-size: 11px; color: #666; margin-bottom: 2px;">Área: <strong>${area} ha</strong></div>
+          <div style="font-size: 11px; color: #666; display: flex; align-items: center; gap: 4px;">
+            Etapa: <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${markerColor};border:1px solid #fff;"></span>
+            <strong>${stageLabel}</strong>
+          </div>
+        </div>
+      `
+
+      marker.bindTooltip(tooltipContent, {
+        sticky: true,
+        direction: 'top',
+        className: 'map-marker-tooltip',
+      })
 
       marker.on('click', () => {
         const layer = layerByLandIdRef.current.get(landId)
@@ -310,33 +334,6 @@ export default function Mapa() {
         onEachFeature: (feature: any, layer: any) => {
           const landId = land.id || land.external_id
           layerByLandIdRef.current.set(landId, layer)
-
-          const landName = land.name || 'Propriedade sem nome'
-          const landCode = land.clusterSerial || land.external_id || land.id || 'N/A'
-          const city = land.geomCityName || land.city || 'N/A'
-          const state = land.geomAcronymState || land.state || 'N/A'
-          const area = (land.area || 0).toLocaleString('pt-BR')
-          const stageLabel = getStatusLabel(stageName) || 'Sem etapa'
-          const dotColor = fillColor
-
-          const tooltipContent = `
-            <div style="font-family: sans-serif; min-width: 180px;">
-              <div style="font-weight: 700; font-size: 13px; color: #1a1a1a; margin-bottom: 4px;">${landName}</div>
-              <div style="font-size: 11px; color: #666; margin-bottom: 2px;">Código: <strong>${landCode}</strong></div>
-              <div style="font-size: 11px; color: #666; margin-bottom: 2px;">Local: ${city}, ${state}</div>
-              <div style="font-size: 11px; color: #666; margin-bottom: 2px;">Área: <strong>${area} ha</strong></div>
-              <div style="font-size: 11px; color: #666; display: flex; align-items: center; gap: 4px;">
-                Etapa: <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};border:1px solid #fff;"></span>
-                <strong>${stageLabel}</strong>
-              </div>
-            </div>
-          `
-
-          layer.bindTooltip(tooltipContent, {
-            sticky: true,
-            direction: 'top',
-            className: 'map-custom-tooltip',
-          })
 
           layer.on('mouseover', () => {
             layer.setStyle({ fillOpacity: 0.6, weight: 3 })

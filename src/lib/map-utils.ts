@@ -90,43 +90,75 @@ export function getRiskColor(riskLevel: string | null | undefined): string {
   }
 }
 
-export function calculateCentroid(coordinates: any): [number, number] {
-  if (!coordinates || !Array.isArray(coordinates)) return [-14.235, -51.9253]
+export function calculateCentroid(geoJSON: any): [number, number] {
+  if (!geoJSON) return [-14.235, -51.9253]
 
-  let allCoords: number[][] = []
+  let geom = geoJSON
+  if (geoJSON.type === 'FeatureCollection') {
+    geom = geoJSON.features?.[0]?.geometry || geoJSON.features?.[0] || geoJSON
+  } else if (geoJSON.type === 'Feature') {
+    geom = geoJSON.geometry || geoJSON
+  }
 
-  if (coordinates.type === 'Polygon') {
-    allCoords = coordinates.coordinates[0] || []
-  } else if (coordinates.type === 'MultiPolygon') {
-    for (const polygon of coordinates.coordinates) {
-      if (polygon[0]) {
-        allCoords = allCoords.concat(polygon[0])
-      }
+  let rings: number[][][] = []
+  if (geom.type === 'Polygon') {
+    rings = [geom.coordinates?.[0] || []]
+  } else if (geom.type === 'MultiPolygon') {
+    for (const poly of geom.coordinates || []) {
+      if (poly[0]) rings.push(poly[0])
     }
-  } else if (Array.isArray(coordinates[0]) && Array.isArray(coordinates[0][0])) {
-    if (Array.isArray(coordinates[0][0][0])) {
-      for (const polygon of coordinates) {
-        if (polygon[0]) {
-          allCoords = allCoords.concat(polygon[0])
-        }
+  } else if (Array.isArray(geom) && Array.isArray(geom[0])) {
+    if (Array.isArray(geom[0][0]) && Array.isArray(geom[0][0][0])) {
+      for (const poly of geom) {
+        if (poly[0]) rings.push(poly[0])
       }
     } else {
-      allCoords = coordinates[0] || []
+      rings = [geom[0] || []]
     }
-  } else if (Array.isArray(coordinates[0]) && typeof coordinates[0][0] === 'number') {
-    allCoords = coordinates
   }
 
-  if (allCoords.length === 0) return [-14.235, -51.9253]
+  if (rings.length === 0 || rings[0].length === 0) return [-14.235, -51.9253]
 
-  let latSum = 0
-  let lngSum = 0
-  for (const coord of allCoords) {
-    lngSum += coord[0]
-    latSum += coord[1]
+  let bestRing = rings[0]
+  let bestArea = 0
+  for (const ring of rings) {
+    let a = 0
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      a += ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1]
+    }
+    a = Math.abs(a * 0.5)
+    if (a > bestArea) {
+      bestArea = a
+      bestRing = ring
+    }
   }
 
-  return [latSum / allCoords.length, lngSum / allCoords.length]
+  const ring = bestRing
+  let area = 0
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    area += ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1]
+  }
+  area *= 0.5
+
+  if (Math.abs(area) < 1e-10) {
+    let latSum = 0
+    let lngSum = 0
+    for (const [lng, lat] of ring) {
+      lngSum += lng
+      latSum += lat
+    }
+    return [latSum / ring.length, lngSum / ring.length]
+  }
+
+  let cx = 0
+  let cy = 0
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const cross = ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1]
+    cx += (ring[i][0] + ring[j][0]) * cross
+    cy += (ring[i][1] + ring[j][1]) * cross
+  }
+
+  return [cy / (6 * area), cx / (6 * area)]
 }
 
 export function parseShapeWgs84(shapeWgs84: any): any {
