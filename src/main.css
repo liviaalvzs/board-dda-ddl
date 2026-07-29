@@ -68,6 +68,10 @@
     scrollbar-width: none;
   }
 
+  .fixed.inset-0.z-50.bg-black\/80 {
+    z-index: 1199;
+  }
+
   .rg-label {
     @apply font-label font-semibold uppercase tracking-rg text-[11px];
   }

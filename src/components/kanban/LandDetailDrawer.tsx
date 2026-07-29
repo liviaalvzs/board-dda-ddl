@@ -74,7 +74,7 @@ export function LandDetailDrawer({ landId, open, onClose }: LandDetailDrawerProp
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetTitle className="sr-only">Detalhes da Terra</SheetTitle>
-      <SheetContent className="sm:max-w-[500px] w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden">
+      <SheetContent className="sm:max-w-[500px] w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden z-[1200]">
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-brand-secondary" />
