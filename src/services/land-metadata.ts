@@ -21,9 +21,9 @@ export interface LandMetadataUpsertParams {
   prestadorDda?: string | null
 }
 
-function normalizeRelationValue(value: string | null | undefined): string {
-  if (value === null || value === undefined || value === '') return ''
-  if (Array.isArray(value)) return value[0] || ''
+function normalizeRelationValue(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value === '') return null
+  if (Array.isArray(value)) return value[0] || null
   return String(value)
 }
 

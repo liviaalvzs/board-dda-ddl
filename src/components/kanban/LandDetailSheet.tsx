@@ -568,6 +568,14 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
   const locationStr = `${land.geomCityName || land.city || 'N/A'}, ${land.geomAcronymState || land.state || 'N/A'}`
   const officeName = metadata?.expand?.external_offices?.name
 
+  const effectiveExternalId =
+    metadata?.external_id ||
+    land?.clusterSerial ||
+    land?.external_id ||
+    land?.externalId ||
+    landId ||
+    ''
+
   return (
     <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="sm:max-w-[850px] w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden border-l border-brand-primary/10">
@@ -664,9 +672,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                 </div>
                 <OfficeSelector
                   metadata={metadata}
-                  externalId={
-                    land?.clusterSerial || land?.external_id || land?.externalId || landId || ''
-                  }
+                  externalId={effectiveExternalId}
                   fieldName="externalOffices"
                   expandKey="external_offices"
                   label="Escritório de Advocacia"
@@ -674,9 +680,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                 />
                 <OfficeSelector
                   metadata={metadata}
-                  externalId={
-                    land?.clusterSerial || land?.external_id || land?.externalId || landId || ''
-                  }
+                  externalId={effectiveExternalId}
                   fieldName="prestadorDda"
                   expandKey="prestador_dda"
                   label="Prestador DDA"
@@ -732,9 +736,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ProcessDatesSection
                       metadata={metadata}
-                      externalId={
-                        land?.clusterSerial || land?.external_id || land?.externalId || landId || ''
-                      }
+                      externalId={effectiveExternalId}
                       onUpdated={fetchData}
                     />
                     {/* Identificação */}
