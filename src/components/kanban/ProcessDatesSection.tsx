@@ -86,11 +86,19 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
       <h3 className="font-display text-lg text-brand-primary flex items-center gap-2 border-b border-brand-primary/5 pb-3">
         <CalendarIcon className="w-5 h-5 text-brand-secondary" /> Datas do Processo
       </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {DATE_FIELDS.map((field) => {
+      <div className="space-y-4">
+        {DATE_FIELDS.map((field, index) => {
           const selected = parseDate(metadata?.[field.key])
+          const isFirst = index === 0
           return (
-            <div key={field.key} className="flex flex-col">
+            <div
+              key={field.key}
+              className={cn(
+                'flex flex-col',
+                !isFirst && 'sm:inline-block sm:w-[calc(50%-0.5rem)]',
+                !isFirst && index % 2 === 0 && 'sm:mr-4',
+              )}
+            >
               <span className="text-[11px] text-brand-primary/60 font-semibold mb-1 uppercase tracking-wider">
                 {field.label}
               </span>
