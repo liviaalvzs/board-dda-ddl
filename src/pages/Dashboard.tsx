@@ -1,183 +1,207 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Loader2, AlertCircle, Clock, TrendingDown, Info } from 'lucide-react'
+import { Bar, BarChart, XAxis, YAxis, Cell } from 'recharts'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
-import { BarChart, type BarItem } from '@/components/dash/BarChart'
+import { Skeleton } from '@/components/ui/skeleton'
+import { fetchAllLandMetadata } from '@/services/lands'
 import { useRealtime } from '@/hooks/use-realtime'
-import pb from '@/lib/pocketbase/client'
-import {
-  calculateStageDurations,
-  calculateStageDelays,
-  calculateLandDelays,
-  getDelayBadgeClass,
-} from '@/lib/dash-utils'
+import { calculateStageDelays, calculateStageDurations } from '@/lib/dash-utils'
+import { AlertTriangle, CheckCircle2, Layers } from 'lucide-react'
+
+const delayConfig = {
+  averageDelay: { label: 'Atraso (dias)', color: 'hsl(var(--chart-1))' },
+} satisfies ChartConfig
+
+const durConfig = {
+  averageDuration: { label: 'Tempo (dias)', color: 'hsl(var(--chart-2))' },
+} satisfies ChartConfig
+
+function delayColor(d: number): string {
+  if (d <= 0) return 'hsl(142 71% 45%)'
+  if (d <= 7) return 'hsl(38 92% 50%)'
+  return 'hsl(0 84% 60%)'
+}
 
 export default function Dashboard() {
-  const [records, setRecords] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [hasError, setHasError] = useState(false)
+  const [lands, setLands] = useState<Record<string, any>[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const loadData = async (silent = false) => {
-    if (!silent) setIsLoading(true)
-    setHasError(false)
+  const loadData = async () => {
     try {
-      const data = await pb.collection('land_metadata').getFullList()
-      setRecords(data)
-    } catch (err) {
-      console.error('Dashboard fetch error:', err)
-      setHasError(true)
+      setLands(await fetchAllLandMetadata())
+    } catch (e) {
+      console.error(e)
     } finally {
-      if (!silent) setIsLoading(false)
+      setLoading(false)
     }
   }
 
   useEffect(() => {
     loadData()
   }, [])
-
   useRealtime('land_metadata', () => {
-    loadData(true)
+    loadData()
   })
 
-  const stageDurations = useMemo(() => calculateStageDurations(records), [records])
-  const stageDelays = useMemo(() => calculateStageDelays(records), [records])
-  const landDelays = useMemo(() => calculateLandDelays(records), [records])
+  const delays = useMemo(() => calculateStageDelays(lands), [lands])
+  const durations = useMemo(() => calculateStageDurations(lands), [lands])
 
-  const maxDuration = useMemo(() => {
-    const eligible = stageDurations.filter((s) => s.eligibleCount > 0)
-    if (!eligible.length) return null
-    return eligible.reduce((m, s) => (s.avgDuration > m.avgDuration ? s : m))
-  }, [stageDurations])
+  if (loading) {
+    return (
+      <div className="space-y-6 p-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid gap-4 md:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-72" />
+        <Skeleton className="h-72" />
+      </div>
+    )
+  }
 
-  const durationBars: BarItem[] = stageDurations.map((s) => ({
-    label: s.stageLabel,
-    value: s.avgDuration,
-    subtitle: `${s.eligibleCount} propriedade(s) elegível(is)`,
-    highlight: maxDuration?.stageId === s.stageId,
-    color: maxDuration?.stageId === s.stageId ? 'bg-red-500' : 'bg-brand-secondary',
+  const delayChart = delays.map((d) => ({
+    label: d.label,
+    averageDelay: Math.max(0, d.averageDelay),
+  }))
+  const durChart = durations.map((d) => ({
+    label: d.label,
+    averageDuration: d.averageDuration,
   }))
 
-  const delayBars: BarItem[] = stageDelays
-    .filter((s) => s.hasDelayData)
-    .map((s) => ({
-      label: s.stageLabel,
-      value: s.avgDelay,
-      subtitle: `${s.eligibleCount} propriedade(s)`,
-      color: s.avgDelay <= 0 ? 'bg-green-500' : s.avgDelay <= 7 ? 'bg-amber-500' : 'bg-red-500',
-    }))
-
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-secondary" />
-      </div>
-    )
-  }
-
-  if (hasError) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-        <AlertCircle className="w-12 h-12 text-rose-400 mb-4" />
-        <p className="text-slate-600 mb-4">Erro ao carregar dados do dashboard.</p>
-        <Button onClick={() => loadData()}>Recarregar</Button>
-      </div>
-    )
-  }
-
   return (
-    <div className="flex-1 overflow-auto bg-slate-50 p-4 md:p-6">
-      <Breadcrumb className="mb-3">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/" className="text-slate-500">
-              Home
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage className="font-semibold text-brand-primary">Dashboard</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+    <div className="space-y-6 p-4 md:p-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Visão geral das diligências</p>
+      </div>
 
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900 mb-6">
-        Dashboard de Tempo e Atraso
-      </h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-brand-primary">
-              <Clock className="w-5 h-5 text-brand-secondary" />
-              Tempo por Etapa
-            </CardTitle>
-            <CardDescription>Duração média (em dias) por etapa do processo</CardDescription>
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Terras</CardTitle>
+            <Layers className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <BarChart
-              items={durationBars}
-              unit="dias"
-              emptyMessage="Nenhuma propriedade com datas completas."
-            />
+            <div className="text-2xl font-bold">{lands.length}</div>
           </CardContent>
         </Card>
-
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-brand-primary">
-              <TrendingDown className="w-5 h-5 text-brand-secondary" />
-              Análise de Atrasos
-            </CardTitle>
-            <CardDescription>Atraso médio entre data prevista e realizada</CardDescription>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Com Atraso</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <BarChart
-              items={delayBars}
-              unit="dias"
-              emptyMessage="Sem dados de atraso disponíveis."
-            />
-
-            <div className="mt-4 flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-blue-700">
-                Atrasos são calculados apenas para <strong>DD Conclusiva</strong>, que possui data
-                prevista e realizada. Outras etapas não têm campo de data estimada no schema atual.
-              </p>
+            <div className="text-2xl font-bold text-red-600">
+              {delays.reduce((s, d) => s + d.delayedCount, 0)}
             </div>
-
-            {landDelays.length > 0 && (
-              <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
-                <h4 className="text-sm font-semibold text-slate-700">Atrasos por Propriedade</h4>
-                {landDelays.slice(0, 15).map((land) => (
-                  <div
-                    key={land.landId}
-                    className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-slate-100"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-700 truncate">{land.landName}</p>
-                      {land.clusterSerial && (
-                        <p className="text-xs text-slate-400">{land.clusterSerial}</p>
-                      )}
-                    </div>
-                    <Badge className={`shrink-0 ml-2 ${getDelayBadgeClass(land.delayDays)}`}>
-                      {land.delayDays > 0 ? `+${land.delayDays} dias` : `${land.delayDays} dias`}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">No Prazo</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {delays.reduce((s, d) => s + d.onTimeCount, 0)}
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Atraso por Etapa</CardTitle>
+          <CardDescription>Diferença média em dias entre data prevista e realizada</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={delayConfig} className="h-[220px] w-full">
+            <BarChart
+              data={delayChart}
+              layout="vertical"
+              margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
+            >
+              <XAxis type="number" tickFormatter={(v) => `${v}d`} fontSize={12} />
+              <YAxis type="category" dataKey="label" width={90} fontSize={12} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="averageDelay" radius={4} cursor={{ fillOpacity: 0.1 }}>
+                {delayChart.map((_, i) => (
+                  <Cell key={i} fill={delayColor(delays[i].averageDelay)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {delays.map((s) => (
+              <div key={s.label} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{s.label}</span>
+                  <span
+                    className={`text-sm font-bold ${
+                      s.averageDelay > 0 ? 'text-red-600' : 'text-green-600'
+                    }`}
+                  >
+                    {s.averageDelay > 0 ? `+${s.averageDelay}d` : `${s.averageDelay}d`}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{s.count} terras</span>
+                  <span>·</span>
+                  <span className="text-green-600">{s.onTimeCount} no prazo</span>
+                  <span>·</span>
+                  <span className="text-red-600">{s.delayedCount} atrasadas</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tempo por Etapa</CardTitle>
+          <CardDescription>
+            Tempo médio em dias desde a assinatura da carta proposta até a realização
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={durConfig} className="h-[220px] w-full">
+            <BarChart
+              data={durChart}
+              layout="vertical"
+              margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
+            >
+              <XAxis type="number" tickFormatter={(v) => `${v}d`} fontSize={12} />
+              <YAxis type="category" dataKey="label" width={90} fontSize={12} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar
+                dataKey="averageDuration"
+                fill="hsl(var(--chart-2))"
+                radius={4}
+                cursor={{ fillOpacity: 0.1 }}
+              />
+            </BarChart>
+          </ChartContainer>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {durations.map((s) => (
+              <div key={s.label} className="rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{s.label}</span>
+                  <span className="text-sm font-bold">{s.averageDuration}d</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">{s.count} terras avaliadas</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
