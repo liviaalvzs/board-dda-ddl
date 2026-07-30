@@ -114,12 +114,12 @@ export async function upsertLandMetadata(
   let previousStatus: string | null = null
 
   try {
-    existing = await pb
-      .collection('land_metadata')
-      .getFirstListItem(query, { expand: 'responsible_user,external_offices' })
+    existing = await pb.collection('land_metadata').getFirstListItem(query)
     previousStatus = existing.status || null
   } catch (err) {
-    if (err instanceof ClientResponseError && err.status !== 404) {
+    if (err instanceof ClientResponseError && err.status === 404) {
+      // Record not found — will create below
+    } else {
       throw err
     }
   }

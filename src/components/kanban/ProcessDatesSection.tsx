@@ -48,8 +48,10 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
       setHasLocalMarcoOverride(false)
       onUpdated?.()
     } catch (error) {
+      setHasLocalMarcoOverride(false)
+      setLocalMarco(undefined)
       toast({
-        title: 'Erro ao salvar datas',
+        title: 'Erro ao salvar data',
         description: getErrorMessage(error),
         variant: 'destructive',
       })

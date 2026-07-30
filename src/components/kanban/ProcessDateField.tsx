@@ -58,8 +58,10 @@ export function ProcessDateField({
       setHasLocalOverride(false)
       onUpdated?.()
     } catch (error) {
+      setHasLocalOverride(false)
+      setLocalDate(undefined)
       toast({
-        title: 'Erro ao salvar datas',
+        title: 'Erro ao salvar data',
         description: getErrorMessage(error),
         variant: 'destructive',
       })
