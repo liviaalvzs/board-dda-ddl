@@ -29,6 +29,7 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
   const [marcoOpen, setMarcoOpen] = useState(false)
   const [localMarco, setLocalMarco] = useState<Date | undefined>(undefined)
   const [hasLocalMarcoOverride, setHasLocalMarcoOverride] = useState(false)
+  const [marcoError, setMarcoError] = useState<string | null>(null)
 
   const serverMarco = parseDateValue(metadata?.[MARCO_INICIAL.key])
   const marcoSelected = hasLocalMarcoOverride ? localMarco : serverMarco
@@ -36,23 +37,25 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
   const marcoLabelId = `label-${MARCO_INICIAL.key}`
 
   const handleMarcoChange = async (date: Date | undefined) => {
+    setMarcoError(null)
     setLocalMarco(date)
     setHasLocalMarcoOverride(true)
     setMarcoOpen(false)
     setSavingMarco(true)
     try {
       await upsertLandMetadata(externalId, {
-        [MARCO_INICIAL.param]: date ? date.toISOString() : null,
+        [MARCO_INICIAL.param]: date ? format(date, 'yyyy-MM-dd') : null,
       } as any)
       toast({ title: 'Data atualizada com sucesso' })
       setHasLocalMarcoOverride(false)
       onUpdated?.()
-    } catch (error) {
+    } catch (err) {
       setHasLocalMarcoOverride(false)
       setLocalMarco(undefined)
+      setMarcoError('Erro ao salvar data. Tente novamente.')
       toast({
         title: 'Erro ao salvar data',
-        description: getErrorMessage(error),
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     } finally {
@@ -123,6 +126,11 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
               </Button>
             )}
           </div>
+          {marcoError && (
+            <span className="text-[11px] text-red-500 font-medium mt-1 animate-fade-in">
+              {marcoError}
+            </span>
+          )}
         </div>
         <span className="text-[11px] font-semibold text-brand-primary/50 bg-white px-2.5 py-1 rounded-full border border-brand-primary/10 whitespace-nowrap shrink-0 mb-1">
           ponto de partida

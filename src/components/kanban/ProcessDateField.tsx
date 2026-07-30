@@ -37,6 +37,7 @@ export function ProcessDateField({
   const [open, setOpen] = useState(false)
   const [localDate, setLocalDate] = useState<Date | undefined>(undefined)
   const [hasLocalOverride, setHasLocalOverride] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const serverDate = parseDateValue(value)
   const selected = hasLocalOverride ? localDate : serverDate
@@ -46,23 +47,25 @@ export function ProcessDateField({
   const hasValue = !!selected
 
   const handleDateChange = async (date: Date | undefined) => {
+    setError(null)
     setLocalDate(date)
     setHasLocalOverride(true)
     setOpen(false)
     setSaving(true)
     try {
       await upsertLandMetadata(externalId, {
-        [field.param]: date ? date.toISOString() : null,
+        [field.param]: date ? format(date, 'yyyy-MM-dd') : null,
       } as any)
       toast({ title: 'Data atualizada com sucesso' })
       setHasLocalOverride(false)
       onUpdated?.()
-    } catch (error) {
+    } catch (err) {
       setHasLocalOverride(false)
       setLocalDate(undefined)
+      setError('Erro ao salvar data. Tente novamente.')
       toast({
         title: 'Erro ao salvar data',
-        description: getErrorMessage(error),
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     } finally {
@@ -137,6 +140,9 @@ export function ProcessDateField({
           </Button>
         )}
       </div>
+      {error && (
+        <span className="text-[11px] text-red-500 font-medium mt-1 animate-fade-in">{error}</span>
+      )}
     </div>
   )
 }
