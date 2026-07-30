@@ -12,6 +12,7 @@ interface DocumentItemProps {
   documentLabel: string
   check: any
   onUploaded: () => void
+  clusterSerial: string
 }
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png']
@@ -24,6 +25,7 @@ export function DocumentItem({
   documentLabel,
   check,
   onUploaded,
+  clusterSerial,
 }: DocumentItemProps) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -59,11 +61,11 @@ export function DocumentItem({
     }
     setUploading(true)
     try {
-      await uploadDocument(landId, documentKey, file)
+      await uploadDocument(landId, documentKey, file, clusterSerial)
       toast({ title: `Documento ${documentLabel} enviado com sucesso!` })
       onUploaded()
-    } catch {
-      setError('Erro ao enviar arquivo. Tente novamente.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao enviar arquivo. Tente novamente.')
     } finally {
       setUploading(false)
     }

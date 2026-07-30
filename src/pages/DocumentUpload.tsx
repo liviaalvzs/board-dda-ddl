@@ -126,6 +126,7 @@ export default function DocumentUpload() {
               documentLabel={doc.label}
               check={check}
               onUploaded={fetchChecks}
+              clusterSerial={selectedLand.cluster_serial || ''}
             />
           ))}
         </div>
@@ -195,6 +196,7 @@ export default function DocumentUpload() {
                 onClose={() => setBulkOpen(false)}
                 pendingDocs={pendingDocs}
                 landId={selectedLand.external_id}
+                clusterSerial={selectedLand.cluster_serial || ''}
                 onComplete={fetchChecks}
               />
             </>

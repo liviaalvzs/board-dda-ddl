@@ -11,6 +11,7 @@ interface DocumentRowProps {
   documentLabel: string
   check: any
   onUploaded: () => void
+  clusterSerial: string
 }
 
 const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -22,6 +23,7 @@ export function DocumentRow({
   documentLabel,
   check,
   onUploaded,
+  clusterSerial,
 }: DocumentRowProps) {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -47,11 +49,13 @@ export function DocumentRow({
     }
     setUploading(true)
     try {
-      await uploadDocument(landId, documentKey, file)
+      await uploadDocument(landId, documentKey, file, clusterSerial)
       toast({ title: `Documento ${documentLabel} enviado com sucesso!` })
       onUploaded()
-    } catch {
-      toast({ title: 'Erro ao enviar arquivo. Tente novamente.' })
+    } catch (err) {
+      toast({
+        title: err instanceof Error ? err.message : 'Erro ao enviar arquivo. Tente novamente.',
+      })
     } finally {
       setUploading(false)
     }

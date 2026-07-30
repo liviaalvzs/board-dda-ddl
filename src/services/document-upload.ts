@@ -1,5 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { getDocumentLabel } from '@/lib/document-labels'
+import { uploadDocumentToS3 } from '@/services/s3-upload'
 
 export { getDocumentLabel }
 
@@ -30,13 +31,7 @@ export async function uploadDocument(
   landId: string,
   documentKey: string,
   file: File,
+  clusterSerial: string,
 ): Promise<any> {
-  const userId = pb.authStore.record?.id || ''
-  return await pb.collection('document_checks').create({
-    land_id: landId,
-    document_key: documentKey,
-    is_completed: true,
-    document_file: file,
-    user: userId,
-  })
+  return uploadDocumentToS3(landId, clusterSerial, documentKey, file)
 }

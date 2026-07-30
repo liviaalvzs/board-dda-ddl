@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
+import { uploadDocumentToS3 } from '@/services/s3-upload'
 
 const MAX_SIZE = 10 * 1024 * 1024
 const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -147,27 +148,21 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     }
     setUploadingKey(key)
     try {
-      const existing = checks[key]
-      const userId = pb.authStore.record?.id || ''
-      if (existing?.id) {
-        await pb.collection('document_checks').update(existing.id, {
-          is_completed: true,
-          document_file: file,
-          user: userId,
-        })
-      } else {
-        await pb.collection('document_checks').create({
-          land_id: landId,
-          document_key: key,
-          is_completed: true,
-          document_file: file,
-          user: userId,
-        })
+      const clusterSerial = metadata?.cluster_serial || ''
+      if (!clusterSerial) {
+        setErrors((prev) => ({
+          ...prev,
+          [key]: 'Cluster serial não definido para esta terra.',
+        }))
+        return
       }
+      const existing = checks[key]
+      await uploadDocumentToS3(landId, clusterSerial, key, file, existing?.id)
       toast({ title: 'Documento enviado com sucesso!' })
       fetchChecks()
-    } catch {
-      setErrors((prev) => ({ ...prev, [key]: 'Erro ao enviar arquivo. Tente novamente.' }))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erro ao enviar arquivo. Tente novamente.'
+      setErrors((prev) => ({ ...prev, [key]: msg }))
     } finally {
       setUploadingKey(null)
     }
