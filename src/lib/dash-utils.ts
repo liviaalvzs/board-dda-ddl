@@ -1,5 +1,6 @@
 import { differenceInDays } from 'date-fns'
 import { parseDateValue } from '@/lib/process-dates-helpers'
+import { getStatusLabel } from '@/lib/status-mapping'
 
 export interface DelayStageConfig {
   label: string
@@ -64,6 +65,37 @@ export function calculateStageDelays(lands: unknown): StageDelayData[] {
   })
 }
 
+export interface StatusDistributionData {
+  label: string
+  status: string
+  count: number
+}
+
+export function calculateStatusDistribution(lands: unknown): StatusDistributionData[] {
+  const landArray = toLandArray(lands)
+  const counts = new Map<string, number>()
+  let noStatusCount = 0
+
+  for (const land of landArray) {
+    const status = (land.status || '').trim()
+    if (!status) {
+      noStatusCount++
+      continue
+    }
+    counts.set(status, (counts.get(status) || 0) + 1)
+  }
+
+  const result: StatusDistributionData[] = []
+  for (const [status, count] of counts) {
+    result.push({ status, label: getStatusLabel(status), count })
+  }
+  if (noStatusCount > 0) {
+    result.push({ status: '', label: 'Sem status', count: noStatusCount })
+  }
+
+  return result.sort((a, b) => b.count - a.count)
+}
+
 export function calculateStageDurations(lands: unknown): StageDurationData[] {
   const landArray = toLandArray(lands)
   return DELAY_STAGES.map((stage) => {
@@ -83,4 +115,91 @@ export function calculateStageDurations(lands: unknown): StageDurationData[] {
       averageDuration: Math.round(avg * 10) / 10,
     }
   })
+}
+
+export interface StageAverageTimeData {
+  label: string
+  status: string
+  averageDays: number
+  count: number
+}
+
+export function calculateStageAverageTime(lands: unknown): StageAverageTimeData[] {
+  const landArray = toLandArray(lands)
+  const now = new Date()
+
+  const groups = new Map<string, number[]>()
+
+  for (const land of landArray) {
+    const status = (land.status || '').trim()
+    if (!status) continue
+
+    const updated = parseDateValue(land.updated)
+    const created = parseDateValue(land.created)
+    const referenceDate = updated || created
+    if (!referenceDate) continue
+
+    const days = differenceInDays(now, referenceDate)
+    if (days < 0) continue
+
+    if (!groups.has(status)) groups.set(status, [])
+    groups.get(status)!.push(days)
+  }
+
+  const result: StageAverageTimeData[] = []
+  for (const [status, days] of groups) {
+    const avg = days.reduce((s, d) => s + d, 0) / days.length
+    result.push({
+      status,
+      label: getStatusLabel(status),
+      averageDays: Math.round(avg * 10) / 10,
+      count: days.length,
+    })
+  }
+
+  return result.sort((a, b) => b.averageDays - a.averageDays)
+}
+
+export interface LandStageRankingItem {
+  externalId: string
+  name: string
+  clusterSerial: string
+  status: string
+  statusLabel: string
+  daysInStage: number
+}
+
+export function calculateLandStageRanking(
+  lands: unknown,
+  limit: number = 10,
+): LandStageRankingItem[] {
+  const landArray = toLandArray(lands)
+  const now = new Date()
+
+  const items: LandStageRankingItem[] = []
+
+  for (const land of landArray) {
+    const status = (land.status || '').trim()
+    if (!status) continue
+
+    const updated = parseDateValue(land.updated)
+    const created = parseDateValue(land.created)
+    const referenceDate = updated || created
+    if (!referenceDate) continue
+
+    const days = differenceInDays(now, referenceDate)
+    if (days < 0) continue
+
+    items.push({
+      externalId: land.external_id || land.id || '',
+      name: land.name || land.external_id || 'Sem nome',
+      clusterSerial: land.cluster_serial || '',
+      status,
+      statusLabel: getStatusLabel(status),
+      daysInStage: days,
+    })
+  }
+
+  items.sort((a, b) => b.daysInStage - a.daysInStage)
+  return items.slice(0, limit)
 }
