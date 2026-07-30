@@ -39,6 +39,7 @@ import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
 import { LawFirmSelector } from '@/components/kanban/LawFirmSelector'
 import { StageTimeline } from '@/components/kanban/StageTimeline'
 import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
+import { ProcessDatesSection } from '@/components/kanban/ProcessDatesSection'
 import { getStatusLabel } from '@/lib/status-mapping'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
@@ -814,6 +815,13 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                         />
                       </div>
                     </div>
+                    <ProcessDatesSection
+                      metadata={metadata}
+                      externalId={
+                        land?.clusterSerial || land?.external_id || land?.externalId || landId || ''
+                      }
+                      onUpdated={fetchData}
+                    />
                   </div>
                 </TabsContent>
 

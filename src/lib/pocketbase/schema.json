@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T20:29:51.627Z",
+  "generatedAt": "2026-07-30T13:26:21.859Z",
   "collections": [
     {
       "name": "users",
@@ -132,6 +132,36 @@
         {
           "name": "name",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_assinatura_carta_proposta",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_pedido_inicio_ddl",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_recebimento_preliminar_ddm",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_estimada_recebimento_ddl_conclusiva",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_recebimento_dd_conclusiva",
+          "type": "date",
           "required": false,
           "system": false
         }

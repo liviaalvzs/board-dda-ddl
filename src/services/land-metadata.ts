@@ -11,6 +11,11 @@ export interface LandMetadataUpsertParams {
   status?: string | null
   clusterSerial?: string | null
   name?: string | null
+  dataAssinaturaCartaProposta?: string | null
+  dataPedidoInicioDdl?: string | null
+  dataRecebimentoPreliminarDdm?: string | null
+  dataEstimadaRecebimentoDdlConclusiva?: string | null
+  dataRecebimentoDdConclusiva?: string | null
 }
 
 function normalizeRelationValue(value: string | null | undefined): string {
@@ -44,6 +49,22 @@ function buildPayload(data: Partial<LandMetadataUpsertParams>): Record<string, a
   }
   if (data.name !== undefined) {
     payload.name = data.name || null
+  }
+  if (data.dataAssinaturaCartaProposta !== undefined) {
+    payload.data_assinatura_carta_proposta = data.dataAssinaturaCartaProposta || null
+  }
+  if (data.dataPedidoInicioDdl !== undefined) {
+    payload.data_pedido_inicio_ddl = data.dataPedidoInicioDdl || null
+  }
+  if (data.dataRecebimentoPreliminarDdm !== undefined) {
+    payload.data_recebimento_preliminar_ddm = data.dataRecebimentoPreliminarDdm || null
+  }
+  if (data.dataEstimadaRecebimentoDdlConclusiva !== undefined) {
+    payload.data_estimada_recebimento_ddl_conclusiva =
+      data.dataEstimadaRecebimentoDdlConclusiva || null
+  }
+  if (data.dataRecebimentoDdConclusiva !== undefined) {
+    payload.data_recebimento_dd_conclusiva = data.dataRecebimentoDdConclusiva || null
   }
   return payload
 }
