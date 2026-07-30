@@ -91,7 +91,7 @@ export function ProcessDateField({
               className={cn(
                 'justify-start text-left font-normal h-10 rounded-lg flex-1 text-sm transition-colors',
                 isPlanned
-                  ? 'border-dashed border-brand-primary/20 bg-surface-1 text-brand-primary/70'
+                  ? 'border-dashed border-brand-primary/20 bg-slate-100 text-brand-primary/70'
                   : cn(
                       'bg-white text-brand-primary',
                       isPlannedFilled ? 'border-brand-primary/25' : 'border-brand-primary/10',

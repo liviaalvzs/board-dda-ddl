@@ -85,7 +85,7 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
                   variant="outline"
                   aria-labelledby={marcoLabelId}
                   className={cn(
-                    'justify-start text-left font-normal h-10 rounded-lg flex-1 border-0 bg-surface-1 text-brand-primary text-sm transition-colors',
+                    'justify-start text-left font-normal h-10 rounded-lg flex-1 border-0 bg-slate-100 text-brand-primary text-sm transition-colors',
                     !marcoSelected && 'text-brand-primary/40',
                   )}
                   disabled={savingMarco}
