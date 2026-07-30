@@ -61,10 +61,18 @@ export function DocumentItem({
     }
     setUploading(true)
     try {
+      console.log('[DocumentUpload] DocumentItem: starting upload', {
+        landId,
+        documentKey,
+        fileName: file.name,
+        clusterSerial,
+      })
       await uploadDocument(landId, documentKey, file, clusterSerial)
+      console.log('[DocumentUpload] DocumentItem: upload succeeded', { landId, documentKey })
       toast({ title: `Documento ${documentLabel} enviado com sucesso!` })
       onUploaded()
     } catch (err) {
+      console.log('[DocumentUpload] DocumentItem: upload failed', { error: err })
       setError(err instanceof Error ? err.message : 'Erro ao enviar arquivo. Tente novamente.')
     } finally {
       setUploading(false)

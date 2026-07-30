@@ -35,12 +35,20 @@ export function BulkUploadModal({
     if (entries.length === 0) return
     setUploading(true)
     try {
+      console.log('[DocumentUpload] BulkUploadModal: starting bulk upload', {
+        landId,
+        entries: entries.map(([key, file]) => ({ key, fileName: file.name })),
+      })
       await Promise.all(entries.map(([key, file]) => uploadDocument(landId, key, file)))
+      console.log('[DocumentUpload] BulkUploadModal: all uploads succeeded', {
+        count: entries.length,
+      })
       toast({ title: `${entries.length} documento(s) enviado(s) com sucesso!` })
       setSelectedFiles({})
       onComplete()
       onClose()
-    } catch {
+    } catch (error) {
+      console.log('[DocumentUpload] BulkUploadModal: upload failed', { error })
       toast({ title: 'Erro ao enviar alguns documentos. Tente novamente.' })
     } finally {
       setUploading(false)

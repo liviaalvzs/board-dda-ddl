@@ -1,6 +1,6 @@
 routerAdd(
   'POST',
-  '/backend/v1/s3-presign',
+  '/backend/v1/s3-configure-cors',
   (e) => {
     function sha256(msg) {
       var K = [
@@ -131,34 +131,36 @@ routerAdd(
       return h
     }
 
-    const body = e.requestInfo().body || {}
-    const landCode = (body.land_code || '').trim()
-    const filename = (body.filename || '').trim()
-    const contentType = (body.content_type || 'application/octet-stream').trim()
-
-    if (!landCode) return e.badRequestError('land_code é obrigatório')
-    if (!filename) return e.badRequestError('filename é obrigatório')
-
-    const accessKeyId = $secrets.get('AWS_ACCESS_KEY_ID')
-    const secretAccessKey = $secrets.get('AWS_SECRET_ACCESS_KEY')
-    const bucket = $secrets.get('AWS_S3_BUCKET') || 'prd-rg-data-lake'
-    const region = $secrets.get('AWS_S3_REGION') || 'us-east-1'
+    var accessKeyId = $secrets.get('AWS_ACCESS_KEY_ID')
+    var secretAccessKey = $secrets.get('AWS_SECRET_ACCESS_KEY')
+    var bucket = $secrets.get('AWS_S3_BUCKET') || 'prd-rg-data-lake'
+    var region = $secrets.get('AWS_S3_REGION') || 'us-east-1'
 
     if (!accessKeyId || !secretAccessKey) {
-      $app.logger().error('S3 presign: AWS credentials not configured')
+      $app.logger().error('S3 CORS: AWS credentials not configured')
       return e.json(500, { error: 'Credenciais AWS não configuradas' })
     }
 
-    var safeLandCode = landCode.replace(/[^a-zA-Z0-9._-]/g, '_')
-    var safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
-    var key =
-      'transient/skip-applications/due_dilligence_control/documents/' +
-      safeLandCode +
-      '/' +
-      safeFilename
+    var corsXml =
+      '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<CORSConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">' +
+      '<CORSRule>' +
+      '<AllowedOrigin>https://board-ddl-dda-copy-f54c9--preview.goskip.app</AllowedOrigin>' +
+      '<AllowedOrigin>https://board-ddl-dda.goskip.app</AllowedOrigin>' +
+      '<AllowedMethod>PUT</AllowedMethod>' +
+      '<AllowedMethod>GET</AllowedMethod>' +
+      '<AllowedMethod>HEAD</AllowedMethod>' +
+      '<AllowedHeader>Content-Type</AllowedHeader>' +
+      '<AllowedHeader>x-amz-*</AllowedHeader>' +
+      '<ExposeHeader>ETag</ExposeHeader>' +
+      '<MaxAgeSeconds>3000</MaxAgeSeconds>' +
+      '</CORSRule>' +
+      '</CORSConfiguration>'
 
     var service = 's3'
-    var method = 'PUT'
+    var host = bucket + '.s3.' + region + '.amazonaws.com'
+    var canonicalUri = '/'
+    var canonicalQueryString = 'cors='
 
     var now = new Date()
     var amzDate = now
@@ -167,34 +169,22 @@ routerAdd(
       .replace(/\.\d{3}/, '')
     var dateStamp = amzDate.substring(0, 8)
 
-    var host = bucket + '.s3.' + region + '.amazonaws.com'
+    var payloadHash = toHex(sha256(strBytes(corsXml)))
 
-    var canonicalUri = '/' + key.split('/').map(encodeURIComponent).join('/')
-
-    var credentialScope = dateStamp + '/' + region + '/' + service + '/aws4_request'
-    var credential = accessKeyId + '/' + credentialScope
-
-    var canonicalQueryParams = {
-      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-      'X-Amz-Credential': credential,
-      'X-Amz-Date': amzDate,
-      'X-Amz-Expires': '3600',
-      'X-Amz-SignedHeaders': 'content-type;host',
-    }
-
-    var sortedQueryKeys = Object.keys(canonicalQueryParams).sort()
-    var canonicalQueryString = sortedQueryKeys
-      .map(function (k) {
-        return encodeURIComponent(k) + '=' + encodeURIComponent(canonicalQueryParams[k])
-      })
-      .join('&')
-
-    var canonicalHeaders = 'content-type:' + contentType + '\n' + 'host:' + host + '\n'
-    var signedHeaders = 'content-type;host'
-    var payloadHash = 'UNSIGNED-PAYLOAD'
+    var canonicalHeaders =
+      'host:' +
+      host +
+      '\n' +
+      'x-amz-content-sha256:' +
+      payloadHash +
+      '\n' +
+      'x-amz-date:' +
+      amzDate +
+      '\n'
+    var signedHeaders = 'host;x-amz-content-sha256;x-amz-date'
 
     var canonicalRequest = [
-      method,
+      'PUT',
       canonicalUri,
       canonicalQueryString,
       canonicalHeaders,
@@ -204,6 +194,7 @@ routerAdd(
 
     var canonicalHash = toHex(sha256(strBytes(canonicalRequest)))
 
+    var credentialScope = dateStamp + '/' + region + '/' + service + '/aws4_request'
     var stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, canonicalHash].join('\n')
 
     var kDate = hmac(strBytes('AWS4' + secretAccessKey), strBytes(dateStamp))
@@ -212,21 +203,46 @@ routerAdd(
     var kSigning = hmac(kService, strBytes('aws4_request'))
     var signature = toHex(hmac(kSigning, strBytes(stringToSign)))
 
-    var presignedUrl =
-      'https://' +
-      host +
-      canonicalUri +
-      '?' +
-      canonicalQueryString +
-      '&X-Amz-Signature=' +
+    var authorization =
+      'AWS4-HMAC-SHA256 Credential=' +
+      accessKeyId +
+      '/' +
+      credentialScope +
+      ', SignedHeaders=' +
+      signedHeaders +
+      ', Signature=' +
       signature
 
-    var publicUrl = 'https://' + host + '/' + key
+    var res = $http.send({
+      url: 'https://' + host + '/?cors',
+      method: 'PUT',
+      headers: {
+        'x-amz-content-sha256': payloadHash,
+        'x-amz-date': amzDate,
+        Authorization: authorization,
+        'Content-Type': 'application/xml',
+      },
+      body: corsXml,
+      timeout: 30,
+    })
 
-    return e.json(200, {
-      presignedUrl: presignedUrl,
-      publicUrl: publicUrl,
-      key: key,
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return e.json(200, {
+        success: true,
+        message: 'CORS configuration applied successfully to bucket ' + bucket,
+      })
+    }
+
+    var errBody = ''
+    if (res.body && res.body.length) {
+      for (var i = 0; i < res.body.length; i++) {
+        errBody += String.fromCharCode(res.body[i])
+      }
+    }
+    $app.logger().error('S3 CORS config failed', 'status', res.statusCode, 'body', errBody)
+    return e.json(res.statusCode || 500, {
+      error: 'Failed to apply CORS configuration',
+      details: errBody,
     })
   },
   $apis.requireAuth(),

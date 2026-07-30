@@ -49,10 +49,18 @@ export function DocumentRow({
     }
     setUploading(true)
     try {
+      console.log('[DocumentUpload] DocumentRow: starting upload', {
+        landId,
+        documentKey,
+        fileName: file.name,
+        clusterSerial,
+      })
       await uploadDocument(landId, documentKey, file, clusterSerial)
+      console.log('[DocumentUpload] DocumentRow: upload succeeded', { landId, documentKey })
       toast({ title: `Documento ${documentLabel} enviado com sucesso!` })
       onUploaded()
     } catch (err) {
+      console.log('[DocumentUpload] DocumentRow: upload failed', { error: err })
       toast({
         title: err instanceof Error ? err.message : 'Erro ao enviar arquivo. Tente novamente.',
       })

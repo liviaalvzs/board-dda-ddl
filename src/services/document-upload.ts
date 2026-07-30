@@ -33,5 +33,18 @@ export async function uploadDocument(
   file: File,
   clusterSerial: string,
 ): Promise<any> {
-  return uploadDocumentToS3(landId, clusterSerial, documentKey, file)
+  console.log('[DocumentUpload] uploadDocument called', {
+    landId,
+    documentKey,
+    fileName: file.name,
+    clusterSerial,
+  })
+  try {
+    const result = await uploadDocumentToS3(landId, clusterSerial, documentKey, file)
+    console.log('[DocumentUpload] uploadDocument succeeded', { result })
+    return result
+  } catch (error) {
+    console.log('[DocumentUpload] uploadDocument failed', { error })
+    throw error
+  }
 }
