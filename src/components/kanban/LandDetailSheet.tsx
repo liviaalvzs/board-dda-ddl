@@ -717,6 +717,13 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   className="space-y-4 animate-fade-in-up mt-0 outline-none"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ProcessDatesSection
+                      metadata={metadata}
+                      externalId={
+                        land?.clusterSerial || land?.external_id || land?.externalId || landId || ''
+                      }
+                      onUpdated={fetchData}
+                    />
                     {/* Identificação */}
                     <div className="bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm space-y-4">
                       <h3 className="font-display text-lg text-brand-primary flex items-center gap-2 border-b border-brand-primary/5 pb-3">
@@ -815,13 +822,6 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                         />
                       </div>
                     </div>
-                    <ProcessDatesSection
-                      metadata={metadata}
-                      externalId={
-                        land?.clusterSerial || land?.external_id || land?.externalId || landId || ''
-                      }
-                      onUpdated={fetchData}
-                    />
                   </div>
                 </TabsContent>
 
