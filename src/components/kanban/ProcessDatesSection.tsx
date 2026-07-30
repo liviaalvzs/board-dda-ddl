@@ -30,7 +30,7 @@ const DATE_FIELDS: DateFieldConfig[] = [
   {
     key: 'data_recebimento_preliminar_ddm',
     param: 'dataRecebimentoPreliminarDdm',
-    label: 'Data Recebimento Preliminar DDM',
+    label: 'Data Recebimento Preliminar DDL',
   },
   {
     key: 'data_estimada_recebimento_ddl_conclusiva',
