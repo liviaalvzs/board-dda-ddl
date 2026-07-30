@@ -62,7 +62,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
 
   useEffect(() => {
     getDocumentTypes()
-      .then(setDocTypes)
+      .then((types) => setDocTypes(types.filter((t) => !t.key.toLowerCase().includes('dda'))))
       .catch(() => setDocTypes([]))
     fetchChecks()
   }, [landId])

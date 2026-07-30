@@ -14,14 +14,17 @@ import { Check, Building2, Loader2, Pencil, X } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
-import { upsertLandMetadata } from '@/services/land-metadata'
+import { upsertLandMetadata, type LandMetadataUpsertParams } from '@/services/land-metadata'
 import { cn } from '@/lib/utils'
 import { ClientResponseError } from 'pocketbase'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 
-interface LawFirmSelectorProps {
+interface OfficeSelectorProps {
   metadata: any
   externalId: string
+  fieldName: 'externalOffices' | 'prestadorDda'
+  expandKey: string
+  label: string
   onUpdated?: () => void
 }
 
@@ -30,7 +33,14 @@ function isAuthError(error: unknown): boolean {
   return error.status === 401 || error.status === 403
 }
 
-export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSelectorProps) {
+export function OfficeSelector({
+  metadata,
+  externalId,
+  fieldName,
+  expandKey,
+  label,
+  onUpdated,
+}: OfficeSelectorProps) {
   const [open, setOpen] = useState(false)
   const [offices, setOffices] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -39,8 +49,8 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
   const { isAuthenticated, signOut } = useAuth()
   const navigate = useNavigate()
 
-  const expandedOffice = metadata?.expand?.external_offices
-  const rawOfficeId = metadata?.external_offices
+  const expandedOffice = metadata?.expand?.[expandKey]
+  const rawOfficeId = metadata?.[expandKey]
   const currentOfficeId = Array.isArray(rawOfficeId) ? rawOfficeId[0] || null : rawOfficeId || null
   const currentOfficeName = Array.isArray(expandedOffice)
     ? expandedOffice[0]?.name
@@ -48,11 +58,7 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
 
   const redirectToLogin = (reason: string) => {
     signOut()
-    toast({
-      title: 'Sessão expirada',
-      description: reason,
-      variant: 'destructive',
-    })
+    toast({ title: 'Sessão expirada', description: reason, variant: 'destructive' })
     navigate('/login')
   }
 
@@ -68,7 +74,6 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
           redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
           return
         }
-        console.error('Failed to fetch offices', e)
       } finally {
         setLoading(false)
       }
@@ -81,39 +86,29 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
       redirectToLogin('Você precisa estar autenticado para realizar esta ação.')
       return
     }
-
     if (!externalId) {
       toast({
-        title: 'Erro ao atualizar escritório',
+        title: 'Erro ao atualizar',
         description: 'Identificador da terra não encontrado.',
         variant: 'destructive',
       })
       return
     }
-
-    if (!officeId || typeof officeId !== 'string') {
-      toast({
-        title: 'Erro ao atualizar escritório',
-        description: 'Seleção de escritório inválida.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setOpen(false)
     setSaving(true)
     try {
-      await upsertLandMetadata(externalId, { externalOffices: officeId })
-      toast({ title: 'Escritório de advocacia atualizado com sucesso' })
+      await upsertLandMetadata(externalId, {
+        [fieldName]: officeId,
+      } as Partial<LandMetadataUpsertParams>)
+      toast({ title: `${label} atualizado com sucesso` })
       onUpdated?.()
     } catch (error) {
-      console.error('[LawFirmSelector] Failed to update office:', error)
       if (isAuthError(error)) {
         redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
         return
       }
       toast({
-        title: 'Erro ao atualizar escritório de advocacia',
+        title: `Erro ao atualizar ${label}`,
         description: getErrorMessage(error),
         variant: 'destructive',
       })
@@ -127,21 +122,21 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
       redirectToLogin('Você precisa estar autenticado para realizar esta ação.')
       return
     }
-
     setOpen(false)
     setSaving(true)
     try {
-      await upsertLandMetadata(externalId, { externalOffices: null })
-      toast({ title: 'Escritório de advocacia removido' })
+      await upsertLandMetadata(externalId, {
+        [fieldName]: null,
+      } as Partial<LandMetadataUpsertParams>)
+      toast({ title: `${label} removido` })
       onUpdated?.()
     } catch (error) {
-      console.error('[LawFirmSelector] Failed to clear office:', error)
       if (isAuthError(error)) {
         redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
         return
       }
       toast({
-        title: 'Erro ao remover escritório',
+        title: `Erro ao remover ${label}`,
         description: getErrorMessage(error),
         variant: 'destructive',
       })
@@ -157,7 +152,7 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
       </div>
       <div className="flex flex-col flex-1 min-w-0">
         <span className="text-[10px] text-brand-primary/60 font-bold uppercase tracking-wider">
-          Escritório de Advocacia
+          {label}
         </span>
         {saving ? (
           <span className="text-sm font-semibold text-brand-primary/60 flex items-center gap-1">
@@ -170,7 +165,7 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
               currentOfficeName ? 'text-brand-primary' : 'text-brand-primary/40 italic',
             )}
           >
-            {currentOfficeName || 'Nenhum escritório atribuído'}
+            {currentOfficeName || `Nenhum ${label.toLowerCase()} atribuído`}
           </span>
         )}
       </div>
@@ -188,10 +183,10 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0" align="end">
           <Command>
-            <CommandInput placeholder="Buscar escritório..." />
+            <CommandInput placeholder="Buscar..." />
             <CommandList>
               <CommandEmpty>
-                {loading ? 'Carregando...' : 'Nenhum escritório encontrado.'}
+                {loading ? 'Carregando...' : 'Nenhum resultado encontrado.'}
               </CommandEmpty>
               <CommandGroup>
                 {offices.map((office) => (
@@ -216,7 +211,7 @@ export function LawFirmSelector({ metadata, externalId, onUpdated }: LawFirmSele
                   className="text-rose-600 border-t border-brand-primary/10 mt-1"
                 >
                   <X className="mr-2 h-4 w-4" />
-                  Remover escritório atribuído
+                  Remover
                 </CommandItem>
               )}
             </CommandList>

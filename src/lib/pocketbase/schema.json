@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-30T13:30:45.901Z",
+  "generatedAt": "2026-07-30T13:36:07.229Z",
   "collections": [
     {
       "name": "users",
@@ -164,13 +164,34 @@
           "type": "date",
           "required": false,
           "system": false
+        },
+        {
+          "name": "data_pedido_dda",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_recebimento_dda",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prestador_dda",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "external_offices"
         }
       ],
       "indexes": [
         "CREATE INDEX `idx_land_metadata_external_id` ON `land_metadata` (external_id)",
         "CREATE INDEX `idx_land_metadata_status` ON `land_metadata` (status)",
         "CREATE INDEX `idx_land_metadata_responsible` ON `land_metadata` (responsible_user)",
-        "CREATE INDEX `idx_land_metadata_cluster_serial` ON `land_metadata` (cluster_serial)"
+        "CREATE INDEX `idx_land_metadata_cluster_serial` ON `land_metadata` (cluster_serial)",
+        "CREATE INDEX `idx_land_metadata_data_pedido_dda` ON `land_metadata` (data_pedido_dda)",
+        "CREATE INDEX `idx_land_metadata_data_recebimento_dda` ON `land_metadata` (data_recebimento_dda)"
       ]
     },
     {

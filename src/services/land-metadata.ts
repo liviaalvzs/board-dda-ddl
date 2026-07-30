@@ -16,6 +16,9 @@ export interface LandMetadataUpsertParams {
   dataRecebimentoPreliminarDdm?: string | null
   dataEstimadaRecebimentoDdlConclusiva?: string | null
   dataRecebimentoDdConclusiva?: string | null
+  dataPedidoDda?: string | null
+  dataRecebimentoDda?: string | null
+  prestadorDda?: string | null
 }
 
 function normalizeRelationValue(value: string | null | undefined): string {
@@ -65,6 +68,15 @@ function buildPayload(data: Partial<LandMetadataUpsertParams>): Record<string, a
   }
   if (data.dataRecebimentoDdConclusiva !== undefined) {
     payload.data_recebimento_dd_conclusiva = data.dataRecebimentoDdConclusiva || null
+  }
+  if (data.dataPedidoDda !== undefined) {
+    payload.data_pedido_dda = data.dataPedidoDda || null
+  }
+  if (data.dataRecebimentoDda !== undefined) {
+    payload.data_recebimento_dda = data.dataRecebimentoDda || null
+  }
+  if (data.prestadorDda !== undefined) {
+    payload.prestador_dda = normalizeRelationValue(data.prestadorDda)
   }
   return payload
 }

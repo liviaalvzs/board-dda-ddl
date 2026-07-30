@@ -36,7 +36,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
-import { LawFirmSelector } from '@/components/kanban/LawFirmSelector'
+import { OfficeSelector } from '@/components/kanban/OfficeSelector'
 import { StageTimeline } from '@/components/kanban/StageTimeline'
 import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
 import { ProcessDatesSection } from '@/components/kanban/ProcessDatesSection'
@@ -410,7 +410,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
           : `external_id="${landId}"`
         const meta = await pb
           .collection('land_metadata')
-          .getFirstListItem(query, { expand: 'responsible_user,external_offices' })
+          .getFirstListItem(query, { expand: 'responsible_user,external_offices,prestador_dda' })
         setMetadata(meta)
       } catch (e) {
         // ignore if metadata doesn't exist
@@ -662,11 +662,24 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                     </span>
                   </div>
                 </div>
-                <LawFirmSelector
+                <OfficeSelector
                   metadata={metadata}
                   externalId={
                     land?.clusterSerial || land?.external_id || land?.externalId || landId || ''
                   }
+                  fieldName="externalOffices"
+                  expandKey="external_offices"
+                  label="Escritório de Advocacia"
+                  onUpdated={fetchData}
+                />
+                <OfficeSelector
+                  metadata={metadata}
+                  externalId={
+                    land?.clusterSerial || land?.external_id || land?.externalId || landId || ''
+                  }
+                  fieldName="prestadorDda"
+                  expandKey="prestador_dda"
+                  label="Prestador DDA"
                   onUpdated={fetchData}
                 />
               </div>
