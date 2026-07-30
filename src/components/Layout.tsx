@@ -4,6 +4,7 @@ import {
   LogOut,
   Building2,
   KanbanSquare,
+  LayoutDashboard,
   Settings,
   FileText,
   User,
@@ -31,6 +32,12 @@ export default function Layout() {
           label: 'Board',
           icon: KanbanSquare,
           match: (p: string) => p === '/' || p.startsWith('/land/'),
+        },
+        {
+          to: '/dash',
+          label: 'Dash',
+          icon: LayoutDashboard,
+          match: (p: string) => p === '/dash',
         },
         {
           to: '/mapa',

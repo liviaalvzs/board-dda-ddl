@@ -14,6 +14,7 @@ import DocumentUpload from './pages/DocumentUpload'
 import InspectApi from './pages/InspectApi'
 import Profile from './pages/Profile'
 import Mapa from './pages/Mapa'
+import Dashboard from './pages/Dashboard'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -52,6 +53,14 @@ const App = () => (
               element={
                 <AdminRoute>
                   <Index />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/dash"
+              element={
+                <AdminRoute>
+                  <Dashboard />
                 </AdminRoute>
               }
             />
