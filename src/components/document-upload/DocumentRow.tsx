@@ -35,7 +35,7 @@ export function DocumentRow({
       : check.document_file
     : null
   const isCompleted = check?.is_completed && !!(check?.document_url || fileName)
-  const fileUrl = fileName ? pb.files.getURL(check, fileName) : check?.document_url
+  const fileUrl = check?.document_url || (fileName ? pb.files.getURL(check, fileName) : null)
 
   const handleFile = async (file: File) => {
     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))

@@ -39,7 +39,7 @@ export function DocumentItem({
       : check.document_file
     : null
   const isUploaded = check?.is_completed && !!(check?.document_url || fileName)
-  const fileUrl = fileName ? pb.files.getURL(check, fileName) : check?.document_url
+  const fileUrl = check?.document_url || (fileName ? pb.files.getURL(check, fileName) : null)
 
   const validateFile = (file: File): string | null => {
     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))

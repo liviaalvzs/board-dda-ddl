@@ -1,7 +1,7 @@
 routerAdd(
   'POST',
-  '/backend/v1/s3-configure-cors',
-  (e) => {
+  '/backend/v1/proxy-upload',
+  async (e) => {
     function sha256(msg) {
       var K = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
@@ -93,7 +93,6 @@ routerAdd(
       }
       return r
     }
-
     function hmac(key, msg) {
       var bs = 64
       if (key.length > bs) key = sha256(key)
@@ -107,7 +106,6 @@ routerAdd(
       }
       return sha256(ok.concat(sha256(ik.concat(msg))))
     }
-
     function strBytes(s) {
       var b = []
       for (var i = 0; i < s.length; i++) {
@@ -124,12 +122,54 @@ routerAdd(
       }
       return b
     }
-
     function toHex(bytes) {
       var h = ''
       for (var i = 0; i < bytes.length; i++) h += ('00' + bytes[i].toString(16)).slice(-2)
       return h
     }
+
+    var body = e.requestInfo().body || {}
+    var landCode = (body.land_code || '').trim()
+    var documentKey = (body.document_key || '').trim()
+    var landId = (body.land_id || '').trim()
+
+    if (!landCode) return e.badRequestError('land_code é obrigatório')
+    if (!documentKey) return e.badRequestError('document_key é obrigatório')
+    if (!landId) return e.badRequestError('land_id é obrigatório')
+
+    var uploadedFiles = e.findUploadedFiles('file')
+    if (!uploadedFiles || uploadedFiles.length === 0)
+      return e.badRequestError('Nenhum arquivo enviado')
+
+    var fh = uploadedFiles[0]
+    var fileSize = fh.Size
+    var MAX_SIZE = 50 * 1024 * 1024
+    if (fileSize > MAX_SIZE) return e.badRequestError('O arquivo excede o tamanho máximo de 50 MB.')
+
+    var f = fh.Open()
+    var buf = new Uint8Array(fileSize)
+    var offset = 0
+    while (offset < fileSize) {
+      var n = f.Read(buf.subarray(offset))
+      if (n <= 0) break
+      offset += n
+    }
+    f.Close()
+
+    var filename = fh.Filename || 'document'
+    var contentType = 'application/octet-stream'
+    try {
+      var ct = fh.Header ? fh.Header.Get('Content-Type') : ''
+      if (ct) contentType = ct
+    } catch (_) {}
+
+    var safeLandCode = landCode.replace(/[^a-zA-Z0-9._-]/g, '_')
+    var safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+    var s3Key =
+      'transient/skip-applications/due_dilligence_control/documents/' +
+      safeLandCode +
+      '/' +
+      safeFilename
 
     var accessKeyId = $secrets.get('AWS_ACCESS_KEY_ID')
     var secretAccessKey = $secrets.get('AWS_SECRET_ACCESS_KEY')
@@ -137,41 +177,25 @@ routerAdd(
     var region = $secrets.get('AWS_S3_REGION') || 'us-east-1'
 
     if (!accessKeyId || !secretAccessKey) {
-      $app.logger().error('S3 CORS: AWS credentials not configured')
+      $app.logger().error('Proxy upload: AWS credentials not configured')
       return e.json(500, { error: 'Credenciais AWS não configuradas' })
     }
 
-    var corsXml =
-      '<?xml version="1.0" encoding="UTF-8"?>' +
-      '<CORSConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">' +
-      '<CORSRule>' +
-      '<AllowedOrigin>https://board-ddl-dda-copy-f54c9--preview.goskip.app</AllowedOrigin>' +
-      '<AllowedOrigin>https://board-ddl-dda.goskip.app</AllowedOrigin>' +
-      '<AllowedMethod>PUT</AllowedMethod>' +
-      '<AllowedMethod>GET</AllowedMethod>' +
-      '<AllowedMethod>HEAD</AllowedMethod>' +
-      '<AllowedHeader>Content-Type</AllowedHeader>' +
-      '<AllowedHeader>x-amz-*</AllowedHeader>' +
-      '<ExposeHeader>ETag</ExposeHeader>' +
-      '<MaxAgeSeconds>3000</MaxAgeSeconds>' +
-      '</CORSRule>' +
-      '</CORSConfiguration>'
-
-    var service = 's3'
     var host = bucket + '.s3.' + region + '.amazonaws.com'
-    var canonicalUri = '/'
-    var canonicalQueryString = 'cors='
-
+    var canonicalUri = '/' + s3Key.split('/').map(encodeURIComponent).join('/')
     var now = new Date()
     var amzDate = now
       .toISOString()
       .replace(/[:\-]/g, '')
       .replace(/\.\d{3}/, '')
     var dateStamp = amzDate.substring(0, 8)
-
-    var payloadHash = toHex(sha256(strBytes(corsXml)))
-
+    var credentialScope = dateStamp + '/' + region + '/s3/aws4_request'
+    var credential = accessKeyId + '/' + credentialScope
+    var payloadHash = 'UNSIGNED-PAYLOAD'
     var canonicalHeaders =
+      'content-type:' +
+      contentType +
+      '\n' +
       'host:' +
       host +
       '\n' +
@@ -181,69 +205,86 @@ routerAdd(
       'x-amz-date:' +
       amzDate +
       '\n'
-    var signedHeaders = 'host;x-amz-content-sha256;x-amz-date'
-
+    var signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date'
     var canonicalRequest = [
       'PUT',
       canonicalUri,
-      canonicalQueryString,
+      '',
       canonicalHeaders,
       signedHeaders,
       payloadHash,
     ].join('\n')
-
     var canonicalHash = toHex(sha256(strBytes(canonicalRequest)))
-
-    var credentialScope = dateStamp + '/' + region + '/' + service + '/aws4_request'
     var stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, canonicalHash].join('\n')
-
     var kDate = hmac(strBytes('AWS4' + secretAccessKey), strBytes(dateStamp))
     var kRegion = hmac(kDate, strBytes(region))
-    var kService = hmac(kRegion, strBytes(service))
+    var kService = hmac(kRegion, strBytes('s3'))
     var kSigning = hmac(kService, strBytes('aws4_request'))
     var signature = toHex(hmac(kSigning, strBytes(stringToSign)))
-
     var authorization =
       'AWS4-HMAC-SHA256 Credential=' +
-      accessKeyId +
-      '/' +
-      credentialScope +
+      credential +
       ', SignedHeaders=' +
       signedHeaders +
       ', Signature=' +
       signature
+    var s3Url = 'https://' + host + canonicalUri
 
-    var res = $http.send({
-      url: 'https://' + host + '/?cors',
-      method: 'PUT',
-      headers: {
-        'x-amz-content-sha256': payloadHash,
-        'x-amz-date': amzDate,
-        Authorization: authorization,
-        'Content-Type': 'application/xml',
-      },
-      body: corsXml,
-      timeout: 30,
-    })
-
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return e.json(200, {
-        success: true,
-        message: 'CORS configuration applied successfully to bucket ' + bucket,
+    try {
+      var s3Res = await fetch(s3Url, {
+        method: 'PUT',
+        headers: {
+          Authorization: authorization,
+          'Content-Type': contentType,
+          'x-amz-content-sha256': payloadHash,
+          'x-amz-date': amzDate,
+        },
+        body: buf,
+        idleTimeout: 120,
       })
+      if (!s3Res.ok) {
+        var errText = await s3Res.text().catch(function () {
+          return ''
+        })
+        $app.logger().error('S3 upload failed', 'status', s3Res.status, 'body', errText)
+        return e.json(s3Res.status, {
+          error: 'Falha no upload para S3: ' + s3Res.status + ' ' + errText,
+        })
+      }
+    } catch (err) {
+      $app.logger().error('S3 upload error', 'error', String(err))
+      return e.json(502, { error: 'Erro ao conectar com S3: ' + String(err) })
     }
 
-    var errBody = ''
-    if (res.body && res.body.length) {
-      for (var i = 0; i < res.body.length; i++) {
-        errBody += String.fromCharCode(res.body[i])
+    var publicUrl = 'https://' + host + '/' + s3Key
+    var userId = e.auth ? e.auth.id : ''
+
+    try {
+      var existing = $app.findFirstRecordByFilter(
+        'document_checks',
+        'land_id = "' + landId + '" && document_key = "' + documentKey + '"',
+      )
+      existing.set('document_url', publicUrl)
+      existing.set('is_completed', true)
+      existing.set('user', userId)
+      $app.save(existing)
+    } catch (findErr) {
+      try {
+        var col = $app.findCollectionByNameOrId('document_checks')
+        var record = new Record(col)
+        record.set('land_id', landId)
+        record.set('document_key', documentKey)
+        record.set('document_url', publicUrl)
+        record.set('is_completed', true)
+        record.set('user', userId)
+        $app.save(record)
+      } catch (createErr) {
+        $app.logger().error('Failed to save document_checks', 'error', String(createErr))
+        return e.json(500, { error: 'Erro ao salvar registro do documento' })
       }
     }
-    $app.logger().error('S3 CORS config failed', 'status', res.statusCode, 'body', errBody)
-    return e.json(res.statusCode || 500, {
-      error: 'Failed to apply CORS configuration',
-      details: errBody,
-    })
+
+    return e.json(200, { publicUrl: publicUrl, key: s3Key })
   },
   $apis.requireAuth(),
 )

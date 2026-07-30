@@ -1,6 +1,6 @@
 routerAdd(
   'POST',
-  '/backend/v1/s3-presign',
+  '/backend/v1/proxy-upload',
   (e) => {
     function sha256(msg) {
       var K = [
@@ -131,79 +131,122 @@ routerAdd(
       return h
     }
 
-    const body = e.requestInfo().body || {}
-    const landCode = (body.land_code || '').trim()
-    const filename = (body.filename || '').trim()
-    const contentType = (body.content_type || 'application/octet-stream').trim()
+    var body = e.requestInfo().body || {}
+    var landCode = String(body.land_code || '').trim()
+    var documentKey = String(body.document_key || '').trim()
+    var landId = String(body.land_id || '').trim()
 
     if (!landCode) return e.badRequestError('land_code é obrigatório')
-    if (!filename) return e.badRequestError('filename é obrigatório')
+    if (!documentKey) return e.badRequestError('document_key é obrigatório')
+    if (!landId) return e.badRequestError('land_id é obrigatório')
 
-    const accessKeyId = $secrets.get('AWS_ACCESS_KEY_ID')
-    const secretAccessKey = $secrets.get('AWS_SECRET_ACCESS_KEY')
-    const bucket = $secrets.get('AWS_S3_BUCKET') || 'prd-rg-data-lake'
-    const region = $secrets.get('AWS_S3_REGION') || 'us-east-1'
+    var files = e.findUploadedFiles('file')
+    if (!files || files.length === 0) return e.badRequestError('Nenhum arquivo enviado')
+    var fh = files[0]
+    var filename = fh.Filename || 'upload'
+
+    var maxSize = 50 * 1024 * 1024
+    if (fh.Size > maxSize) {
+      return e.badRequestError('O arquivo excede o tamanho máximo de 50 MB.')
+    }
+
+    var userId = e.auth ? e.auth.id : ''
+    var record
+    try {
+      record = $app.findFirstRecordByFilter(
+        'document_checks',
+        'land_id = "' + landId + '" && document_key = "' + documentKey + '"',
+      )
+    } catch (_) {
+      var col = $app.findCollectionByNameOrId('document_checks')
+      record = new Record(col)
+      record.set('land_id', landId)
+      record.set('document_key', documentKey)
+      record.set('is_completed', false)
+      record.set('user', userId)
+    }
+
+    var fileObj = $filesystem.fileFromMultipart(fh)
+    record.set('document_file', fileObj)
+    $app.save(record)
+
+    var pbUrl = $secrets.get('PB_INSTANCE_URL') || ''
+    if (!pbUrl) {
+      pbUrl = 'https://' + e.request.host
+    }
+    var storedFile = record.getString('document_file')
+    var fileUrl = pbUrl + '/api/files/document_checks/' + record.id + '/' + storedFile
+    var authHeader = e.request.header.get('Authorization') || ''
+
+    var downloadRes = $http.send({
+      url: fileUrl,
+      method: 'GET',
+      headers: { Authorization: authHeader },
+      timeout: 60,
+    })
+
+    if (downloadRes.statusCode !== 200) {
+      $app
+        .logger()
+        .error('proxy-upload: failed to download file from PB', 'status', downloadRes.statusCode)
+      return e.json(500, { error: 'Falha ao ler arquivo enviado' })
+    }
+
+    var accessKeyId = $secrets.get('AWS_ACCESS_KEY_ID')
+    var secretAccessKey = $secrets.get('AWS_SECRET_ACCESS_KEY')
+    var bucket = $secrets.get('AWS_S3_BUCKET') || 'prd-rg-data-lake'
+    var region = $secrets.get('AWS_S3_REGION') || 'us-east-1'
 
     if (!accessKeyId || !secretAccessKey) {
-      $app.logger().error('S3 presign: AWS credentials not configured')
+      $app.logger().error('proxy-upload: AWS credentials not configured')
       return e.json(500, { error: 'Credenciais AWS não configuradas' })
     }
 
     var safeLandCode = landCode.replace(/[^a-zA-Z0-9._-]/g, '_')
     var safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
-    var key =
+    var s3Key =
       'transient/skip-applications/due_dilligence_control/documents/' +
       safeLandCode +
       '/' +
       safeFilename
 
+    var contentType = 'application/octet-stream'
     var service = 's3'
-    var method = 'PUT'
-
     var now = new Date()
     var amzDate = now
       .toISOString()
       .replace(/[:\-]/g, '')
       .replace(/\.\d{3}/, '')
     var dateStamp = amzDate.substring(0, 8)
-
     var host = bucket + '.s3.' + region + '.amazonaws.com'
-
-    var canonicalUri = '/' + key.split('/').map(encodeURIComponent).join('/')
+    var canonicalUri = '/' + s3Key.split('/').map(encodeURIComponent).join('/')
 
     var credentialScope = dateStamp + '/' + region + '/' + service + '/aws4_request'
     var credential = accessKeyId + '/' + credentialScope
 
-    var canonicalQueryParams = {
-      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-      'X-Amz-Credential': credential,
-      'X-Amz-Date': amzDate,
-      'X-Amz-Expires': '3600',
-      'X-Amz-SignedHeaders': 'content-type;host',
-    }
-
-    var sortedQueryKeys = Object.keys(canonicalQueryParams).sort()
-    var canonicalQueryString = sortedQueryKeys
-      .map(function (k) {
-        return encodeURIComponent(k) + '=' + encodeURIComponent(canonicalQueryParams[k])
-      })
-      .join('&')
-
-    var canonicalHeaders = 'content-type:' + contentType + '\n' + 'host:' + host + '\n'
-    var signedHeaders = 'content-type;host'
-    var payloadHash = 'UNSIGNED-PAYLOAD'
+    var canonicalHeaders =
+      'content-type:' +
+      contentType +
+      '\n' +
+      'host:' +
+      host +
+      '\n' +
+      'x-amz-content-sha256:UNSIGNED-PAYLOAD\n' +
+      'x-amz-date:' +
+      amzDate +
+      '\n'
+    var signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date'
 
     var canonicalRequest = [
-      method,
+      'PUT',
       canonicalUri,
-      canonicalQueryString,
+      '',
       canonicalHeaders,
       signedHeaders,
-      payloadHash,
+      'UNSIGNED-PAYLOAD',
     ].join('\n')
 
     var canonicalHash = toHex(sha256(strBytes(canonicalRequest)))
-
     var stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, canonicalHash].join('\n')
 
     var kDate = hmac(strBytes('AWS4' + secretAccessKey), strBytes(dateStamp))
@@ -212,22 +255,39 @@ routerAdd(
     var kSigning = hmac(kService, strBytes('aws4_request'))
     var signature = toHex(hmac(kSigning, strBytes(stringToSign)))
 
-    var presignedUrl =
-      'https://' +
-      host +
-      canonicalUri +
-      '?' +
-      canonicalQueryString +
-      '&X-Amz-Signature=' +
+    var authorization =
+      'AWS4-HMAC-SHA256 Credential=' +
+      credential +
+      ', SignedHeaders=' +
+      signedHeaders +
+      ', Signature=' +
       signature
 
-    var publicUrl = 'https://' + host + '/' + key
+    var s3Url = 'https://' + host + '/' + s3Key
 
-    return e.json(200, {
-      presignedUrl: presignedUrl,
-      publicUrl: publicUrl,
-      key: key,
+    var uploadRes = $http.send({
+      url: s3Url,
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+        Authorization: authorization,
+        'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+        'x-amz-date': amzDate,
+      },
+      body: downloadRes.body,
+      timeout: 120,
     })
+
+    if (uploadRes.statusCode < 200 || uploadRes.statusCode >= 300) {
+      $app.logger().error('proxy-upload: S3 upload failed', 'status', uploadRes.statusCode)
+      return e.json(500, { error: 'Falha no upload para S3: ' + uploadRes.statusCode })
+    }
+
+    record.set('document_url', s3Url)
+    record.set('is_completed', true)
+    $app.save(record)
+
+    return e.json(200, { url: s3Url, key: s3Key })
   },
   $apis.requireAuth(),
 )
