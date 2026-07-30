@@ -128,9 +128,13 @@ export async function upsertLandMetadata(
 
   let record: any
 
+  const EXPAND_RELATIONS = 'responsible_user,external_offices,prestador_dda'
+
   if (existing) {
     try {
-      record = await pb.collection('land_metadata').update(existing.id, payload)
+      record = await pb.collection('land_metadata').update(existing.id, payload, {
+        expand: EXPAND_RELATIONS,
+      })
     } catch (err) {
       console.error('[upsertLandMetadata] Update failed:', {
         id: existing.id,
@@ -148,7 +152,9 @@ export async function upsertLandMetadata(
       if (!('cluster_serial' in createPayload)) {
         createPayload.cluster_serial = ''
       }
-      record = await pb.collection('land_metadata').create(createPayload)
+      record = await pb.collection('land_metadata').create(createPayload, {
+        expand: EXPAND_RELATIONS,
+      })
     } catch (err) {
       console.error('[upsertLandMetadata] Create failed:', {
         externalId,

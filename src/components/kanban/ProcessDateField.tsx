@@ -19,7 +19,7 @@ interface ProcessDateFieldProps {
   externalId: string
   variant: 'planned' | 'actual'
   isPlannedFilled?: boolean
-  onUpdated?: () => void
+  onUpdated?: (record: any) => void
 }
 
 export function ProcessDateField({
@@ -53,12 +53,12 @@ export function ProcessDateField({
     setOpen(false)
     setSaving(true)
     try {
-      await upsertLandMetadata(externalId, {
+      const result = await upsertLandMetadata(externalId, {
         [field.param]: date ? format(date, 'yyyy-MM-dd') : null,
       } as any)
       toast({ title: 'Data atualizada com sucesso' })
+      onUpdated?.(result)
       setHasLocalOverride(false)
-      onUpdated?.()
     } catch (err) {
       setHasLocalOverride(false)
       setLocalDate(undefined)

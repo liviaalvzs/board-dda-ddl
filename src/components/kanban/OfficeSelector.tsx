@@ -25,7 +25,7 @@ interface OfficeSelectorProps {
   fieldName: 'externalOffices' | 'prestadorDda'
   expandKey: string
   label: string
-  onUpdated?: () => void
+  onUpdated?: (record: any) => void
 }
 
 function isAuthError(error: unknown): boolean {
@@ -97,11 +97,11 @@ export function OfficeSelector({
     setOpen(false)
     setSaving(true)
     try {
-      await upsertLandMetadata(externalId, {
+      const result = await upsertLandMetadata(externalId, {
         [fieldName]: officeId,
       } as Partial<LandMetadataUpsertParams>)
       toast({ title: `${label} atualizado com sucesso` })
-      onUpdated?.()
+      onUpdated?.(result)
     } catch (error) {
       if (isAuthError(error)) {
         redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')
@@ -125,11 +125,11 @@ export function OfficeSelector({
     setOpen(false)
     setSaving(true)
     try {
-      await upsertLandMetadata(externalId, {
+      const result = await upsertLandMetadata(externalId, {
         [fieldName]: null,
       } as Partial<LandMetadataUpsertParams>)
       toast({ title: `${label} removido` })
-      onUpdated?.()
+      onUpdated?.(result)
     } catch (error) {
       if (isAuthError(error)) {
         redirectToLogin('Sua sessão expirou. Faça login novamente para continuar.')

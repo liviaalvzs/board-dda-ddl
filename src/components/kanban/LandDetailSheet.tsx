@@ -395,6 +395,11 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
 
+  const handleMetadataUpdated = (updatedRecord: any) => {
+    if (!updatedRecord) return
+    setMetadata(updatedRecord)
+  }
+
   const fetchData = async () => {
     if (!landId) return
     try {
@@ -676,7 +681,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   fieldName="externalOffices"
                   expandKey="external_offices"
                   label="Escritório de Advocacia"
-                  onUpdated={fetchData}
+                  onUpdated={handleMetadataUpdated}
                 />
                 <OfficeSelector
                   metadata={metadata}
@@ -684,7 +689,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   fieldName="prestadorDda"
                   expandKey="prestador_dda"
                   label="Prestador DDA"
-                  onUpdated={fetchData}
+                  onUpdated={handleMetadataUpdated}
                 />
               </div>
             </div>{' '}
@@ -737,7 +742,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                     <ProcessDatesSection
                       metadata={metadata}
                       externalId={effectiveExternalId}
-                      onUpdated={fetchData}
+                      onUpdated={handleMetadataUpdated}
                     />
                     {/* Identificação */}
                     <div className="bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm space-y-4">

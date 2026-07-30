@@ -20,7 +20,7 @@ import {
 interface ProcessDatesSectionProps {
   metadata: any
   externalId: string
-  onUpdated?: () => void
+  onUpdated?: (record: any) => void
 }
 
 export function ProcessDatesSection({ metadata, externalId, onUpdated }: ProcessDatesSectionProps) {
@@ -43,12 +43,12 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
     setMarcoOpen(false)
     setSavingMarco(true)
     try {
-      await upsertLandMetadata(externalId, {
+      const result = await upsertLandMetadata(externalId, {
         [MARCO_INICIAL.param]: date ? format(date, 'yyyy-MM-dd') : null,
       } as any)
       toast({ title: 'Data atualizada com sucesso' })
+      onUpdated?.(result)
       setHasLocalMarcoOverride(false)
-      onUpdated?.()
     } catch (err) {
       setHasLocalMarcoOverride(false)
       setLocalMarco(undefined)
