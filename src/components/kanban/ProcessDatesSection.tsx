@@ -26,21 +26,30 @@ interface ProcessDatesSectionProps {
 export function ProcessDatesSection({ metadata, externalId, onUpdated }: ProcessDatesSectionProps) {
   const { toast } = useToast()
   const [savingMarco, setSavingMarco] = useState(false)
-  const marcoSelected = parseDateValue(metadata?.[MARCO_INICIAL.key])
+  const [marcoOpen, setMarcoOpen] = useState(false)
+  const [localMarco, setLocalMarco] = useState<Date | undefined>(undefined)
+  const [hasLocalMarcoOverride, setHasLocalMarcoOverride] = useState(false)
+
+  const serverMarco = parseDateValue(metadata?.[MARCO_INICIAL.key])
+  const marcoSelected = hasLocalMarcoOverride ? localMarco : serverMarco
   const marcoFieldId = `field-${MARCO_INICIAL.key}`
   const marcoLabelId = `label-${MARCO_INICIAL.key}`
 
   const handleMarcoChange = async (date: Date | undefined) => {
+    setLocalMarco(date)
+    setHasLocalMarcoOverride(true)
+    setMarcoOpen(false)
     setSavingMarco(true)
     try {
       await upsertLandMetadata(externalId, {
         [MARCO_INICIAL.param]: date ? date.toISOString() : null,
       } as any)
       toast({ title: 'Data atualizada com sucesso' })
+      setHasLocalMarcoOverride(false)
       onUpdated?.()
     } catch (error) {
       toast({
-        title: 'Erro ao atualizar data',
+        title: 'Erro ao salvar datas',
         description: getErrorMessage(error),
         variant: 'destructive',
       })
@@ -64,14 +73,14 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
             {MARCO_INICIAL.label}
           </span>
           <div className="flex items-center gap-1">
-            <Popover>
+            <Popover open={marcoOpen} onOpenChange={setMarcoOpen}>
               <PopoverTrigger asChild>
                 <Button
                   id={marcoFieldId}
                   variant="outline"
                   aria-labelledby={marcoLabelId}
                   className={cn(
-                    'justify-start text-left font-normal h-10 rounded-lg flex-1 border-0 bg-surface-1 text-brand-primary text-sm',
+                    'justify-start text-left font-normal h-10 rounded-lg flex-1 border-0 bg-surface-1 text-brand-primary text-sm transition-colors',
                     !marcoSelected && 'text-brand-primary/40',
                   )}
                   disabled={savingMarco}
@@ -90,9 +99,12 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
                 <Calendar
                   mode="single"
                   selected={marcoSelected}
-                  onSelect={handleMarcoChange}
+                  onSelect={(date) => {
+                    handleMarcoChange(date)
+                  }}
                   locale={ptBR}
                   initialFocus
+                  disabled={savingMarco}
                 />
               </PopoverContent>
             </Popover>
@@ -142,7 +154,7 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
                   {chip && (
                     <span
                       className={cn(
-                        'text-[12px] px-[10px] py-[3px] rounded-lg font-medium',
+                        'text-[12px] px-[10px] py-[3px] rounded-lg font-medium transition-all',
                         chip.className,
                       )}
                     >

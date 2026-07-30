@@ -34,23 +34,32 @@ export function ProcessDateField({
 }: ProcessDateFieldProps) {
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
-  const selected = parseDateValue(value)
+  const [open, setOpen] = useState(false)
+  const [localDate, setLocalDate] = useState<Date | undefined>(undefined)
+  const [hasLocalOverride, setHasLocalOverride] = useState(false)
+
+  const serverDate = parseDateValue(value)
+  const selected = hasLocalOverride ? localDate : serverDate
   const fieldId = `field-${field.key}`
   const labelId = `label-${field.key}`
   const isPlanned = variant === 'planned'
   const hasValue = !!selected
 
   const handleDateChange = async (date: Date | undefined) => {
+    setLocalDate(date)
+    setHasLocalOverride(true)
+    setOpen(false)
     setSaving(true)
     try {
       await upsertLandMetadata(externalId, {
         [field.param]: date ? date.toISOString() : null,
       } as any)
       toast({ title: 'Data atualizada com sucesso' })
+      setHasLocalOverride(false)
       onUpdated?.()
     } catch (error) {
       toast({
-        title: 'Erro ao atualizar data',
+        title: 'Erro ao salvar datas',
         description: getErrorMessage(error),
         variant: 'destructive',
       })
@@ -68,14 +77,14 @@ export function ProcessDateField({
         {columnLabel}
       </span>
       <div className="flex items-center gap-1">
-        <Popover>
+        <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
               id={fieldId}
               variant="outline"
               aria-labelledby={labelId}
               className={cn(
-                'justify-start text-left font-normal h-10 rounded-lg flex-1 text-sm',
+                'justify-start text-left font-normal h-10 rounded-lg flex-1 text-sm transition-colors',
                 isPlanned
                   ? 'border-dashed border-brand-primary/20 bg-surface-1 text-brand-primary/70'
                   : cn(
@@ -104,9 +113,12 @@ export function ProcessDateField({
             <Calendar
               mode="single"
               selected={selected}
-              onSelect={handleDateChange}
+              onSelect={(date) => {
+                handleDateChange(date)
+              }}
               locale={ptBR}
               initialFocus
+              disabled={saving}
             />
           </PopoverContent>
         </Popover>
