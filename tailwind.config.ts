@@ -26,9 +26,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Wix Madefor Text', 'system-ui', 'sans-serif'],
-        display: ['Sharp Grotesk', 'Wix Madefor Text', 'system-ui', 'sans-serif'],
-        label: ['Wix Madefor Text', 'system-ui', 'sans-serif'],
+        sans: ['Wix Madefor Display', 'Wix Madefor Text', 'system-ui', 'Arial', 'sans-serif'],
+        display: ['Sharp Grotesk', 'Wix Madefor Display', 'system-ui', 'sans-serif'],
+        label: ['Wix Madefor Display', 'Wix Madefor Text', 'system-ui', 'sans-serif'],
       },
       colors: {
         brand: {
@@ -39,6 +39,10 @@ export default {
           alternative: '#AFA5F5',
           info: '#419BDC',
           critical: '#E23E00',
+        },
+        surface: {
+          1: '#FCFEEB',
+          2: '#FFFFFF',
         },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

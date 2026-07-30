@@ -1,0 +1,128 @@
+import { useState } from 'react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { CalendarIcon, CalendarCheck, Loader2, X } from 'lucide-react'
+import { upsertLandMetadata } from '@/services/land-metadata'
+import { useToast } from '@/hooks/use-toast'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { parseDateValue, type DateFieldConfig } from '@/lib/process-dates-helpers'
+
+interface ProcessDateFieldProps {
+  field: DateFieldConfig
+  milestoneTitle: string
+  columnLabel: string
+  value: any
+  externalId: string
+  variant: 'planned' | 'actual'
+  isPlannedFilled?: boolean
+  onUpdated?: () => void
+}
+
+export function ProcessDateField({
+  field,
+  milestoneTitle,
+  columnLabel,
+  value,
+  externalId,
+  variant,
+  isPlannedFilled,
+  onUpdated,
+}: ProcessDateFieldProps) {
+  const { toast } = useToast()
+  const [saving, setSaving] = useState(false)
+  const selected = parseDateValue(value)
+  const fieldId = `field-${field.key}`
+  const labelId = `label-${field.key}`
+  const isPlanned = variant === 'planned'
+  const hasValue = !!selected
+
+  const handleDateChange = async (date: Date | undefined) => {
+    setSaving(true)
+    try {
+      await upsertLandMetadata(externalId, {
+        [field.param]: date ? date.toISOString() : null,
+      } as any)
+      toast({ title: 'Data atualizada com sucesso' })
+      onUpdated?.()
+    } catch (error) {
+      toast({
+        title: 'Erro ao atualizar data',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col flex-1">
+      <span id={labelId} className="sr-only">
+        {milestoneTitle} – {columnLabel}
+      </span>
+      <span className="text-[11px] font-semibold text-brand-primary/50 mb-1 block sm:hidden">
+        {columnLabel}
+      </span>
+      <div className="flex items-center gap-1">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              id={fieldId}
+              variant="outline"
+              aria-labelledby={labelId}
+              className={cn(
+                'justify-start text-left font-normal h-10 rounded-lg flex-1 text-sm',
+                isPlanned
+                  ? 'border-dashed border-brand-primary/20 bg-surface-1 text-brand-primary/70'
+                  : cn(
+                      'bg-white text-brand-primary',
+                      isPlannedFilled ? 'border-brand-primary/25' : 'border-brand-primary/10',
+                    ),
+                !hasValue && 'text-brand-primary/40',
+              )}
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : !isPlanned && hasValue ? (
+                <CalendarCheck className="w-4 h-4 mr-2 text-brand-secondary" />
+              ) : (
+                <CalendarIcon className="w-4 h-4 mr-2" />
+              )}
+              {hasValue
+                ? format(selected, 'dd/MM/yyyy', { locale: ptBR })
+                : isPlanned
+                  ? 'selecione uma data'
+                  : 'ainda não recebido'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={selected}
+              onSelect={handleDateChange}
+              locale={ptBR}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+        {hasValue && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 shrink-0 text-brand-primary/40 hover:text-brand-critical"
+            disabled={saving}
+            onClick={() => handleDateChange(undefined)}
+            aria-label={`Limpar data de ${milestoneTitle} – ${columnLabel}`}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}

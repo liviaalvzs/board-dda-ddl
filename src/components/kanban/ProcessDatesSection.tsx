@@ -1,66 +1,21 @@
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CalendarIcon, Loader2, X } from 'lucide-react'
+import { CalendarIcon, Clock, CheckCircle2, Loader2, X, ArrowRight } from 'lucide-react'
 import { upsertLandMetadata } from '@/services/land-metadata'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
-
-interface DateFieldConfig {
-  key: string
-  param: string
-  label: string
-}
-
-const DATE_ROWS: DateFieldConfig[][] = [
-  [
-    {
-      key: 'data_assinatura_carta_proposta',
-      param: 'dataAssinaturaCartaProposta',
-      label: 'Data da Assinatura da Carta Proposta',
-    },
-  ],
-  [
-    {
-      key: 'data_pedido_inicio_ddl',
-      param: 'dataPedidoInicioDdl',
-      label: 'Data Pedido de Início de DDL',
-    },
-    {
-      key: 'data_recebimento_preliminar_ddm',
-      param: 'dataRecebimentoPreliminarDdm',
-      label: 'Data Recebimento Preliminar DDL',
-    },
-  ],
-  [
-    {
-      key: 'data_estimada_recebimento_ddl_conclusiva',
-      param: 'dataEstimadaRecebimentoDdlConclusiva',
-      label: 'Data Estimada de Recebimento da DDL Conclusiva',
-    },
-    {
-      key: 'data_recebimento_dd_conclusiva',
-      param: 'dataRecebimentoDdConclusiva',
-      label: 'Data de Recebimento da DD Conclusiva',
-    },
-  ],
-  [
-    {
-      key: 'data_pedido_dda',
-      param: 'dataPedidoDda',
-      label: 'Data de Pedido DDA',
-    },
-    {
-      key: 'data_recebimento_dda',
-      param: 'dataRecebimentoDda',
-      label: 'Data de Recebimento DDA',
-    },
-  ],
-]
+import { ProcessDateField } from '@/components/kanban/ProcessDateField'
+import {
+  MARCO_INICIAL,
+  MILESTONES,
+  parseDateValue,
+  calculateChipStatus,
+} from '@/lib/process-dates-helpers'
 
 interface ProcessDatesSectionProps {
   metadata: any
@@ -70,13 +25,17 @@ interface ProcessDatesSectionProps {
 
 export function ProcessDatesSection({ metadata, externalId, onUpdated }: ProcessDatesSectionProps) {
   const { toast } = useToast()
-  const [savingField, setSavingField] = useState<string | null>(null)
+  const [savingMarco, setSavingMarco] = useState(false)
+  const marcoSelected = parseDateValue(metadata?.[MARCO_INICIAL.key])
+  const marcoFieldId = `field-${MARCO_INICIAL.key}`
+  const marcoLabelId = `label-${MARCO_INICIAL.key}`
 
-  const handleDateChange = async (field: DateFieldConfig, date: Date | undefined) => {
-    setSavingField(field.key)
+  const handleMarcoChange = async (date: Date | undefined) => {
+    setSavingMarco(true)
     try {
-      const value = date ? date.toISOString() : null
-      await upsertLandMetadata(externalId, { [field.param]: value } as any)
+      await upsertLandMetadata(externalId, {
+        [MARCO_INICIAL.param]: date ? date.toISOString() : null,
+      } as any)
       toast({ title: 'Data atualizada com sucesso' })
       onUpdated?.()
     } catch (error) {
@@ -86,85 +45,139 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
         variant: 'destructive',
       })
     } finally {
-      setSavingField(null)
+      setSavingMarco(false)
     }
-  }
-
-  const parseDate = (value: any): Date | undefined => {
-    if (!value) return undefined
-    try {
-      return parseISO(value)
-    } catch {
-      return undefined
-    }
-  }
-
-  const renderField = (field: DateFieldConfig, fullWidth: boolean) => {
-    const selected = parseDate(metadata?.[field.key])
-    return (
-      <div key={field.key} className={cn('flex flex-col', fullWidth ? 'w-full' : 'flex-1')}>
-        <span className="text-[11px] text-brand-primary/60 font-semibold mb-1 uppercase tracking-wider block">
-          {field.label}
-        </span>
-        <div className="flex items-center gap-1">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  'justify-start text-left font-normal h-10 rounded-lg flex-1',
-                  !selected && 'text-brand-primary/40',
-                )}
-                disabled={savingField === field.key}
-              >
-                {savingField === field.key ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <CalendarIcon className="w-4 h-4 mr-2" />
-                )}
-                {selected ? format(selected, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione uma data'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selected}
-                onSelect={(d) => handleDateChange(field, d)}
-                locale={ptBR}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-          {selected && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 shrink-0 text-brand-primary/40 hover:text-brand-critical"
-              disabled={savingField === field.key}
-              onClick={() => handleDateChange(field, undefined)}
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-    )
   }
 
   return (
-    <div className="bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm space-y-4 md:col-span-2">
-      <h3 className="font-display text-lg text-brand-primary flex items-center gap-2 border-b border-brand-primary/5 pb-3">
-        <CalendarIcon className="w-5 h-5 text-brand-secondary" /> Datas do Processo
+    <div className="bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm space-y-5 md:col-span-2">
+      <h3 className="font-display text-[22px] font-light text-brand-primary border-b border-brand-primary/5 pb-3">
+        Datas do processo
       </h3>
-      <div className="space-y-4">
-        {DATE_ROWS.map((row, rowIndex) => (
-          <div
-            key={rowIndex}
-            className={cn('flex flex-col gap-4', row.length > 1 && 'sm:flex-row')}
+
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex flex-col flex-1">
+          <span
+            id={marcoLabelId}
+            className="text-[11px] font-semibold text-brand-primary/60 mb-1 block"
           >
-            {row.map((field) => renderField(field, row.length === 1))}
+            {MARCO_INICIAL.label}
+          </span>
+          <div className="flex items-center gap-1">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id={marcoFieldId}
+                  variant="outline"
+                  aria-labelledby={marcoLabelId}
+                  className={cn(
+                    'justify-start text-left font-normal h-10 rounded-lg flex-1 border-0 bg-surface-1 text-brand-primary text-sm',
+                    !marcoSelected && 'text-brand-primary/40',
+                  )}
+                  disabled={savingMarco}
+                >
+                  {savingMarco ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CalendarIcon className="w-4 h-4 mr-2" />
+                  )}
+                  {marcoSelected
+                    ? format(marcoSelected, 'dd/MM/yyyy', { locale: ptBR })
+                    : 'selecione uma data'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={marcoSelected}
+                  onSelect={handleMarcoChange}
+                  locale={ptBR}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            {marcoSelected && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 shrink-0 text-brand-primary/40 hover:text-brand-critical"
+                disabled={savingMarco}
+                onClick={() => handleMarcoChange(undefined)}
+                aria-label="Limpar data de assinatura da carta proposta"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
           </div>
-        ))}
+        </div>
+        <span className="text-[11px] font-semibold text-brand-primary/50 bg-white px-2.5 py-1 rounded-full border border-brand-primary/10 whitespace-nowrap shrink-0 mb-1">
+          ponto de partida
+        </span>
+      </div>
+
+      <div className="hidden sm:grid grid-cols-[1fr_28px_1fr] gap-0 items-center pb-2 border-b border-brand-primary/10">
+        <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
+          <Clock className="w-3.5 h-3.5" /> Previsto
+        </div>
+        <div />
+        <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
+          <CheckCircle2 className="w-3.5 h-3.5" /> Realizado
+        </div>
+      </div>
+
+      <div>
+        {MILESTONES.map((milestone, index) => {
+          const plannedDate = parseDateValue(metadata?.[milestone.planned.key])
+          const actualDate = parseDateValue(metadata?.[milestone.actual.key])
+          const chip = calculateChipStatus(plannedDate, actualDate)
+
+          return (
+            <div
+              key={milestone.title}
+              className={cn('py-4', index > 0 && 'border-t border-brand-primary/10')}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-brand-primary">{milestone.title}</span>
+                <div aria-live="polite">
+                  {chip && (
+                    <span
+                      className={cn(
+                        'text-[12px] px-[10px] py-[3px] rounded-lg font-medium',
+                        chip.className,
+                      )}
+                    >
+                      {chip.text}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_28px_1fr] gap-2 sm:gap-0 sm:items-center">
+                <ProcessDateField
+                  field={milestone.planned}
+                  milestoneTitle={milestone.title}
+                  columnLabel="Previsto"
+                  value={metadata?.[milestone.planned.key]}
+                  externalId={externalId}
+                  variant="planned"
+                  onUpdated={onUpdated}
+                />
+                <div className="hidden sm:flex items-center justify-center text-brand-primary/30">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+                <ProcessDateField
+                  field={milestone.actual}
+                  milestoneTitle={milestone.title}
+                  columnLabel="Realizado"
+                  value={metadata?.[milestone.actual.key]}
+                  externalId={externalId}
+                  variant="actual"
+                  isPlannedFilled={!!plannedDate}
+                  onUpdated={onUpdated}
+                />
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
