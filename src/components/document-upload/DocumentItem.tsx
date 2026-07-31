@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, Upload, RefreshCw, ExternalLink, FileText } from
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 import pb from '@/lib/pocketbase/client'
 import { uploadDocument } from '@/services/document-upload'
 
@@ -61,19 +62,11 @@ export function DocumentItem({
     }
     setUploading(true)
     try {
-      console.log('[DocumentUpload] DocumentItem: starting upload', {
-        landId,
-        documentKey,
-        fileName: file.name,
-        clusterSerial,
-      })
       await uploadDocument(landId, documentKey, file, clusterSerial)
-      console.log('[DocumentUpload] DocumentItem: upload succeeded', { landId, documentKey })
       toast({ title: `Documento ${documentLabel} enviado com sucesso!` })
       onUploaded()
     } catch (err) {
-      console.log('[DocumentUpload] DocumentItem: upload failed', { error: err })
-      setError(err instanceof Error ? err.message : 'Erro ao enviar arquivo. Tente novamente.')
+      setError(getErrorMessage(err))
     } finally {
       setUploading(false)
     }

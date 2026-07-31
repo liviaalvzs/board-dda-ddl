@@ -132,22 +132,39 @@ routerAdd(
     }
 
     var body = e.requestInfo().body || {}
-    var landCode = String(body.land_code || '').trim()
-    var documentKey = String(body.document_key || '').trim()
-    var landId = String(body.land_id || '').trim()
+    var landId = String(body.land_id || body.landId || '').trim()
+    var documentKey = String(body.document_key || body.documentKey || '').trim()
+    var landCode = String(body.land_code || body.landCode || body.clusterSerial || '').trim()
 
-    if (!landCode) return e.badRequestError('land_code é obrigatório')
-    if (!documentKey) return e.badRequestError('document_key é obrigatório')
-    if (!landId) return e.badRequestError('land_id é obrigatório')
+    if (!landId) return e.badRequestError('landId é obrigatório')
+    if (!documentKey) return e.badRequestError('documentKey é obrigatório')
+
+    if (!landCode) {
+      try {
+        var landMeta = $app.findFirstRecordByFilter(
+          'land_metadata',
+          'external_id = "' + landId.replace(/"/g, '\\"') + '"',
+        )
+        landCode = landMeta.getString('cluster_serial') || landId
+      } catch (_) {
+        landCode = landId
+      }
+    }
 
     var files = e.findUploadedFiles('file')
     if (!files || files.length === 0) return e.badRequestError('Nenhum arquivo enviado')
     var fh = files[0]
     var filename = fh.Filename || 'upload'
 
-    var maxSize = 50 * 1024 * 1024
+    var maxSize = 10 * 1024 * 1024
     if (fh.Size > maxSize) {
-      return e.badRequestError('O arquivo excede o tamanho máximo de 50 MB.')
+      return e.badRequestError('O arquivo excede o tamanho máximo de 10 MB.')
+    }
+
+    var ext = filename.toLowerCase().substring(filename.lastIndexOf('.'))
+    var allowedExts = ['.pdf', '.jpg', '.jpeg', '.png']
+    if (allowedExts.indexOf(ext) === -1) {
+      return e.badRequestError('Tipo de arquivo não permitido. Aceitos: PDF, JPG, PNG.')
     }
 
     var userId = e.auth ? e.auth.id : ''
@@ -155,20 +172,24 @@ routerAdd(
     try {
       record = $app.findFirstRecordByFilter(
         'document_checks',
-        'land_id = "' + landId + '" && document_key = "' + documentKey + '"',
+        'land_id = "' +
+          landId.replace(/"/g, '\\"') +
+          '" && document_key = "' +
+          documentKey.replace(/"/g, '\\"') +
+          '"',
       )
     } catch (_) {
-      var col = $app.findCollectionByNameOrId('document_checks')
-      record = new Record(col)
-      record.set('land_id', landId)
-      record.set('document_key', documentKey)
-      record.set('is_completed', false)
-      record.set('user', userId)
+      return e.notFoundError('No matching document_checks record for this land and document key')
     }
 
     var fileObj = $filesystem.fileFromMultipart(fh)
     record.set('document_file', fileObj)
-    $app.save(record)
+    try {
+      $app.save(record)
+    } catch (saveErr) {
+      $app.logger().error('proxy-upload: failed to save document_file', 'error', String(saveErr))
+      return e.badRequestError('Falha ao salvar o arquivo: ' + String(saveErr))
+    }
 
     var pbUrl = $secrets.get('PB_INSTANCE_URL') || ''
     if (!pbUrl) {
@@ -189,7 +210,7 @@ routerAdd(
       $app
         .logger()
         .error('proxy-upload: failed to download file from PB', 'status', downloadRes.statusCode)
-      return e.json(500, { error: 'Falha ao ler arquivo enviado' })
+      return e.internalServerError('Falha ao ler arquivo enviado')
     }
 
     var accessKeyId = $secrets.get('AWS_ACCESS_KEY_ID')
@@ -199,7 +220,7 @@ routerAdd(
 
     if (!accessKeyId || !secretAccessKey) {
       $app.logger().error('proxy-upload: AWS credentials not configured')
-      return e.json(500, { error: 'Credenciais AWS não configuradas' })
+      return e.internalServerError('Credenciais AWS não configuradas')
     }
 
     var safeLandCode = landCode.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -280,12 +301,19 @@ routerAdd(
 
     if (uploadRes.statusCode < 200 || uploadRes.statusCode >= 300) {
       $app.logger().error('proxy-upload: S3 upload failed', 'status', uploadRes.statusCode)
-      return e.json(500, { error: 'Falha no upload para S3: ' + uploadRes.statusCode })
+      return e.internalServerError('Falha no upload para S3: ' + uploadRes.statusCode)
     }
 
     record.set('document_url', s3Url)
     record.set('is_completed', true)
-    $app.save(record)
+    try {
+      $app.save(record)
+    } catch (finalSaveErr) {
+      $app
+        .logger()
+        .error('proxy-upload: failed to save document_url', 'error', String(finalSaveErr))
+      return e.internalServerError('Falha ao atualizar registro: ' + String(finalSaveErr))
+    }
 
     return e.json(200, { url: s3Url, key: s3Key })
   },

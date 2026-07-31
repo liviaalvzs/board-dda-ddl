@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { uploadDocument } from '@/services/document-upload'
 
 export interface PresignResponse {
   presignedUrl: string
@@ -7,26 +8,23 @@ export interface PresignResponse {
 }
 
 export async function getPresignedUrl(
-  landCode: string,
-  filename: string,
-  contentType: string,
+  _landCode: string,
+  _filename: string,
+  _contentType: string,
 ): Promise<PresignResponse> {
-  console.log('[DocumentUpload] getPresignedUrl is deprecated, use proxy-upload instead')
   throw new Error('getPresignedUrl is deprecated. Use proxy-upload endpoint instead.')
 }
 
-export async function uploadToS3(presignedUrl: string, file: File): Promise<void> {
-  console.log('[DocumentUpload] uploadToS3 is deprecated, use proxy-upload instead')
+export async function uploadToS3(_presignedUrl: string, _file: File): Promise<void> {
   throw new Error('uploadToS3 is deprecated. Use proxy-upload endpoint instead.')
 }
 
 export async function saveDocumentUrl(
-  landId: string,
-  documentKey: string,
-  documentUrl: string,
-  existingCheckId?: string,
+  _landId: string,
+  _documentKey: string,
+  _documentUrl: string,
+  _existingCheckId?: string,
 ): Promise<any> {
-  console.log('[DocumentUpload] saveDocumentUrl: now handled by proxy-upload hook, skipping')
   return null
 }
 
@@ -35,49 +33,8 @@ export async function uploadDocumentToS3(
   clusterSerial: string,
   documentKey: string,
   file: File,
-  existingCheckId?: string,
+  _existingCheckId?: string,
 ): Promise<string> {
-  console.log('[DocumentUpload] Starting proxy upload', {
-    landId,
-    clusterSerial,
-    documentKey,
-    file: { name: file.name, type: file.type, size: file.size },
-    existingCheckId,
-  })
-
-  if (!clusterSerial) {
-    throw new Error('Cluster serial não definido para esta terra.')
-  }
-
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('land_code', clusterSerial)
-  formData.append('document_key', documentKey)
-  formData.append('land_id', landId)
-
-  const baseUrl = import.meta.env.VITE_POCKETBASE_URL
-
-  console.log('[DocumentUpload] Sending file to proxy-upload endpoint', { baseUrl })
-
-  const response = await fetch(`${baseUrl}/backend/v1/proxy-upload`, {
-    method: 'POST',
-    headers: {
-      Authorization: pb.authStore.token,
-    },
-    body: formData,
-  })
-
-  const result = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    console.log('[DocumentUpload] Proxy upload failed', {
-      status: response.status,
-      statusText: response.statusText,
-      result,
-    })
-    throw new Error(result.message || result.error || `Erro ao enviar arquivo: ${response.status}`)
-  }
-
-  console.log('[DocumentUpload] Proxy upload succeeded', { result })
+  const result = await uploadDocument(landId, documentKey, file, clusterSerial)
   return result.url
 }

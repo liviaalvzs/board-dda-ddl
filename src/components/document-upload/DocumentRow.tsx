@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, Upload, ExternalLink, FileText } from 'lucide-re
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { uploadDocument } from '@/services/document-upload'
 
 interface DocumentRowProps {
@@ -49,20 +50,12 @@ export function DocumentRow({
     }
     setUploading(true)
     try {
-      console.log('[DocumentUpload] DocumentRow: starting upload', {
-        landId,
-        documentKey,
-        fileName: file.name,
-        clusterSerial,
-      })
       await uploadDocument(landId, documentKey, file, clusterSerial)
-      console.log('[DocumentUpload] DocumentRow: upload succeeded', { landId, documentKey })
       toast({ title: `Documento ${documentLabel} enviado com sucesso!` })
       onUploaded()
     } catch (err) {
-      console.log('[DocumentUpload] DocumentRow: upload failed', { error: err })
       toast({
-        title: err instanceof Error ? err.message : 'Erro ao enviar arquivo. Tente novamente.',
+        title: getErrorMessage(err),
       })
     } finally {
       setUploading(false)
