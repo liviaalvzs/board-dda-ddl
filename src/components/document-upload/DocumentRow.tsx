@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { CheckCircle2, Loader2, Upload, ExternalLink, FileText } from 'lucide-react'
+import { CheckCircle2, Loader2, Upload, Eye, Download, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
@@ -40,7 +40,11 @@ export function DocumentRow({
       : check.document_file
     : null
   const isCompleted = check?.is_completed && !!(check?.document_url || fileName)
-  const fileUrl = check?.document_url || (fileName ? pb.files.getURL(check, fileName) : null)
+  // O document_url aponta para o bucket privado do data lake e devolve
+  // AccessDenied no navegador — quem serve o arquivo para a interface é sempre a
+  // cópia do PocketBase, autenticada pela sessão do usuário.
+  const viewUrl = fileName ? pb.files.getURL(check, fileName) : null
+  const downloadUrl = fileName ? pb.files.getURL(check, fileName, { download: true }) : null
 
   const handleFile = async (file: File) => {
     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
@@ -94,15 +98,24 @@ export function DocumentRow({
       >
         {isCompleted ? 'Enviado' : 'Pendente'}
       </span>
-      {isCompleted && fileUrl && (
+      {isCompleted && viewUrl && (
         <a
-          href={fileUrl}
+          href={viewUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="w-8 h-8 flex items-center justify-center text-brand-primary/40 hover:text-brand-secondary transition-colors shrink-0"
-          aria-label="Ver documento"
+          aria-label={`Visualizar ${documentLabel}`}
         >
-          <ExternalLink className="w-4 h-4" />
+          <Eye className="w-4 h-4" />
+        </a>
+      )}
+      {isCompleted && downloadUrl && (
+        <a
+          href={downloadUrl}
+          className="w-8 h-8 flex items-center justify-center text-brand-primary/40 hover:text-brand-secondary transition-colors shrink-0"
+          aria-label={`Baixar ${documentLabel}`}
+        >
+          <Download className="w-4 h-4" />
         </a>
       )}
       {isCompleted && check?.id && (

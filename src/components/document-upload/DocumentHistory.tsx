@@ -39,7 +39,9 @@ export function DocumentHistory({ records }: DocumentHistoryProps) {
               ? record.document_file[0]
               : record.document_file
             : null
-          const fileUrl = fileName ? pb.files.getURL(record, fileName) : record.document_url
+          // Sem fallback para document_url: aquele link é do bucket privado e
+          // devolveria AccessDenied ao abrir no navegador.
+          const fileUrl = fileName ? pb.files.getURL(record, fileName) : null
 
           return (
             <div
