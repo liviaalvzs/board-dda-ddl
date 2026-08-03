@@ -12,7 +12,7 @@ migrate(
       app.delete(records[i])
     }
 
-    $app.logger().info('0043_cleanup_document_checks: registros removidos', 'count', records.length)
+    app.logger().info('0043_cleanup_document_checks: registros removidos', 'count', records.length)
   },
   (app) => {
     // Irreversível por natureza: os registros e seus arquivos foram apagados.
