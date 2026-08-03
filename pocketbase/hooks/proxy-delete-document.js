@@ -255,9 +255,20 @@ routerAdd(
           // Só o corpo da resposta distingue os dois, então ele é registrado.
           var s3Error = ''
           try {
-            s3Error = new TextDecoder().decode(deleteRes.body)
+            if (typeof deleteRes.body === 'string') {
+              s3Error = deleteRes.body
+            } else if (deleteRes.body) {
+              s3Error = new TextDecoder().decode(deleteRes.body)
+            }
           } catch (_) {
-            s3Error = '(corpo ilegível)'
+            s3Error = ''
+          }
+          if (!s3Error) {
+            try {
+              s3Error = String(deleteRes.body || '(sem corpo)')
+            } catch (_) {
+              s3Error = '(corpo ilegível)'
+            }
           }
 
           $app
@@ -272,15 +283,12 @@ routerAdd(
               s3Error,
             )
 
-          var s3Code = ''
-          var codeMatch = s3Error.match(/<Code>([^<]+)<\/Code>/)
-          if (codeMatch) s3Code = codeMatch[1]
-
+          // Corpo devolvido ao cliente propositalmente: rota é admin-only e o
+          // XML de erro da AWS (Code/Message/RequestId) não expõe credenciais.
+          // É a única forma de diagnosticar, já que o log de hooks não é
+          // acessível por aqui.
           return e.internalServerError(
-            'Falha ao excluir o arquivo no S3 (' +
-              deleteRes.statusCode +
-              (s3Code ? ': ' + s3Code : '') +
-              ').',
+            'Falha ao excluir no S3 (' + deleteRes.statusCode + '): ' + s3Error.substring(0, 400),
           )
         }
 
