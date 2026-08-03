@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Shield, Loader2, CheckCircle2, Clock, UserCog } from 'lucide-react'
+import { Plus, Shield, Loader2, UserCog } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -109,13 +109,12 @@ export default function UsersManagement() {
                 <TableHead className="font-semibold text-brand-primary">Nome</TableHead>
                 <TableHead className="font-semibold text-brand-primary">Email</TableHead>
                 <TableHead className="font-semibold text-brand-primary">Função</TableHead>
-                <TableHead className="font-semibold text-brand-primary">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-brand-primary/50">
+                  <TableCell colSpan={3} className="text-center py-8 text-brand-primary/50">
                     Nenhum usuário cadastrado
                   </TableCell>
                 </TableRow>
@@ -137,17 +136,6 @@ export default function UsersManagement() {
                         <UserCog className="w-3 h-3 mr-1" />
                         {u.role === 'admin' ? 'Administrador' : 'Negociador'}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {u.verified ? (
-                        <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Ativo
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50">
-                          <Clock className="w-3 h-3 mr-1" /> Pendente
-                        </Badge>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))
