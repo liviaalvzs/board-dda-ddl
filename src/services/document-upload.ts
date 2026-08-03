@@ -50,6 +50,18 @@ async function ensureDocumentCheck(landId: string, documentKey: string): Promise
   }
 }
 
+/**
+ * Exclui o documento: remove o objeto no S3 e o registro em document_checks.
+ * Operação irreversível e restrita a administradores (validado no hook).
+ */
+export async function deleteDocument(checkId: string): Promise<any> {
+  return pb.send('/backend/v1/proxy-delete-document', {
+    method: 'POST',
+    body: JSON.stringify({ check_id: checkId }),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 export async function uploadDocument(
   landId: string,
   documentKey: string,

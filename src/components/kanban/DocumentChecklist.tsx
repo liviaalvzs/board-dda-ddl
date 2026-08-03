@@ -28,6 +28,7 @@ import { format } from 'date-fns'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { uploadDocumentToS3 } from '@/services/s3-upload'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
+import { DeleteDocumentButton } from '@/components/document-upload/DeleteDocumentButton'
 
 const MAX_SIZE = 10 * 1024 * 1024
 const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -354,6 +355,13 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                                 Baixar
                               </a>
                             </Button>
+                            {check?.id && (
+                              <DeleteDocumentButton
+                                checkId={check.id}
+                                documentLabel={doc.label}
+                                onDeleted={fetchChecks}
+                              />
+                            )}
                           </>
                         )}
                         <input

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { uploadDocument } from '@/services/document-upload'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
+import { DeleteDocumentButton } from '@/components/document-upload/DeleteDocumentButton'
 
 interface DocumentRowProps {
   landId: string
@@ -103,6 +104,13 @@ export function DocumentRow({
         >
           <ExternalLink className="w-4 h-4" />
         </a>
+      )}
+      {isCompleted && check?.id && (
+        <DeleteDocumentButton
+          checkId={check.id}
+          documentLabel={documentLabel}
+          onDeleted={onUploaded}
+        />
       )}
       {!isCompleted && (
         <>
