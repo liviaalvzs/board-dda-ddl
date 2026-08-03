@@ -365,6 +365,10 @@ routerAdd(
 
     record.set('document_url', s3Url)
     record.set('is_completed', true)
+    // O S3 é o repositório definitivo. A cópia no PocketBase serve apenas para
+    // obter os bytes do upload (não há API para lê-los direto do multipart), e é
+    // descartada assim que o objeto está no bucket.
+    record.set('document_file', null)
     try {
       $app.save(record)
     } catch (finalSaveErr) {

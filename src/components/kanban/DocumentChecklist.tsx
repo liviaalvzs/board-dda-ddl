@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Eye, Download, CheckCircle2, FileText, Upload, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle2, FileText, Upload, Loader2, AlertCircle } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useToast } from '@/hooks/use-toast'
@@ -11,6 +11,7 @@ import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { uploadDocumentToS3 } from '@/services/s3-upload'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 import { DeleteDocumentButton } from '@/components/document-upload/DeleteDocumentButton'
+import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 
 const MAX_SIZE = 10 * 1024 * 1024
 const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -85,19 +86,14 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     }
   }
 
-  // O status vem do envio do arquivo, não de marcação manual: um documento só
-  // conta como concluído quando existe arquivo associado. Mesma regra da aba
-  // Documentos, para os dois lugares nunca divergirem.
+  // O status vem do envio do arquivo, não de marcação manual. Os arquivos vivem
+  // só no S3, então a presença de document_url é o que define "enviado". Mesma
+  // regra da aba Documentos, para os dois lugares nunca divergirem.
   const docsWithStatus = useMemo(() => {
     return docTypes.map((doc) => {
       const check = checks[doc.key]
-      const fileName = check?.document_file
-        ? Array.isArray(check.document_file)
-          ? check.document_file[0]
-          : check.document_file
-        : null
-      const isCompleted = !!(check?.is_completed && (check?.document_url || fileName))
-      return { doc, check, fileName, isCompleted }
+      const isCompleted = !!(check?.is_completed && check?.document_url)
+      return { doc, check, isCompleted }
     })
   }, [docTypes, checks])
 
@@ -171,14 +167,8 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
               </span>
             </div>
             <div className="divide-y divide-brand-primary/5">
-              {group.docs.map(({ doc, check, fileName, isCompleted }) => {
+              {group.docs.map(({ doc, check, isCompleted }) => {
                 const userName = check?.expand?.user?.name || check?.expand?.user?.email
-                // Servimos sempre a cópia do PocketBase: o document_url aponta
-                // para o bucket privado do data lake e não abre no navegador.
-                const viewUrl = fileName ? pb.files.getURL(check, fileName) : null
-                const downloadUrl = fileName
-                  ? pb.files.getURL(check, fileName, { download: true })
-                  : null
 
                 return (
                   <div
@@ -234,37 +224,14 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                         </div>
                       </div>
                       <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-                        {viewUrl && downloadUrl && (
+                        {isCompleted && check?.id && (
                           <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              asChild
-                              className="h-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5"
-                            >
-                              <a href={viewUrl} target="_blank" rel="noopener noreferrer">
-                                <Eye className="w-3.5 h-3.5 mr-1.5" />
-                                Visualizar
-                              </a>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              asChild
-                              className="h-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5"
-                            >
-                              <a href={downloadUrl}>
-                                <Download className="w-3.5 h-3.5 mr-1.5" />
-                                Baixar
-                              </a>
-                            </Button>
-                            {check?.id && (
-                              <DeleteDocumentButton
-                                checkId={check.id}
-                                documentLabel={doc.label}
-                                onDeleted={fetchChecks}
-                              />
-                            )}
+                            <DocumentFileActions checkId={check.id} documentLabel={doc.label} />
+                            <DeleteDocumentButton
+                              checkId={check.id}
+                              documentLabel={doc.label}
+                              onDeleted={fetchChecks}
+                            />
                           </>
                         )}
                         <input

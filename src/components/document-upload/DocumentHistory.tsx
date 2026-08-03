@@ -1,8 +1,7 @@
 import { format } from 'date-fns'
-import { FileText, User, Clock, ExternalLink } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import pb from '@/lib/pocketbase/client'
+import { FileText, User, Clock } from 'lucide-react'
 import { getDocumentLabel } from '@/lib/document-labels'
+import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 
 interface DocumentHistoryProps {
   records: any[]
@@ -34,14 +33,8 @@ export function DocumentHistory({ records }: DocumentHistoryProps) {
         {sorted.map((record, i) => {
           const userName =
             record.expand?.user?.name || record.expand?.user?.email?.split('@')[0] || 'Desconhecido'
-          const fileName = record.document_file
-            ? Array.isArray(record.document_file)
-              ? record.document_file[0]
-              : record.document_file
-            : null
-          // Sem fallback para document_url: aquele link é do bucket privado e
-          // devolveria AccessDenied ao abrir no navegador.
-          const fileUrl = fileName ? pb.files.getURL(record, fileName) : null
+          const hasFile = !!record.document_url
+          const label = getDocumentLabel(record.document_key)
 
           return (
             <div
@@ -52,7 +45,7 @@ export function DocumentHistory({ records }: DocumentHistoryProps) {
                 <FileText className="w-4 h-4 text-brand-primary/40 shrink-0" />
                 <div className="min-w-0">
                   <span className="text-sm font-semibold text-brand-primary block truncate">
-                    {getDocumentLabel(record.document_key)}
+                    {label}
                   </span>
                   <div className="flex items-center gap-3 mt-1 flex-wrap">
                     <span className="text-[11px] text-brand-primary/60 flex items-center gap-1">
@@ -65,12 +58,12 @@ export function DocumentHistory({ records }: DocumentHistoryProps) {
                   </div>
                 </div>
               </div>
-              {fileUrl && (
-                <Button variant="outline" size="sm" asChild className="shrink-0">
-                  <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-3.5 h-3.5 mr-1" /> Ver
-                  </a>
-                </Button>
+              {hasFile && record.id && (
+                <DocumentFileActions
+                  checkId={record.id}
+                  documentLabel={label}
+                  className="shrink-0"
+                />
               )}
             </div>
           )

@@ -62,12 +62,9 @@ export default function DocumentUpload() {
   const docsWithStatus = useMemo(() => {
     return documentTypes.map((doc) => {
       const check = checks[doc.key]
-      const fileName = check?.document_file
-        ? Array.isArray(check.document_file)
-          ? check.document_file[0]
-          : check.document_file
-        : null
-      const isCompleted = check?.is_completed && !!(check?.document_url || fileName)
+      // Os arquivos vivem só no S3: a presença de document_url é o que define
+      // um documento como enviado.
+      const isCompleted = !!(check?.is_completed && check?.document_url)
       return { doc, check, isCompleted }
     })
   }, [documentTypes, checks])

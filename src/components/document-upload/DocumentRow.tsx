@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react'
-import { CheckCircle2, Loader2, Upload, Eye, Download, FileText } from 'lucide-react'
+import { CheckCircle2, Loader2, Upload, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { uploadDocument } from '@/services/document-upload'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 import { DeleteDocumentButton } from '@/components/document-upload/DeleteDocumentButton'
+import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 
 interface DocumentRowProps {
   landId: string
@@ -34,17 +34,7 @@ export function DocumentRow({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  const fileName = check?.document_file
-    ? Array.isArray(check.document_file)
-      ? check.document_file[0]
-      : check.document_file
-    : null
-  const isCompleted = check?.is_completed && !!(check?.document_url || fileName)
-  // O document_url aponta para o bucket privado do data lake e devolve
-  // AccessDenied no navegador — quem serve o arquivo para a interface é sempre a
-  // cópia do PocketBase, autenticada pela sessão do usuário.
-  const viewUrl = fileName ? pb.files.getURL(check, fileName) : null
-  const downloadUrl = fileName ? pb.files.getURL(check, fileName, { download: true }) : null
+  const isCompleted = !!(check?.is_completed && check?.document_url)
 
   const handleFile = async (file: File) => {
     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
@@ -67,9 +57,6 @@ export function DocumentRow({
       setUploading(false)
     }
   }
-
-  const actionLink =
-    'h-10 px-3 rounded-lg border border-brand-primary/15 text-brand-primary/70 hover:text-brand-secondary hover:border-brand-secondary/40 flex items-center gap-1.5 text-xs font-semibold transition-colors'
 
   return (
     <div
@@ -115,27 +102,8 @@ export function DocumentRow({
             <div className="flex items-center gap-1.5 ml-auto">
               {isCompleted ? (
                 <>
-                  {viewUrl && (
-                    <a
-                      href={viewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={actionLink}
-                      aria-label={`Visualizar ${documentLabel}`}
-                    >
-                      <Eye className="w-4 h-4" />
-                      Ver
-                    </a>
-                  )}
-                  {downloadUrl && (
-                    <a
-                      href={downloadUrl}
-                      className={actionLink}
-                      aria-label={`Baixar ${documentLabel}`}
-                    >
-                      <Download className="w-4 h-4" />
-                      Baixar
-                    </a>
+                  {check?.id && (
+                    <DocumentFileActions checkId={check.id} documentLabel={documentLabel} />
                   )}
                   {check?.id && (
                     <DeleteDocumentButton

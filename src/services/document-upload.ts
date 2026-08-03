@@ -23,6 +23,23 @@ export async function getDocumentChecksForLand(landId: string): Promise<any[]> {
 }
 
 /**
+ * Devolve uma URL temporária (5 min) para ler o arquivo no S3. O bucket é
+ * privado, então não existe link direto: o backend assina o acesso a um único
+ * objeto, sob demanda, para a sessão autenticada.
+ */
+export async function getDocumentFileUrl(
+  checkId: string,
+  disposition: 'inline' | 'attachment',
+): Promise<string> {
+  const res: any = await pb.send('/backend/v1/document-file-url', {
+    method: 'POST',
+    body: JSON.stringify({ check_id: checkId, disposition }),
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.url
+}
+
+/**
  * Exclui o documento: remove o objeto no S3 e o registro em document_checks.
  * Operação irreversível e restrita a administradores (validado no hook).
  */
