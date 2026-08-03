@@ -10,6 +10,7 @@ interface AuthContextType {
   role: UserRole
   activateAccount: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
+  signInAsNegociador: (email: string) => Promise<{ error: any }>
   signOut: () => void
   loading: boolean
 }
@@ -75,6 +76,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
+  // Entrada só com e-mail, restrita a contas com papel "negociador".
+  // O backend valida o papel; aqui só guardamos o token devolvido.
+  const signInAsNegociador = async (email: string) => {
+    try {
+      const res: any = await pb.send('/backend/v1/negociador-login', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      pb.authStore.save(res.token, res.record)
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
+  }
+
   const signOut = () => {
     pb.authStore.clear()
   }
@@ -88,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role,
         activateAccount,
         signIn,
+        signInAsNegociador,
         signOut,
         loading,
       }}
