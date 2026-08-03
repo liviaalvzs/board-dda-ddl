@@ -67,7 +67,7 @@ export function DeleteDocumentButton({
           <div className="space-y-1">
             <p className="text-sm font-semibold text-brand-primary">Excluir documento?</p>
             <p className="text-xs text-brand-primary/70 leading-relaxed">
-              O arquivo de <strong>{documentLabel}</strong> será apagado definitivamente do S3 e o
+              O arquivo de <strong>{documentLabel}</strong> será apagado definitivamente e o
               registro de envio será removido. Não é possível desfazer.
             </p>
           </div>
