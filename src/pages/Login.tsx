@@ -1,43 +1,54 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Leaf } from 'lucide-react'
+import { Leaf, ArrowLeft } from 'lucide-react'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 
-type LoginMode = 'password' | 'negociador'
+type Step = 'email' | 'password'
 
 export default function Login() {
-  const [mode, setMode] = useState<LoginMode>('password')
+  const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn, signInAsNegociador } = useAuth()
+  const { startLogin, signIn } = useAuth()
   const navigate = useNavigate()
+  const passwordRef = useRef<HTMLInputElement>(null)
 
-  const switchMode = (next: LoginMode) => {
-    setMode(next)
-    setError('')
+  useEffect(() => {
+    if (step === 'password') passwordRef.current?.focus()
+  }, [step])
+
+  const backToEmail = () => {
+    setStep('email')
     setPassword('')
+    setError('')
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
 
-    if (mode === 'negociador') {
-      const { error: loginError } = await signInAsNegociador(email)
+    if (step === 'email') {
+      const { requiresPassword, error: startError } = await startLogin(email)
       setIsLoading(false)
-      if (loginError) {
-        setError(getErrorMessage(loginError))
-      } else {
-        navigate('/documents')
+
+      if (startError) {
+        setError(getErrorMessage(startError))
+        return
       }
+      if (requiresPassword) {
+        setStep('password')
+        return
+      }
+      // Negociador já veio autenticado da primeira etapa.
+      navigate('/documents')
       return
     }
 
@@ -45,7 +56,7 @@ export default function Login() {
     setIsLoading(false)
 
     if (signInError) {
-      setError('Credenciais inválidas')
+      setError('Senha incorreta')
     } else {
       navigate('/')
     }
@@ -60,66 +71,52 @@ export default function Login() {
           </div>
           <CardTitle className="text-2xl text-brand-primary">Board DDL DDA</CardTitle>
           <CardDescription>
-            {mode === 'negociador'
-              ? 'Informe o e-mail cadastrado para enviar documentos'
-              : 'Faça login para acessar o painel de controle'}
+            {step === 'email' ? 'Informe seu e-mail para continuar' : 'Informe sua senha'}
           </CardDescription>
           <p className="text-xs text-muted-foreground mt-1">
-            O cadastro é restrito e por convite apenas.
+            O acesso é restrito e por convite apenas.
           </p>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-1 p-1 bg-brand-primary/5 rounded-lg">
-            <button
-              type="button"
-              onClick={() => switchMode('password')}
-              className={`text-xs font-semibold py-2 rounded-md transition-colors ${
-                mode === 'password'
-                  ? 'bg-white text-brand-primary shadow-sm'
-                  : 'text-brand-primary/60 hover:text-brand-primary'
-              }`}
-            >
-              Equipe re.green
-            </button>
-            <button
-              type="button"
-              onClick={() => switchMode('negociador')}
-              className={`text-xs font-semibold py-2 rounded-md transition-colors ${
-                mode === 'negociador'
-                  ? 'bg-white text-brand-primary shadow-sm'
-                  : 'text-brand-primary/60 hover:text-brand-primary'
-              }`}
-            >
-              Negociador
-            </button>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4 pt-4">
+          <form onSubmit={handleSubmit} className="space-y-4 pt-4">
             {error && <p className="text-sm text-red-500 font-medium text-center">{error}</p>}
 
-            <div className="space-y-2 text-left">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={mode === 'negociador' ? 'negociador@re.green' : 'admin@regreen.earth'}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            {mode === 'password' && (
+            {step === 'email' ? (
               <div className="space-y-2 text-left">
-                <Label htmlFor="password">Senha</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="voce@re.green"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoFocus
                   required
                 />
               </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={backToEmail}
+                  className="flex items-center gap-1.5 text-xs font-medium text-brand-primary/60 hover:text-brand-primary transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  {email}
+                </button>
+
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    ref={passwordRef}
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </>
             )}
 
             <Button
@@ -127,7 +124,7 @@ export default function Login() {
               className="w-full mt-6 bg-brand-primary hover:bg-brand-primary/90"
               disabled={isLoading}
             >
-              {isLoading ? 'Entrando...' : 'Entrar'}
+              {isLoading ? 'Entrando...' : step === 'email' ? 'Continuar' : 'Entrar'}
             </Button>
           </form>
         </CardContent>
