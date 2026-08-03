@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -12,7 +11,8 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import {
-  ExternalLink,
+  Eye,
+  Download,
   CheckCircle2,
   User,
   FileText,
@@ -110,25 +110,6 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
           land_id: landId,
           document_key: key,
           is_completed: checked,
-          user: pb.authStore.record?.id || '',
-        })
-    } catch (e) {
-      fetchChecks()
-    }
-  }
-
-  const handleUrlBlur = async (key: string, url: string) => {
-    const existing = checks[key]
-    if (existing?.document_url === url) return
-    setChecks((prev) => ({ ...prev, [key]: { ...prev[key], document_url: url } }))
-    try {
-      if (existing?.id)
-        await pb.collection('document_checks').update(existing.id, { document_url: url })
-      else
-        await pb.collection('document_checks').create({
-          land_id: landId,
-          document_key: key,
-          document_url: url,
           user: pb.authStore.record?.id || '',
         })
     } catch (e) {
@@ -273,14 +254,18 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
           {docTypes.map((doc) => {
             const check = checks[doc.key]
             const isCompleted = check?.is_completed || false
-            const url = check?.document_url || ''
             const userName = check?.expand?.user?.name || check?.expand?.user?.email
             const fileName = check?.document_file
               ? Array.isArray(check.document_file)
                 ? check.document_file[0]
                 : check.document_file
               : null
-            const fileUrl = fileName ? pb.files.getURL(check, fileName) : url
+            // Servimos sempre a cópia do PocketBase: o document_url aponta para o
+            // bucket privado do data lake e não abre direto no navegador.
+            const viewUrl = fileName ? pb.files.getURL(check, fileName) : null
+            const downloadUrl = fileName
+              ? pb.files.getURL(check, fileName, { download: true })
+              : null
 
             return (
               <div
@@ -290,14 +275,14 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                   isCompleted && 'bg-emerald-50/30',
                 )}
               >
-                <div className="flex items-start gap-3 flex-1">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
                   <Checkbox
                     checked={isCompleted}
                     onCheckedChange={(c) => handleCheck(doc.key, !!c)}
                     id={`check-${doc.key}`}
                     className="data-[state=checked]:bg-emerald-500 data-[state=checked]:text-white data-[state=checked]:border-emerald-500 w-5 h-5 mt-0.5 rounded shadow-sm border-brand-primary/20"
                   />
-                  <div className="flex flex-col">
+                  <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5">
                       <Label
                         htmlFor={`check-${doc.key}`}
@@ -310,47 +295,54 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                       </Label>
                       <DocumentInfo label={doc.label} description={doc.description} />
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      {isCompleted ? (
-                        <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Enviado ✅
-                        </span>
-                      ) : (
-                        <span className="text-xs font-medium text-brand-primary/40 flex items-center gap-1">
-                          ⬜ Pendente
-                        </span>
-                      )}
-                      {userName && isCompleted && (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                      <span
+                        className={cn(
+                          'text-[11px] font-semibold px-2 py-0.5 rounded-full',
+                          isCompleted
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-amber-100 text-amber-700',
+                        )}
+                      >
+                        {isCompleted ? 'Enviado' : 'Pendente'}
+                      </span>
+                      {isCompleted && userName && (
                         <span className="text-[11px] text-brand-primary/50">por {userName}</span>
                       )}
+                      {isCompleted && check?.updated && (
+                        <span className="text-[11px] text-brand-primary/40">
+                          em {format(new Date(check.updated), 'dd/MM/yyyy')}
+                        </span>
+                      )}
                     </div>
-                    {isCompleted && check?.updated && (
-                      <span className="text-[10px] font-medium text-brand-primary/40 mt-1">
-                        {format(new Date(check.updated), 'dd/MM/yyyy')}
-                      </span>
-                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 w-full md:w-auto md:min-w-[300px]">
-                  <Input
-                    placeholder="URL do documento no Sharepoint..."
-                    defaultValue={url}
-                    onBlur={(e) => handleUrlBlur(doc.key, e.target.value)}
-                    className={cn(
-                      'h-9 text-xs flex-1 border-brand-primary/20 bg-white',
-                      url && 'pr-8',
-                    )}
-                  />
-                  {fileUrl && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0 shadow-sm border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-white"
-                      onClick={() => window.open(fileUrl, '_blank')}
-                      title="Abrir documento"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
+                <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                  {viewUrl && downloadUrl && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="h-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5"
+                      >
+                        <a href={viewUrl} target="_blank" rel="noopener noreferrer">
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          Visualizar
+                        </a>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="h-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5"
+                      >
+                        <a href={downloadUrl}>
+                          <Download className="w-3.5 h-3.5 mr-1.5" />
+                          Baixar
+                        </a>
+                      </Button>
+                    </>
                   )}
                   <input
                     ref={(el) => {
