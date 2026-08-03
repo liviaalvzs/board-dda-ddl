@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
-import { Checkbox } from '@/components/ui/checkbox'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -96,27 +95,6 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     }
   }
 
-  const handleCheck = async (key: string, checked: boolean) => {
-    const existing = checks[key]
-    setChecks((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], is_completed: checked, updated: new Date().toISOString() },
-    }))
-    try {
-      if (existing?.id)
-        await pb.collection('document_checks').update(existing.id, { is_completed: checked })
-      else
-        await pb.collection('document_checks').create({
-          land_id: landId,
-          document_key: key,
-          is_completed: checked,
-          user: pb.authStore.record?.id || '',
-        })
-    } catch (e) {
-      fetchChecks()
-    }
-  }
-
   const handleFileUpload = async (key: string, file: File) => {
     setErrors((prev) => ({ ...prev, [key]: '' }))
     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
@@ -150,8 +128,38 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     }
   }
 
+  // O status vem do envio do arquivo, não de marcação manual: um documento só
+  // conta como concluído quando existe arquivo associado. Mesma regra da aba
+  // Documentos, para os dois lugares nunca divergirem.
+  const docsWithStatus = useMemo(() => {
+    return docTypes.map((doc) => {
+      const check = checks[doc.key]
+      const fileName = check?.document_file
+        ? Array.isArray(check.document_file)
+          ? check.document_file[0]
+          : check.document_file
+        : null
+      const isCompleted = !!(check?.is_completed && (check?.document_url || fileName))
+      return { doc, check, fileName, isCompleted }
+    })
+  }, [docTypes, checks])
+
+  const groupedDocs = useMemo(() => {
+    const groups: { category: string; docs: typeof docsWithStatus }[] = []
+    for (const item of docsWithStatus) {
+      const category = item.doc.category || 'Outros documentos'
+      let group = groups.find((g) => g.category === category)
+      if (!group) {
+        group = { category, docs: [] }
+        groups.push(group)
+      }
+      group.docs.push(item)
+    }
+    return groups
+  }, [docsWithStatus])
+
   const totalItems = docTypes.length
-  const completedCount = docTypes.filter((d) => checks[d.key]?.is_completed).length
+  const completedCount = docsWithStatus.filter((d) => d.isCompleted).length
   const progressPercent = totalItems > 0 ? (completedCount / totalItems) * 100 : 0
 
   if (loading) return null
@@ -243,147 +251,152 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
-        <div className="bg-brand-primary/[0.02] px-5 py-4 border-b border-brand-primary/5">
-          <h4 className="font-semibold text-brand-primary text-[15px] flex items-center gap-2">
-            <FileText className="w-4 h-4 text-brand-primary/50" />
-            Documentos
-          </h4>
-        </div>
-        <div className="divide-y divide-brand-primary/5">
-          {docTypes.map((doc) => {
-            const check = checks[doc.key]
-            const isCompleted = check?.is_completed || false
-            const userName = check?.expand?.user?.name || check?.expand?.user?.email
-            const fileName = check?.document_file
-              ? Array.isArray(check.document_file)
-                ? check.document_file[0]
-                : check.document_file
-              : null
-            // Servimos sempre a cópia do PocketBase: o document_url aponta para o
-            // bucket privado do data lake e não abre direto no navegador.
-            const viewUrl = fileName ? pb.files.getURL(check, fileName) : null
-            const downloadUrl = fileName
-              ? pb.files.getURL(check, fileName, { download: true })
-              : null
+      {groupedDocs.map((group) => {
+        const groupCompleted = group.docs.filter((d) => d.isCompleted).length
 
-            return (
-              <div
-                key={doc.key}
-                className={cn(
-                  'flex flex-col md:flex-row md:items-center gap-4 p-5 transition-colors hover:bg-brand-primary/[0.01]',
-                  isCompleted && 'bg-emerald-50/30',
-                )}
-              >
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <Checkbox
-                    checked={isCompleted}
-                    onCheckedChange={(c) => handleCheck(doc.key, !!c)}
-                    id={`check-${doc.key}`}
-                    className="data-[state=checked]:bg-emerald-500 data-[state=checked]:text-white data-[state=checked]:border-emerald-500 w-5 h-5 mt-0.5 rounded shadow-sm border-brand-primary/20"
-                  />
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <Label
-                        htmlFor={`check-${doc.key}`}
-                        className={cn(
-                          'text-sm cursor-pointer select-none font-semibold',
-                          isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+        return (
+          <div
+            key={group.category}
+            className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden"
+          >
+            <div className="bg-brand-primary/[0.02] px-5 py-3 border-b border-brand-primary/5 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-brand-primary/50 shrink-0" />
+              <h4 className="font-semibold text-brand-primary text-sm">{group.category}</h4>
+              <span className="ml-auto text-xs font-medium text-brand-primary/50 shrink-0">
+                {groupCompleted}/{group.docs.length}
+              </span>
+            </div>
+            <div className="divide-y divide-brand-primary/5">
+              {group.docs.map(({ doc, check, fileName, isCompleted }) => {
+                const userName = check?.expand?.user?.name || check?.expand?.user?.email
+                // Servimos sempre a cópia do PocketBase: o document_url aponta
+                // para o bucket privado do data lake e não abre no navegador.
+                const viewUrl = fileName ? pb.files.getURL(check, fileName) : null
+                const downloadUrl = fileName
+                  ? pb.files.getURL(check, fileName, { download: true })
+                  : null
+
+                return (
+                  <div
+                    key={doc.key}
+                    className={cn(
+                      'p-5 transition-colors hover:bg-brand-primary/[0.01]',
+                      isCompleted && 'bg-emerald-50/30',
+                    )}
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center gap-4">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                          {isCompleted ? (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          ) : (
+                            <FileText className="w-5 h-5 text-amber-500" />
+                          )}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={cn(
+                                'text-sm font-semibold',
+                                isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+                              )}
+                            >
+                              {doc.label}
+                            </span>
+                            <DocumentInfo label={doc.label} description={doc.description} />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                            <span
+                              className={cn(
+                                'text-[11px] font-semibold px-2 py-0.5 rounded-full',
+                                isCompleted
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-amber-100 text-amber-700',
+                              )}
+                            >
+                              {isCompleted ? 'Enviado' : 'Pendente'}
+                            </span>
+                            {isCompleted && userName && (
+                              <span className="text-[11px] text-brand-primary/50">
+                                por {userName}
+                              </span>
+                            )}
+                            {isCompleted && check?.updated && (
+                              <span className="text-[11px] text-brand-primary/40">
+                                em {format(new Date(check.updated), 'dd/MM/yyyy')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                        {viewUrl && downloadUrl && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="h-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5"
+                            >
+                              <a href={viewUrl} target="_blank" rel="noopener noreferrer">
+                                <Eye className="w-3.5 h-3.5 mr-1.5" />
+                                Visualizar
+                              </a>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="h-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5"
+                            >
+                              <a href={downloadUrl}>
+                                <Download className="w-3.5 h-3.5 mr-1.5" />
+                                Baixar
+                              </a>
+                            </Button>
+                          </>
                         )}
-                      >
-                        {doc.label}
-                      </Label>
-                      <DocumentInfo label={doc.label} description={doc.description} />
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
-                      <span
-                        className={cn(
-                          'text-[11px] font-semibold px-2 py-0.5 rounded-full',
-                          isCompleted
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-amber-100 text-amber-700',
+                        <input
+                          ref={(el) => {
+                            fileInputRefs.current[doc.key] = el
+                          }}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleFileUpload(doc.key, file)
+                            e.target.value = ''
+                          }}
+                        />
+                        {!isCompleted && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            disabled={uploadingKey === doc.key}
+                            onClick={() => fileInputRefs.current[doc.key]?.click()}
+                            className="bg-brand-secondary hover:bg-brand-secondary/90 text-white h-9 shrink-0"
+                          >
+                            {uploadingKey === doc.key ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <Upload className="w-3.5 h-3.5 mr-1" />
+                            )}
+                            Enviar
+                          </Button>
                         )}
-                      >
-                        {isCompleted ? 'Enviado' : 'Pendente'}
-                      </span>
-                      {isCompleted && userName && (
-                        <span className="text-[11px] text-brand-primary/50">por {userName}</span>
-                      )}
-                      {isCompleted && check?.updated && (
-                        <span className="text-[11px] text-brand-primary/40">
-                          em {format(new Date(check.updated), 'dd/MM/yyyy')}
-                        </span>
-                      )}
+                      </div>
                     </div>
+                    {errors[doc.key] && (
+                      <p className="text-xs text-brand-critical mt-2 md:ml-8">{errors[doc.key]}</p>
+                    )}
                   </div>
-                </div>
-                <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-                  {viewUrl && downloadUrl && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        asChild
-                        className="h-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5"
-                      >
-                        <a href={viewUrl} target="_blank" rel="noopener noreferrer">
-                          <Eye className="w-3.5 h-3.5 mr-1.5" />
-                          Visualizar
-                        </a>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        asChild
-                        className="h-9 shrink-0 border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5"
-                      >
-                        <a href={downloadUrl}>
-                          <Download className="w-3.5 h-3.5 mr-1.5" />
-                          Baixar
-                        </a>
-                      </Button>
-                    </>
-                  )}
-                  <input
-                    ref={(el) => {
-                      fileInputRefs.current[doc.key] = el
-                    }}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleFileUpload(doc.key, file)
-                      e.target.value = ''
-                    }}
-                  />
-                  {!isCompleted && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      disabled={uploadingKey === doc.key}
-                      onClick={() => fileInputRefs.current[doc.key]?.click()}
-                      className="bg-brand-secondary hover:bg-brand-secondary/90 text-white h-9 shrink-0"
-                    >
-                      {uploadingKey === doc.key ? (
-                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                      ) : (
-                        <Upload className="w-3.5 h-3.5 mr-1" />
-                      )}
-                      Enviar
-                    </Button>
-                  )}
-                </div>
-                {errors[doc.key] && (
-                  <p className="text-xs text-brand-critical md:absolute md:mt-12">
-                    {errors[doc.key]}
-                  </p>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
