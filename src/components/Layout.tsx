@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Settings,
   FileText,
-  User,
   Map as MapIcon,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
@@ -71,7 +70,6 @@ export default function Layout() {
           icon: FileText,
           match: (p: string) => p === '/documents',
         },
-        { to: '/profile', label: 'Perfil', icon: User, match: (p: string) => p === '/profile' },
       ]
 
   return (

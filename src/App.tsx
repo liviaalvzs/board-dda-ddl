@@ -8,11 +8,9 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import LandDetail from './pages/LandDetail'
 import ExternalOffices from './pages/ExternalOffices'
-import UsersManagement from './pages/UsersManagement'
 import SettingsPage from './pages/Settings'
 import DocumentUpload from './pages/DocumentUpload'
 import InspectApi from './pages/InspectApi'
-import Profile from './pages/Profile'
 import Mapa from './pages/Mapa'
 import Dashboard from './pages/Dashboard'
 import { AuthProvider, useAuth } from './hooks/use-auth'
@@ -90,14 +88,6 @@ const App = () => (
               }
             />
             <Route
-              path="/users"
-              element={
-                <AdminRoute>
-                  <UsersManagement />
-                </AdminRoute>
-              }
-            />
-            <Route
               path="/settings"
               element={
                 <AdminRoute>
@@ -105,7 +95,6 @@ const App = () => (
                 </AdminRoute>
               }
             />
-            <Route path="/profile" element={<Profile />} />
             <Route
               path="/land/:id"
               element={

@@ -19,6 +19,7 @@ import { getDelayedThresholdDays, updateSetting } from '@/services/app-settings'
 import { useAuth } from '@/hooks/use-auth'
 import pb from '@/lib/pocketbase/client'
 import { extractFieldErrors, type FieldErrors } from '@/lib/pocketbase/errors'
+import { UsersSection } from '@/components/settings/UsersSection'
 
 export default function Settings() {
   const [threshold, setThreshold] = useState('')
@@ -126,7 +127,7 @@ export default function Settings() {
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50 p-4 md:p-8">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-brand-primary flex items-center gap-2">
             <SettingsIcon className="w-6 h-6 text-brand-secondary" />
@@ -204,6 +205,8 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        <UsersSection />
 
         <Card className="border-brand-primary/10 shadow-sm">
           <CardHeader>
