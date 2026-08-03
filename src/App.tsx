@@ -10,7 +10,6 @@ import LandDetail from './pages/LandDetail'
 import ExternalOffices from './pages/ExternalOffices'
 import SettingsPage from './pages/Settings'
 import DocumentUpload from './pages/DocumentUpload'
-import InspectApi from './pages/InspectApi'
 import Mapa from './pages/Mapa'
 import Dashboard from './pages/Dashboard'
 import { AuthProvider, useAuth } from './hooks/use-auth'
@@ -67,14 +66,6 @@ const App = () => (
               element={
                 <AdminRoute>
                   <ExternalOffices />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/inspect"
-              element={
-                <AdminRoute>
-                  <InspectApi />
                 </AdminRoute>
               }
             />

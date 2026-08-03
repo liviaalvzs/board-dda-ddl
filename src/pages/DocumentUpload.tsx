@@ -129,13 +129,17 @@ export default function DocumentUpload() {
 
   const renderGroup = (title: string, docs: typeof filteredDocs) => {
     if (docs.length === 0) return null
+    const groupCompleted = docs.filter((d) => d.isCompleted).length
     return (
       <div
         key={title}
         className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden"
       >
-        <div className="px-4 py-2.5 bg-brand-primary/[0.02] border-b border-brand-primary/5">
+        <div className="px-4 py-2.5 bg-brand-primary/[0.02] border-b border-brand-primary/5 flex items-center gap-2">
           <h3 className="text-sm font-semibold text-brand-primary">{title}</h3>
+          <span className="ml-auto text-xs font-medium text-brand-primary/50 shrink-0">
+            {groupCompleted}/{docs.length}
+          </span>
         </div>
         <div className="divide-y divide-brand-primary/5">
           {docs.map(({ doc, check }) => (

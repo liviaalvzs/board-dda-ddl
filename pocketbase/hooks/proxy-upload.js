@@ -188,6 +188,7 @@ routerAdd(
 
     var userId = e.auth ? e.auth.id : ''
     var record
+    var wasCompleted = false
     try {
       record = $app.findFirstRecordByFilter(
         'document_checks',
@@ -197,8 +198,32 @@ routerAdd(
           documentKey.replace(/"/g, '\\"') +
           '"',
       )
+      wasCompleted =
+        record.getBool('is_completed') &&
+        !!(record.getString('document_url') || record.getString('document_file'))
     } catch (_) {
-      return e.notFoundError('No matching document_checks record for this land and document key')
+      // O registro nasce aqui, dentro da mesma operação que envia o arquivo.
+      // Antes ele era criado pelo frontend antes do upload, o que deixava linhas
+      // órfãs (sem arquivo e sem autor) sempre que o envio falhava no meio.
+      var checksCol = $app.findCollectionByNameOrId('document_checks')
+      record = new Record(checksCol)
+      record.set('land_id', landId)
+      record.set('document_key', documentKey)
+      record.set('is_completed', false)
+    }
+
+    if (userId) record.set('user', userId)
+
+    // Desfaz o registro se o envio falhar depois deste ponto. Um documento que
+    // já estava concluído antes desta tentativa é preservado: não podemos apagar
+    // um envio bom por causa de uma substituição que deu errado.
+    function cleanupOnFailure() {
+      if (wasCompleted) return
+      try {
+        $app.delete(record)
+      } catch (cleanupErr) {
+        $app.logger().warn('proxy-upload: falha ao limpar registro', 'error', String(cleanupErr))
+      }
     }
 
     record.set('document_file', fh)
@@ -206,6 +231,7 @@ routerAdd(
       $app.save(record)
     } catch (saveErr) {
       $app.logger().error('proxy-upload: failed to save document_file', 'error', String(saveErr))
+      cleanupOnFailure()
       return e.badRequestError('Falha ao salvar o arquivo: ' + String(saveErr))
     }
 
@@ -228,6 +254,7 @@ routerAdd(
       $app
         .logger()
         .error('proxy-upload: failed to download file from PB', 'status', downloadRes.statusCode)
+      cleanupOnFailure()
       return e.internalServerError('Falha ao ler arquivo enviado')
     }
 
@@ -238,6 +265,7 @@ routerAdd(
 
     if (!accessKeyId || !secretAccessKey) {
       $app.logger().error('proxy-upload: AWS credentials not configured')
+      cleanupOnFailure()
       return e.internalServerError('Credenciais AWS não configuradas')
     }
 
@@ -331,6 +359,7 @@ routerAdd(
 
     if (uploadRes.statusCode < 200 || uploadRes.statusCode >= 300) {
       $app.logger().error('proxy-upload: S3 upload failed', 'status', uploadRes.statusCode)
+      cleanupOnFailure()
       return e.internalServerError('Falha no upload para S3: ' + uploadRes.statusCode)
     }
 
@@ -342,6 +371,7 @@ routerAdd(
       $app
         .logger()
         .error('proxy-upload: failed to save document_url', 'error', String(finalSaveErr))
+      cleanupOnFailure()
       return e.internalServerError('Falha ao atualizar registro: ' + String(finalSaveErr))
     }
 

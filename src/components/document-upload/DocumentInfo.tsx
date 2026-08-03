@@ -20,16 +20,17 @@ export function DocumentInfo({ label, description }: DocumentInfoProps) {
         <button
           type="button"
           onClick={(e) => e.stopPropagation()}
-          className="w-6 h-6 flex items-center justify-center shrink-0 text-brand-primary/30 hover:text-brand-secondary transition-colors"
+          className="w-7 h-7 -mt-0.5 flex items-center justify-center shrink-0 text-brand-primary/40 hover:text-brand-secondary transition-colors"
           aria-label={`Sobre o documento ${label}`}
         >
-          <Info className="w-3.5 h-3.5" />
+          <Info className="w-4 h-4" />
         </button>
       </PopoverTrigger>
       <PopoverContent
         side="top"
         align="start"
-        className="w-72 text-xs leading-relaxed text-brand-primary/80"
+        collisionPadding={12}
+        className="w-72 max-w-[calc(100vw-2rem)] text-xs leading-relaxed text-brand-primary/80"
       >
         <p className="font-semibold text-brand-primary mb-1">{label}</p>
         <p>{description}</p>

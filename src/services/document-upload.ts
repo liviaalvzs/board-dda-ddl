@@ -22,34 +22,6 @@ export async function getDocumentChecksForLand(landId: string): Promise<any[]> {
   })
 }
 
-async function ensureDocumentCheck(landId: string, documentKey: string): Promise<void> {
-  try {
-    await pb
-      .collection('document_checks')
-      .getFirstListItem(`land_id = "${landId}" && document_key = "${documentKey}"`)
-    return
-  } catch {
-    // Record doesn't exist — create it
-  }
-
-  try {
-    await pb.collection('document_checks').create({
-      land_id: landId,
-      document_key: documentKey,
-      is_completed: false,
-      user: pb.authStore.record?.id || '',
-    })
-  } catch {
-    try {
-      await pb
-        .collection('document_checks')
-        .getFirstListItem(`land_id = "${landId}" && document_key = "${documentKey}"`)
-    } catch {
-      throw new Error('Não foi possível criar o registro de verificação do documento.')
-    }
-  }
-}
-
 /**
  * Exclui o documento: remove o objeto no S3 e o registro em document_checks.
  * Operação irreversível e restrita a administradores (validado no hook).
@@ -62,14 +34,17 @@ export async function deleteDocument(checkId: string): Promise<any> {
   })
 }
 
+/**
+ * Envia o documento. O registro em document_checks é criado pelo próprio hook,
+ * dentro da mesma operação do upload — criá-lo aqui antes deixava linhas órfãs
+ * (sem arquivo e sem autor) sempre que o envio falhava no meio do caminho.
+ */
 export async function uploadDocument(
   landId: string,
   documentKey: string,
   file: File,
   clusterSerial: string,
 ): Promise<any> {
-  await ensureDocumentCheck(landId, documentKey)
-
   const formData = new FormData()
   formData.append('file', file)
   formData.append('land_code', clusterSerial || landId)

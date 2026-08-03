@@ -62,96 +62,120 @@ export function DocumentRow({
       toast({ title: `Documento ${documentLabel} enviado com sucesso!` })
       onUploaded()
     } catch (err) {
-      toast({
-        title: getErrorMessage(err),
-      })
+      toast({ title: getErrorMessage(err) })
     } finally {
       setUploading(false)
     }
   }
 
+  const actionLink =
+    'h-10 px-3 rounded-lg border border-brand-primary/15 text-brand-primary/70 hover:text-brand-secondary hover:border-brand-secondary/40 flex items-center gap-1.5 text-xs font-semibold transition-colors'
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-brand-primary/[0.02] transition-colors min-h-[44px]">
-      <div className="w-5 h-5 flex items-center justify-center shrink-0">
-        {isCompleted ? (
-          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-        ) : (
-          <FileText className="w-5 h-5 text-amber-500" />
-        )}
-      </div>
-      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-        <span
-          className={cn(
-            'text-sm font-medium truncate',
-            isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+    <div
+      className={cn(
+        'px-4 py-3.5 transition-colors',
+        isCompleted ? 'bg-emerald-50/40' : 'hover:bg-brand-primary/[0.02]',
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+          {isCompleted ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+          ) : (
+            <FileText className="w-5 h-5 text-amber-500" />
           )}
-        >
-          {documentLabel}
-        </span>
-        <DocumentInfo label={documentLabel} description={documentDescription} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Nome com largura total e quebra livre: os rótulos dos anexos são
+              longos e vários só se distinguem no final ("...do cônjuge"). */}
+          <div className="flex items-start gap-1">
+            <span
+              className={cn(
+                'text-sm font-medium leading-snug break-words',
+                isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+              )}
+            >
+              {documentLabel}
+            </span>
+            <DocumentInfo label={documentLabel} description={documentDescription} />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <span
+              className={cn(
+                'text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0',
+                isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+              )}
+            >
+              {isCompleted ? 'Enviado' : 'Pendente'}
+            </span>
+
+            <div className="flex items-center gap-1.5 ml-auto">
+              {isCompleted ? (
+                <>
+                  {viewUrl && (
+                    <a
+                      href={viewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={actionLink}
+                      aria-label={`Visualizar ${documentLabel}`}
+                    >
+                      <Eye className="w-4 h-4" />
+                      Ver
+                    </a>
+                  )}
+                  {downloadUrl && (
+                    <a
+                      href={downloadUrl}
+                      className={actionLink}
+                      aria-label={`Baixar ${documentLabel}`}
+                    >
+                      <Download className="w-4 h-4" />
+                      Baixar
+                    </a>
+                  )}
+                  {check?.id && (
+                    <DeleteDocumentButton
+                      checkId={check.id}
+                      documentLabel={documentLabel}
+                      onDeleted={onUploaded}
+                    />
+                  )}
+                </>
+              ) : (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleFile(file)
+                      e.target.value = ''
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="h-10 px-4 rounded-lg bg-brand-secondary hover:bg-brand-secondary/90 text-white flex items-center gap-1.5 text-xs font-semibold disabled:opacity-50 transition-colors"
+                  >
+                    {uploading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    {uploading ? 'Enviando' : 'Enviar'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-      <span
-        className={cn(
-          'text-xs font-semibold px-2 py-1 rounded-full shrink-0',
-          isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
-        )}
-      >
-        {isCompleted ? 'Enviado' : 'Pendente'}
-      </span>
-      {isCompleted && viewUrl && (
-        <a
-          href={viewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-8 h-8 flex items-center justify-center text-brand-primary/40 hover:text-brand-secondary transition-colors shrink-0"
-          aria-label={`Visualizar ${documentLabel}`}
-        >
-          <Eye className="w-4 h-4" />
-        </a>
-      )}
-      {isCompleted && downloadUrl && (
-        <a
-          href={downloadUrl}
-          className="w-8 h-8 flex items-center justify-center text-brand-primary/40 hover:text-brand-secondary transition-colors shrink-0"
-          aria-label={`Baixar ${documentLabel}`}
-        >
-          <Download className="w-4 h-4" />
-        </a>
-      )}
-      {isCompleted && check?.id && (
-        <DeleteDocumentButton
-          checkId={check.id}
-          documentLabel={documentLabel}
-          onDeleted={onUploaded}
-        />
-      )}
-      {!isCompleted && (
-        <>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) handleFile(file)
-              e.target.value = ''
-            }}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="w-9 h-9 rounded-full bg-brand-secondary hover:bg-brand-secondary/90 text-white flex items-center justify-center shrink-0 disabled:opacity-50 transition-colors"
-            aria-label={`Enviar ${documentLabel}`}
-          >
-            {uploading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-          </button>
-        </>
-      )}
     </div>
   )
 }

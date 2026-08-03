@@ -1,25 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import {
-  Eye,
-  Download,
-  CheckCircle2,
-  User,
-  FileText,
-  Scale,
-  Upload,
-  Loader2,
-  AlertCircle,
-} from 'lucide-react'
+import { Eye, Download, CheckCircle2, FileText, Upload, Loader2, AlertCircle } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useToast } from '@/hooks/use-toast'
@@ -41,9 +23,6 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   const [errors, setErrors] = useState<Record<string, string>>({})
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const { toast } = useToast()
-
-  const maritalStatus = metadata?.owner_marital_status || 'solteiro'
-  const ddaStatus = metadata?.dda_status || 'none'
 
   const fetchChecks = async () => {
     try {
@@ -72,29 +51,6 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   useRealtime('document_checks', (e) => {
     if (e.record.land_id === landId) fetchChecks()
   })
-
-  const handleMaritalStatusChange = async (val: string) => {
-    try {
-      if (metadata?.id)
-        await pb.collection('land_metadata').update(metadata.id, { owner_marital_status: val })
-      else
-        await pb
-          .collection('land_metadata')
-          .create({ external_id: landId, owner_marital_status: val })
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  const handleDdaStatusChange = async (val: string) => {
-    try {
-      if (metadata?.id)
-        await pb.collection('land_metadata').update(metadata.id, { dda_status: val })
-      else await pb.collection('land_metadata').create({ external_id: landId, dda_status: val })
-    } catch (err) {
-      console.error(err)
-    }
-  }
 
   const handleFileUpload = async (key: string, file: File) => {
     setErrors((prev) => ({ ...prev, [key]: '' }))
@@ -197,59 +153,6 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
           className="h-3 bg-brand-primary/5"
           indicatorClassName="bg-brand-secondary transition-all duration-500 ease-in-out"
         />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 rounded-full bg-brand-primary/5 flex items-center justify-center shrink-0">
-              <User className="w-5 h-5 text-brand-primary/60" />
-            </div>
-            <div>
-              <Label className="text-sm font-bold text-brand-primary">Estado Civil</Label>
-              <p className="text-[11px] text-brand-primary/60 leading-tight mt-0.5">
-                Metadados do proprietário.
-              </p>
-            </div>
-          </div>
-          <Select value={maritalStatus} onValueChange={handleMaritalStatusChange}>
-            <SelectTrigger className="w-full sm:w-[140px] bg-white h-9 border-brand-primary/20 text-brand-primary font-semibold text-xs">
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="solteiro">Solteiro</SelectItem>
-              <SelectItem value="casado">Casado</SelectItem>
-              <SelectItem value="divorciado">Divorciado</SelectItem>
-              <SelectItem value="viuvo">Viúvo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 rounded-full bg-brand-primary/5 flex items-center justify-center shrink-0">
-              <Scale className="w-5 h-5 text-brand-primary/60" />
-            </div>
-            <div>
-              <Label className="text-sm font-bold text-brand-primary">
-                DDA Distribuída ao Escritório Externo
-              </Label>
-              <p className="text-[11px] text-brand-primary/60 leading-tight mt-0.5">
-                Situação da Diligência Ambiental.
-              </p>
-            </div>
-          </div>
-          <Select value={ddaStatus} onValueChange={handleDdaStatusChange}>
-            <SelectTrigger className="w-full sm:w-[140px] bg-white h-9 border-brand-primary/20 text-brand-primary font-semibold text-xs">
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhuma</SelectItem>
-              <SelectItem value="existing">Existente</SelectItem>
-              <SelectItem value="distributed">Distribuída</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
       </div>
 
       {groupedDocs.map((group) => {

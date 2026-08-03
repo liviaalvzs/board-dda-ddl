@@ -683,14 +683,6 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   label="Escritório de Advocacia"
                   onUpdated={handleMetadataUpdated}
                 />
-                <OfficeSelector
-                  metadata={metadata}
-                  externalId={effectiveExternalId}
-                  fieldName="prestadorDda"
-                  expandKey="prestador_dda"
-                  label="Prestador DDA"
-                  onUpdated={handleMetadataUpdated}
-                />
               </div>
             </div>{' '}
           </div>
