@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { uploadDocument } from '@/services/document-upload'
 import type { DocumentType } from '@/services/app-settings'
+import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 
 interface BulkUploadModalProps {
   open: boolean
   onClose: () => void
   pendingDocs: DocumentType[]
   landId: string
+  clusterSerial: string
   onComplete: () => void
 }
 
@@ -19,6 +21,7 @@ export function BulkUploadModal({
   onClose,
   pendingDocs,
   landId,
+  clusterSerial,
   onComplete,
 }: BulkUploadModalProps) {
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({})
@@ -39,7 +42,9 @@ export function BulkUploadModal({
         landId,
         entries: entries.map(([key, file]) => ({ key, fileName: file.name })),
       })
-      await Promise.all(entries.map(([key, file]) => uploadDocument(landId, key, file)))
+      await Promise.all(
+        entries.map(([key, file]) => uploadDocument(landId, key, file, clusterSerial)),
+      )
       console.log('[DocumentUpload] BulkUploadModal: all uploads succeeded', {
         count: entries.length,
       })
@@ -77,9 +82,12 @@ export function BulkUploadModal({
                 className="flex items-center gap-3 p-3 rounded-lg border border-brand-primary/10"
               >
                 <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                <span className="text-sm font-medium text-brand-primary flex-1 truncate">
-                  {doc.label}
-                </span>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="text-sm font-medium text-brand-primary truncate">
+                    {doc.label}
+                  </span>
+                  <DocumentInfo label={doc.label} description={doc.description} />
+                </div>
                 <input
                   ref={(el) => {
                     fileInputRefs.current[doc.key] = el

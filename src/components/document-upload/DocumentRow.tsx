@@ -5,11 +5,13 @@ import pb from '@/lib/pocketbase/client'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { uploadDocument } from '@/services/document-upload'
+import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 
 interface DocumentRowProps {
   landId: string
   documentKey: string
   documentLabel: string
+  documentDescription?: string
   check: any
   onUploaded: () => void
   clusterSerial: string
@@ -22,6 +24,7 @@ export function DocumentRow({
   landId,
   documentKey,
   documentLabel,
+  documentDescription,
   check,
   onUploaded,
   clusterSerial,
@@ -71,14 +74,17 @@ export function DocumentRow({
           <FileText className="w-5 h-5 text-amber-500" />
         )}
       </div>
-      <span
-        className={cn(
-          'text-sm font-medium flex-1 truncate',
-          isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
-        )}
-      >
-        {documentLabel}
-      </span>
+      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+        <span
+          className={cn(
+            'text-sm font-medium truncate',
+            isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+          )}
+        >
+          {documentLabel}
+        </span>
+        <DocumentInfo label={documentLabel} description={documentDescription} />
+      </div>
       <span
         className={cn(
           'text-xs font-semibold px-2 py-1 rounded-full shrink-0',

@@ -85,6 +85,23 @@ export default function DocumentUpload() {
     })
   }, [docsWithStatus, searchLower, activeFilter])
 
+  // As categorias vêm dos Anexos I e II da Carta Proposta. A ordem de exibição
+  // segue o sort_order dos tipos de documento, então basta respeitar a ordem em
+  // que cada categoria aparece na lista já ordenada.
+  const groupedDocs = useMemo(() => {
+    const groups: { category: string; docs: typeof filteredDocs }[] = []
+    for (const item of filteredDocs) {
+      const category = item.doc.category || 'Outros documentos'
+      let group = groups.find((g) => g.category === category)
+      if (!group) {
+        group = { category, docs: [] }
+        groups.push(group)
+      }
+      group.docs.push(item)
+    }
+    return groups
+  }, [filteredDocs])
+
   const counts = useMemo(() => {
     const matching = docsWithStatus.filter(({ doc }) =>
       doc.label.toLowerCase().includes(searchLower),
@@ -113,7 +130,10 @@ export default function DocumentUpload() {
   const renderGroup = (title: string, docs: typeof filteredDocs) => {
     if (docs.length === 0) return null
     return (
-      <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
+      <div
+        key={title}
+        className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden"
+      >
         <div className="px-4 py-2.5 bg-brand-primary/[0.02] border-b border-brand-primary/5">
           <h3 className="text-sm font-semibold text-brand-primary">{title}</h3>
         </div>
@@ -124,6 +144,7 @@ export default function DocumentUpload() {
               landId={selectedLand.external_id}
               documentKey={doc.key}
               documentLabel={doc.label}
+              documentDescription={doc.description}
               check={check}
               onUploaded={fetchChecks}
               clusterSerial={selectedLand.cluster_serial || ''}
@@ -168,16 +189,7 @@ export default function DocumentUpload() {
 
               <FilterTabs active={activeFilter} onChange={setActiveFilter} counts={counts} />
 
-              {renderGroup(
-                'Documentos do imóvel',
-                filteredDocs.filter(
-                  ({ doc }) => (doc.category || 'Documentos do imóvel') === 'Documentos do imóvel',
-                ),
-              )}
-              {renderGroup(
-                'Documentos pessoais',
-                filteredDocs.filter(({ doc }) => doc.category === 'Documentos pessoais'),
-              )}
+              {groupedDocs.map((group) => renderGroup(group.category, group.docs))}
 
               {pendingCount > 0 && (
                 <Button

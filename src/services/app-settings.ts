@@ -42,16 +42,20 @@ export interface DocumentType {
   key: string
   label: string
   category?: string
+  description?: string
+  sortOrder?: number
 }
 
 export async function getDocumentTypes(): Promise<DocumentType[]> {
   try {
-    const records = await pb.collection('document_types').getFullList({ sort: 'category,name' })
+    const records = await pb.collection('document_types').getFullList({ sort: 'sort_order,name' })
     if (records.length > 0) {
       return records.map((r: any) => ({
         key: r.key,
         label: r.name,
         category: r.category,
+        description: r.description || '',
+        sortOrder: typeof r.sort_order === 'number' ? r.sort_order : undefined,
       }))
     }
   } catch {

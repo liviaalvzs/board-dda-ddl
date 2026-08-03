@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { uploadDocumentToS3 } from '@/services/s3-upload'
+import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 
 const MAX_SIZE = 10 * 1024 * 1024
 const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -297,15 +298,18 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                     className="data-[state=checked]:bg-emerald-500 data-[state=checked]:text-white data-[state=checked]:border-emerald-500 w-5 h-5 mt-0.5 rounded shadow-sm border-brand-primary/20"
                   />
                   <div className="flex flex-col">
-                    <Label
-                      htmlFor={`check-${doc.key}`}
-                      className={cn(
-                        'text-sm cursor-pointer select-none font-semibold',
-                        isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
-                      )}
-                    >
-                      {doc.label}
-                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label
+                        htmlFor={`check-${doc.key}`}
+                        className={cn(
+                          'text-sm cursor-pointer select-none font-semibold',
+                          isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+                        )}
+                      >
+                        {doc.label}
+                      </Label>
+                      <DocumentInfo label={doc.label} description={doc.description} />
+                    </div>
                     <div className="flex items-center gap-2 mt-1">
                       {isCompleted ? (
                         <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
