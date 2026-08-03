@@ -131,6 +131,25 @@ routerAdd(
       return h
     }
 
+    // AWS SigV4 exige RFC 3986: tudo exceto A-Z a-z 0-9 - _ . ~ deve ser
+    // percent-encoded. encodeURIComponent deixa !'()* passar, o que quebraria a
+    // assinatura em nomes como "Certidão Negativa Federal (CND Federal)".
+    function awsUriEncode(str) {
+      return encodeURIComponent(str).replace(/[!'()*]/g, function (c) {
+        return '%' + c.charCodeAt(0).toString(16).toUpperCase()
+      })
+    }
+
+    // Mantém acentos e espaços (o nome precisa ser legível no data lake), mas
+    // remove o que não pode aparecer em nome de arquivo — em especial "/", que
+    // criaria uma subpasta indesejada no S3.
+    function sanitizeFilename(str) {
+      return str
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    }
+
     var body = e.requestInfo().body || {}
     var landId = String(body.land_id || body.landId || '').trim()
     var documentKey = String(body.document_key || body.documentKey || '').trim()
@@ -222,8 +241,18 @@ routerAdd(
       return e.internalServerError('Credenciais AWS não configuradas')
     }
 
+    // O arquivo sobe renomeado com o nome do documento cadastrado em
+    // document_types, no formato "<Nome do documento> - <código da terra>.<ext>".
+    var docName = documentKey
+    try {
+      var docType = $app.findFirstRecordByData('document_types', 'key', documentKey)
+      docName = docType.getString('name') || documentKey
+    } catch (_) {
+      $app.logger().warn('proxy-upload: document_type não encontrado', 'key', documentKey)
+    }
+
     var safeLandCode = landCode.replace(/[^a-zA-Z0-9._-]/g, '_')
-    var safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+    var safeFilename = sanitizeFilename(docName + ' - ' + landCode) + ext
     var s3Key =
       'transient/skip-applications/due_dilligence_control/documents/' +
       safeLandCode +
@@ -239,7 +268,7 @@ routerAdd(
       .replace(/\.\d{3}/, '')
     var dateStamp = amzDate.substring(0, 8)
     var host = bucket + '.s3.' + region + '.amazonaws.com'
-    var canonicalUri = '/' + s3Key.split('/').map(encodeURIComponent).join('/')
+    var canonicalUri = '/' + s3Key.split('/').map(awsUriEncode).join('/')
 
     var credentialScope = dateStamp + '/' + region + '/' + service + '/aws4_request'
     var credential = accessKeyId + '/' + credentialScope
@@ -283,7 +312,9 @@ routerAdd(
       ', Signature=' +
       signature
 
-    var s3Url = 'https://' + host + '/' + s3Key
+    // Precisa usar exatamente o mesmo path codificado da assinatura, senão o S3
+    // recalcula outro canonical request e devolve SignatureDoesNotMatch.
+    var s3Url = 'https://' + host + canonicalUri
 
     var uploadRes = $http.send({
       url: s3Url,
