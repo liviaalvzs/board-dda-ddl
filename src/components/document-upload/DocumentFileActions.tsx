@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Eye, Download, Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
@@ -23,6 +24,8 @@ export function DocumentFileActions({
 }: DocumentFileActionsProps) {
   const [loading, setLoading] = useState<'inline' | 'attachment' | null>(null)
   const { toast } = useToast()
+  const location = useLocation()
+  const showView = !location.pathname.startsWith('/land/')
 
   const open = async (disposition: 'inline' | 'attachment') => {
     // A aba precisa ser aberta no clique, antes do await: se abrisse depois da
@@ -50,20 +53,22 @@ export function DocumentFileActions({
 
   return (
     <div className={cn('flex items-center gap-1.5', className)}>
-      <button
-        type="button"
-        onClick={() => open('inline')}
-        disabled={loading !== null}
-        className={buttonClass}
-        aria-label={`Visualizar ${documentLabel}`}
-      >
-        {loading === 'inline' ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Eye className="w-4 h-4" />
-        )}
-        Ver
-      </button>
+      {showView && (
+        <button
+          type="button"
+          onClick={() => open('inline')}
+          disabled={loading !== null}
+          className={buttonClass}
+          aria-label={`Visualizar ${documentLabel}`}
+        >
+          {loading === 'inline' ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Eye className="w-4 h-4" />
+          )}
+          Ver
+        </button>
+      )}
       <button
         type="button"
         onClick={() => open('attachment')}
