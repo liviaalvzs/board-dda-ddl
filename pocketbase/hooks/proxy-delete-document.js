@@ -250,6 +250,16 @@ routerAdd(
 
         // O S3 responde 204 na exclusão e também quando o objeto já não existe.
         if (deleteRes.statusCode < 200 || deleteRes.statusCode >= 300) {
+          // A AWS devolve 403 tanto para AccessDenied (falta s3:DeleteObject na
+          // credencial) quanto para SignatureDoesNotMatch (erro na assinatura).
+          // Só o corpo da resposta distingue os dois, então ele é registrado.
+          var s3Error = ''
+          try {
+            s3Error = new TextDecoder().decode(deleteRes.body)
+          } catch (_) {
+            s3Error = '(corpo ilegível)'
+          }
+
           $app
             .logger()
             .error(
@@ -258,8 +268,20 @@ routerAdd(
               deleteRes.statusCode,
               'key',
               decodedKey,
+              'resposta',
+              s3Error,
             )
-          return e.internalServerError('Falha ao excluir o arquivo no S3: ' + deleteRes.statusCode)
+
+          var s3Code = ''
+          var codeMatch = s3Error.match(/<Code>([^<]+)<\/Code>/)
+          if (codeMatch) s3Code = codeMatch[1]
+
+          return e.internalServerError(
+            'Falha ao excluir o arquivo no S3 (' +
+              deleteRes.statusCode +
+              (s3Code ? ': ' + s3Code : '') +
+              ').',
+          )
         }
 
         s3Deleted = true
