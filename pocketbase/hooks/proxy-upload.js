@@ -154,10 +154,10 @@ routerAdd(
     var files = e.findUploadedFiles('file')
     if (!files || files.length === 0) return e.badRequestError('Nenhum arquivo enviado')
     var fh = files[0]
-    var filename = fh.Filename || 'upload'
+    var filename = fh.Name || fh.name || (fh.Header && fh.Header.Filename) || 'upload'
 
     var maxSize = 10 * 1024 * 1024
-    if (fh.Size > maxSize) {
+    if ((fh.Size || fh.size || (fh.Header && fh.Header.Size) || 0) > maxSize) {
       return e.badRequestError('O arquivo excede o tamanho máximo de 10 MB.')
     }
 
@@ -182,8 +182,7 @@ routerAdd(
       return e.notFoundError('No matching document_checks record for this land and document key')
     }
 
-    var fileObj = $filesystem.fileFromMultipart(fh)
-    record.set('document_file', fileObj)
+    record.set('document_file', fh)
     try {
       $app.save(record)
     } catch (saveErr) {
