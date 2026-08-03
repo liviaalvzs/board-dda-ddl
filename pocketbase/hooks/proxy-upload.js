@@ -344,6 +344,130 @@ routerAdd(
     // recalcula outro canonical request e devolve SignatureDoesNotMatch.
     var s3Url = 'https://' + host + canonicalUri
 
+    // Substituição: o arquivo que já está lá é COPIADO para "<nome> OLD.<ext>"
+    // antes de ser sobrescrito. Nada é apagado do S3 — a cópia usa apenas
+    // CopyObject (GetObject na origem + PutObject no destino).
+    var previousUrl = record.getString('document_url')
+    var expectedOrigin = 'https://' + host + '/'
+    var replacedCount = Number(record.get('replaced_count') || 0)
+
+    if (previousUrl && previousUrl.indexOf(expectedOrigin) === 0) {
+      var previousEncodedKey = previousUrl.substring(expectedOrigin.length)
+      var previousDecodedKey = ''
+      try {
+        previousDecodedKey = decodeURIComponent(previousEncodedKey)
+      } catch (_) {
+        previousDecodedKey = previousEncodedKey
+      }
+
+      var dotAt = previousDecodedKey.lastIndexOf('.')
+      var prevBase = dotAt === -1 ? previousDecodedKey : previousDecodedKey.substring(0, dotAt)
+      var prevExt = dotAt === -1 ? '' : previousDecodedKey.substring(dotAt)
+      var oldSuffix = replacedCount === 0 ? ' OLD' : ' OLD ' + replacedCount
+      var archiveKey = prevBase + oldSuffix + prevExt
+      var archiveUri = '/' + archiveKey.split('/').map(awsUriEncode).join('/')
+
+      var copySource = '/' + bucket + '/' + previousEncodedKey
+      var copyAmzDate = new Date()
+        .toISOString()
+        .replace(/[:\-]/g, '')
+        .replace(/\.\d{3}/, '')
+      var copyDateStamp = copyAmzDate.substring(0, 8)
+      var copyScope = copyDateStamp + '/' + region + '/' + service + '/aws4_request'
+
+      var copyCanonicalHeaders =
+        'host:' +
+        host +
+        '\n' +
+        'x-amz-content-sha256:UNSIGNED-PAYLOAD\n' +
+        'x-amz-copy-source:' +
+        copySource +
+        '\n' +
+        'x-amz-date:' +
+        copyAmzDate +
+        '\n'
+      var copySignedHeaders = 'host;x-amz-content-sha256;x-amz-copy-source;x-amz-date'
+
+      var copyCanonicalRequest = [
+        'PUT',
+        archiveUri,
+        '',
+        copyCanonicalHeaders,
+        copySignedHeaders,
+        'UNSIGNED-PAYLOAD',
+      ].join('\n')
+
+      var copyStringToSign = [
+        'AWS4-HMAC-SHA256',
+        copyAmzDate,
+        copyScope,
+        toHex(sha256(strBytes(copyCanonicalRequest))),
+      ].join('\n')
+
+      var ckDate = hmac(strBytes('AWS4' + secretAccessKey), strBytes(copyDateStamp))
+      var ckRegion = hmac(ckDate, strBytes(region))
+      var ckService = hmac(ckRegion, strBytes(service))
+      var ckSigning = hmac(ckService, strBytes('aws4_request'))
+      var copySignature = toHex(hmac(ckSigning, strBytes(copyStringToSign)))
+
+      var copyRes = $http.send({
+        url: 'https://' + host + archiveUri,
+        method: 'PUT',
+        headers: {
+          Authorization:
+            'AWS4-HMAC-SHA256 Credential=' +
+            accessKeyId +
+            '/' +
+            copyScope +
+            ', SignedHeaders=' +
+            copySignedHeaders +
+            ', Signature=' +
+            copySignature,
+          'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+          'x-amz-copy-source': copySource,
+          'x-amz-date': copyAmzDate,
+        },
+        timeout: 120,
+      })
+
+      if (copyRes.statusCode < 200 || copyRes.statusCode >= 300) {
+        var copyErrBody = ''
+        try {
+          copyErrBody =
+            typeof copyRes.body === 'string'
+              ? copyRes.body
+              : new TextDecoder().decode(copyRes.body || new Uint8Array())
+        } catch (_) {
+          copyErrBody = ''
+        }
+
+        // Aborta em vez de seguir: sobrescrever agora destruiria a versão
+        // anterior, que é justamente o que o arquivamento existe para evitar.
+        $app
+          .logger()
+          .error(
+            'proxy-upload: falha ao arquivar versão anterior',
+            'status',
+            copyRes.statusCode,
+            'origem',
+            previousDecodedKey,
+            'destino',
+            archiveKey,
+            'resposta',
+            copyErrBody,
+          )
+        cleanupOnFailure()
+        return e.internalServerError(
+          'Não foi possível arquivar a versão anterior no S3 (' +
+            copyRes.statusCode +
+            '): ' +
+            copyErrBody.substring(0, 300),
+        )
+      }
+
+      replacedCount = replacedCount + 1
+    }
+
     var uploadRes = $http.send({
       url: s3Url,
       method: 'PUT',
@@ -365,6 +489,7 @@ routerAdd(
 
     record.set('document_url', s3Url)
     record.set('is_completed', true)
+    record.set('replaced_count', replacedCount)
     // O S3 é o repositório definitivo. A cópia no PocketBase serve apenas para
     // obter os bytes do upload (não há API para lê-los direto do multipart), e é
     // descartada assim que o objeto está no bucket.

@@ -1,11 +1,10 @@
 import { useState, useRef } from 'react'
-import { CheckCircle2, Loader2, Upload, FileText } from 'lucide-react'
+import { CheckCircle2, Loader2, Upload, RefreshCw, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { uploadDocument } from '@/services/document-upload'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
-import { DeleteDocumentButton } from '@/components/document-upload/DeleteDocumentButton'
 import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 
 interface DocumentRowProps {
@@ -49,7 +48,11 @@ export function DocumentRow({
     setUploading(true)
     try {
       await uploadDocument(landId, documentKey, file, clusterSerial)
-      toast({ title: `Documento ${documentLabel} enviado com sucesso!` })
+      toast({
+        title: isCompleted
+          ? `Documento ${documentLabel} substituído. A versão anterior foi arquivada.`
+          : `Documento ${documentLabel} enviado com sucesso!`,
+      })
       onUploaded()
     } catch (err) {
       toast({ title: getErrorMessage(err) })
@@ -100,46 +103,41 @@ export function DocumentRow({
             </span>
 
             <div className="flex items-center gap-1.5 ml-auto">
-              {isCompleted ? (
-                <>
-                  {check?.id && (
-                    <DocumentFileActions checkId={check.id} documentLabel={documentLabel} />
-                  )}
-                  {check?.id && (
-                    <DeleteDocumentButton
-                      checkId={check.id}
-                      documentLabel={documentLabel}
-                      onDeleted={onUploaded}
-                    />
-                  )}
-                </>
-              ) : (
-                <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (file) handleFile(file)
-                      e.target.value = ''
-                    }}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="h-10 px-4 rounded-lg bg-brand-secondary hover:bg-brand-secondary/90 text-white flex items-center gap-1.5 text-xs font-semibold disabled:opacity-50 transition-colors"
-                  >
-                    {uploading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    {uploading ? 'Enviando' : 'Enviar'}
-                  </button>
-                </>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleFile(file)
+                  e.target.value = ''
+                }}
+              />
+
+              {isCompleted && check?.id && (
+                <DocumentFileActions checkId={check.id} documentLabel={documentLabel} />
               )}
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className={cn(
+                  'h-10 px-4 rounded-lg flex items-center gap-1.5 text-xs font-semibold disabled:opacity-50 transition-colors',
+                  isCompleted
+                    ? 'border border-brand-primary/15 text-brand-primary/70 hover:text-brand-secondary hover:border-brand-secondary/40'
+                    : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
+                )}
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : isCompleted ? (
+                  <RefreshCw className="w-4 h-4" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                {uploading ? 'Enviando' : isCompleted ? 'Substituir' : 'Enviar'}
+              </button>
             </div>
           </div>
         </div>

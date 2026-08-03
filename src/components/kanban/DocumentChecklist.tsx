@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { CheckCircle2, FileText, Upload, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle2, FileText, Upload, RefreshCw, Loader2, AlertCircle } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useToast } from '@/hooks/use-toast'
@@ -10,7 +10,6 @@ import { format } from 'date-fns'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { uploadDocumentToS3 } from '@/services/s3-upload'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
-import { DeleteDocumentButton } from '@/components/document-upload/DeleteDocumentButton'
 import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 
 const MAX_SIZE = 10 * 1024 * 1024
@@ -225,14 +224,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                       </div>
                       <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
                         {isCompleted && check?.id && (
-                          <>
-                            <DocumentFileActions checkId={check.id} documentLabel={doc.label} />
-                            <DeleteDocumentButton
-                              checkId={check.id}
-                              documentLabel={doc.label}
-                              onDeleted={fetchChecks}
-                            />
-                          </>
+                          <DocumentFileActions checkId={check.id} documentLabel={doc.label} />
                         )}
                         <input
                           ref={(el) => {
@@ -247,22 +239,27 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                             e.target.value = ''
                           }}
                         />
-                        {!isCompleted && (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            disabled={uploadingKey === doc.key}
-                            onClick={() => fileInputRefs.current[doc.key]?.click()}
-                            className="bg-brand-secondary hover:bg-brand-secondary/90 text-white h-9 shrink-0"
-                          >
-                            {uploadingKey === doc.key ? (
-                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                            ) : (
-                              <Upload className="w-3.5 h-3.5 mr-1" />
-                            )}
-                            Enviar
-                          </Button>
-                        )}
+                        <Button
+                          variant={isCompleted ? 'outline' : 'default'}
+                          size="sm"
+                          disabled={uploadingKey === doc.key}
+                          onClick={() => fileInputRefs.current[doc.key]?.click()}
+                          className={cn(
+                            'h-9 shrink-0',
+                            isCompleted
+                              ? 'border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5'
+                              : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
+                          )}
+                        >
+                          {uploadingKey === doc.key ? (
+                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          ) : isCompleted ? (
+                            <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5 mr-1" />
+                          )}
+                          {isCompleted ? 'Substituir' : 'Enviar'}
+                        </Button>
                       </div>
                     </div>
                     {errors[doc.key] && (
