@@ -13,14 +13,25 @@ import { Button } from '@/components/ui/button'
 import { calculateLandStageRanking } from '@/lib/dash-utils'
 import { getKanbanColumnColor } from '@/lib/kanban-columns'
 
-export function StageRankingTable({ lands }: { lands: unknown }) {
-  const ranking = useMemo(() => calculateLandStageRanking(lands, 10), [lands])
+export function StageRankingTable({
+  lands,
+  historyLogs = [],
+}: {
+  lands: unknown
+  historyLogs?: unknown
+}) {
+  const ranking = useMemo(
+    () => calculateLandStageRanking(lands, 10, historyLogs),
+    [lands, historyLogs],
+  )
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>⏳ Ranking de terras na etapa atual</CardTitle>
-        <CardDescription>Terras que estão há mais tempo na etapa atual do Kanban</CardDescription>
+        <CardTitle>Terras paradas há mais tempo</CardTitle>
+        <CardDescription>
+          Contado desde a entrada na etapa atual, não desde a última edição do registro
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {ranking.length === 0 ? (

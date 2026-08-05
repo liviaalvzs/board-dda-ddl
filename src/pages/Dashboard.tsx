@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Bar, BarChart, XAxis, YAxis, Cell } from 'recharts'
+import { Bar, BarChart, XAxis, YAxis, LabelList } from 'recharts'
 import {
   ChartContainer,
   ChartTooltip,
@@ -8,53 +8,67 @@ import {
 } from '@/components/ui/chart'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import pb from '@/lib/pocketbase/client'
 import { fetchAllLandMetadata } from '@/services/lands'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
   calculateStageDelays,
-  calculateStageDurations,
+  calculateStageAverageTime,
   calculateStatusDistribution,
 } from '@/lib/dash-utils'
-import { AlertTriangle, CheckCircle2, Layers } from 'lucide-react'
-import { StageAverageTimeChart } from '@/components/dash/StageAverageTimeChart'
+import { AlertTriangle, CheckCircle2, Layers, Timer } from 'lucide-react'
+import { StageTimeChart } from '@/components/dash/StageTimeChart'
+import { PlannedVsActualCard } from '@/components/dash/PlannedVsActualCard'
 import { StageRankingTable } from '@/components/dash/StageRankingTable'
-
-const delayConfig = {
-  averageDelay: { label: 'Atraso (dias)', color: 'hsl(var(--chart-1))' },
-} satisfies ChartConfig
-
-const durConfig = {
-  averageDuration: { label: 'Tempo (dias)', color: 'hsl(var(--chart-2))' },
-} satisfies ChartConfig
+import { CHART_MAGNITUDE, CHART_POSITIVE, CHART_NEGATIVE } from '@/lib/chart-colors'
 
 const statusConfig = {
-  count: { label: 'Terras', color: 'hsl(var(--chart-3))' },
+  count: { label: 'Terras', color: CHART_MAGNITUDE },
 } satisfies ChartConfig
 
-function delayColor(d: number): string {
-  if (d <= 0) return 'hsl(142 71% 45%)'
-  if (d <= 7) return 'hsl(38 92% 50%)'
-  return 'hsl(0 84% 60%)'
-}
-
-function StatusBarShape(props: any) {
-  const { x, y, width, height, payload } = props
+function KpiCard({
+  title,
+  value,
+  hint,
+  icon: Icon,
+  valueColor,
+}: {
+  title: string
+  value: string | number
+  hint?: string
+  icon: React.ComponentType<{ className?: string }>
+  valueColor?: string
+}) {
   return (
-    <g>
-      <rect x={x} y={y} width={width} height={height} fill="hsl(var(--chart-3))" rx={4}>
-        <title>{`${payload?.label} – ${payload?.count} terras`}</title>
-      </rect>
-    </g>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold" style={valueColor ? { color: valueColor } : undefined}>
+          {value}
+        </div>
+        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      </CardContent>
+    </Card>
   )
 }
 
 export default function Dashboard() {
   const [lands, setLands] = useState<Record<string, any>[]>([])
+  const [historyLogs, setHistoryLogs] = useState<Record<string, any>[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      setLands(await fetchAllLandMetadata())
+      const [metadata, logs] = await Promise.all([
+        fetchAllLandMetadata(),
+        // As transições de etapa são a fonte do tempo por etapa.
+        pb.collection('history_logs').getFullList({ sort: 'created' }),
+      ])
+      setLands(Array.from(metadata.values()))
+      setHistoryLogs(logs)
     } catch (e) {
       console.error(e)
     } finally {
@@ -65,20 +79,36 @@ export default function Dashboard() {
   useEffect(() => {
     loadData()
   }, [])
-  useRealtime('land_metadata', () => {
-    loadData()
-  })
+  useRealtime('land_metadata', () => loadData())
 
   const delays = useMemo(() => calculateStageDelays(lands), [lands])
-  const durations = useMemo(() => calculateStageDurations(lands), [lands])
   const statusDist = useMemo(() => calculateStatusDistribution(lands), [lands])
+  const stageTimes = useMemo(
+    () => calculateStageAverageTime(lands, historyLogs),
+    [lands, historyLogs],
+  )
+
+  const kpis = useMemo(() => {
+    const inProgress = lands.filter((l) => (l.status || '').trim()).length
+    // O indicador de prazo usa só as etapas com data estimada de conclusão —
+    // as de tempo de resposta não têm "prazo" contra o qual comparar.
+    const deviationStages = delays.filter((d) => d.kind === 'deviation')
+    const evaluated = deviationStages.reduce((s, d) => s + d.count, 0)
+    const onTime = deviationStages.reduce((s, d) => s + d.onTimeCount, 0)
+    const onTimeRate = evaluated > 0 ? Math.round((onTime / evaluated) * 100) : null
+    const avgStageDays = stageTimes.length
+      ? Math.round((stageTimes.reduce((s, d) => s + d.averageDays, 0) / stageTimes.length) * 10) /
+        10
+      : 0
+    return { inProgress, evaluated, onTime, onTimeRate, avgStageDays }
+  }, [lands, delays, stageTimes])
 
   if (loading) {
     return (
       <div className="space-y-6 p-6">
         <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 md:grid-cols-3">
-          {[0, 1, 2].map((i) => (
+        <div className="grid gap-4 md:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-24" />
           ))}
         </div>
@@ -88,216 +118,117 @@ export default function Dashboard() {
     )
   }
 
-  const delayChart = delays.map((d) => ({
-    label: d.label,
-    averageDelay: Math.max(0, d.averageDelay),
-  }))
-  const durChart = durations.map((d) => ({
-    label: d.label,
-    averageDuration: d.averageDuration,
-  }))
-  const statusChart = statusDist.map((s) => ({
-    label: s.label,
-    count: s.count,
-    status: s.status,
-  }))
+  const statusChart = statusDist.map((s) => ({ label: s.label, count: s.count }))
 
   return (
-    <div className="h-full overflow-y-auto space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Visão geral das diligências</p>
-      </div>
+    <div className="h-full overflow-y-auto p-4 md:p-6">
+      <div className="mx-auto max-w-6xl space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Visão geral das diligências</p>
+        </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Terras</CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{lands.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Com Atraso</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {delays.reduce((s, d) => s + d.delayedCount, 0)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">No Prazo</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {delays.reduce((s, d) => s + d.onTimeCount, 0)}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Atraso por Etapa</CardTitle>
-            <CardDescription>
-              Diferença média em dias entre data prevista e realizada
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={delayConfig} className="h-[220px] w-full">
-              <BarChart
-                data={delayChart}
-                layout="vertical"
-                margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
-              >
-                <XAxis type="number" tickFormatter={(v) => `${v}d`} fontSize={12} />
-                <YAxis type="category" dataKey="label" width={90} fontSize={12} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="averageDelay" radius={4} cursor={{ fillOpacity: 0.1 }}>
-                  {delayChart.map((_, i) => (
-                    <Cell key={i} fill={delayColor(delays[i].averageDelay)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {delays.map((s) => (
-                <div key={s.label} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{s.label}</span>
-                    <span
-                      className={`text-sm font-bold ${
-                        s.averageDelay > 0 ? 'text-red-600' : 'text-green-600'
-                      }`}
-                    >
-                      {s.averageDelay > 0 ? `+${s.averageDelay}d` : `${s.averageDelay}d`}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{s.count} terras</span>
-                    <span>·</span>
-                    <span className="text-green-600">{s.onTimeCount} no prazo</span>
-                    <span>·</span>
-                    <span className="text-red-600">{s.delayedCount} atrasadas</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Tempo por Etapa</CardTitle>
-            <CardDescription>
-              Tempo médio em dias desde a assinatura da carta proposta até a realização
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={durConfig} className="h-[220px] w-full">
-              <BarChart
-                data={durChart}
-                layout="vertical"
-                margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
-              >
-                <XAxis type="number" tickFormatter={(v) => `${v}d`} fontSize={12} />
-                <YAxis type="category" dataKey="label" width={90} fontSize={12} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar
-                  dataKey="averageDuration"
-                  fill="hsl(var(--chart-2))"
-                  radius={4}
-                  cursor={{ fillOpacity: 0.1 }}
-                />
-              </BarChart>
-            </ChartContainer>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {durations.map((s) => (
-                <div key={s.label} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{s.label}</span>
-                    <span className="text-sm font-bold">{s.averageDuration}d</span>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {s.count} terras avaliadas
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>📋 Distribuição por etapa do kanban</CardTitle>
-          <CardDescription>Número de terras agrupadas por status no board</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {statusChart.length === 0 ? (
-            <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
-              Sem dados de status disponíveis
-            </div>
-          ) : (
-            <div
-              tabIndex={0}
-              role="img"
-              aria-label="Gráfico de distribuição de terras por etapa do kanban"
-              className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <ChartContainer config={statusConfig} className="h-[320px] w-full">
-                <BarChart
-                  data={statusChart}
-                  layout="vertical"
-                  margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
-                >
-                  <XAxis type="number" allowDecimals={false} fontSize={12} />
-                  <YAxis
-                    type="category"
-                    dataKey="label"
-                    width={160}
-                    fontSize={12}
-                    tickFormatter={(value: string) =>
-                      value.length > 22 ? value.slice(0, 22) + '…' : value
-                    }
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="count"
-                    radius={4}
-                    cursor={{ fillOpacity: 0.1 }}
-                    shape={StatusBarShape}
-                  />
-                </BarChart>
-              </ChartContainer>
-            </div>
-          )}
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
-            {statusDist.map((s) => (
-              <div key={s.status || 'sem-status'} className="rounded-lg border p-3">
-                <div className="flex items-center justify-between">
-                  <span className="truncate text-sm font-medium" title={s.label}>
-                    {s.label}
-                  </span>
-                  <span className="text-sm font-bold">{s.count}</span>
-                </div>
-              </div>
-            ))}
+        {/* Panorama */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Panorama
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <KpiCard title="Total de terras" value={lands.length} icon={Layers} />
+            <KpiCard
+              title="No board"
+              value={kpis.inProgress}
+              hint="Terras com etapa atribuída"
+              icon={Layers}
+            />
+            <KpiCard
+              title="Tempo médio por etapa"
+              value={`${kpis.avgStageDays}d`}
+              hint="Média entre as etapas"
+              icon={Timer}
+            />
+            {kpis.onTimeRate === null ? (
+              <KpiCard
+                title="Dentro do prazo"
+                value="—"
+                hint="Sem datas estimadas preenchidas"
+                icon={AlertTriangle}
+              />
+            ) : (
+              <KpiCard
+                title="Dentro do prazo"
+                value={`${kpis.onTimeRate}%`}
+                hint={`${kpis.onTime} de ${kpis.evaluated} com data estimada`}
+                icon={kpis.onTimeRate >= 50 ? CheckCircle2 : AlertTriangle}
+                valueColor={kpis.onTimeRate >= 50 ? CHART_POSITIVE : CHART_NEGATIVE}
+              />
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </section>
 
-      <StageAverageTimeChart lands={lands} />
+        {/* Tempo */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Tempo no processo
+          </h2>
+          <StageTimeChart lands={lands} historyLogs={historyLogs} />
+          <StageRankingTable lands={lands} historyLogs={historyLogs} />
+        </section>
 
-      <StageRankingTable lands={lands} />
+        {/* Prazos */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Prazos
+          </h2>
+          <PlannedVsActualCard lands={lands} />
+        </section>
+
+        {/* Distribuição */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Distribuição
+          </h2>
+          <Card>
+            <CardHeader>
+              <CardTitle>Terras por etapa</CardTitle>
+              <CardDescription>Quantas terras estão em cada coluna do board</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {statusChart.length === 0 ? (
+                <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
+                  Sem dados de etapa disponíveis
+                </div>
+              ) : (
+                <ChartContainer config={statusConfig} className="h-[280px] w-full">
+                  <BarChart
+                    data={statusChart}
+                    layout="vertical"
+                    margin={{ left: 10, right: 40, top: 4, bottom: 4 }}
+                  >
+                    <XAxis type="number" allowDecimals={false} fontSize={12} />
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      width={180}
+                      fontSize={12}
+                      tickFormatter={(v: string) => (v.length > 28 ? v.slice(0, 28) + '…' : v)}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill={CHART_MAGNITUDE} radius={4} barSize={18}>
+                      <LabelList
+                        dataKey="count"
+                        position="right"
+                        className="fill-foreground"
+                        fontSize={12}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </div>
   )
 }
