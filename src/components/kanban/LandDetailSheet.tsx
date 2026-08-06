@@ -859,10 +859,9 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                 </TabsContent>
 
                 <TabsContent value="deadlines" className="animate-fade-in-up mt-0 outline-none">
-                  <div className="space-y-6">
+                  <DiligenceTimeline land={land} landId={landId} metadata={metadata}>
                     <ChangeHistoryCard historyLogs={historyLogs} fallbackHistory={mockHistory} />
-                    <DiligenceTimeline land={land} landId={landId} metadata={metadata} />
-                  </div>
+                  </DiligenceTimeline>
                 </TabsContent>
               </div>
             </Tabs>

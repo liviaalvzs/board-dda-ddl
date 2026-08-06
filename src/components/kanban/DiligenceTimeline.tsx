@@ -21,6 +21,12 @@ interface DiligenceTimelineProps {
   land: any
   landId: string
   metadata?: any
+  /**
+   * Conteúdo inserido entre o card de tempo total e a linha do tempo.
+   * Existe para o "Tempo Total de Diligência" poder ser o primeiro item da aba
+   * sem duplicar a busca dos dados, que é compartilhada pelos dois cards.
+   */
+  children?: React.ReactNode
 }
 
 interface ExternalStage {
@@ -44,7 +50,7 @@ function formatDuration(ms: number): string {
   return '< 1min'
 }
 
-export function DiligenceTimeline({ land, landId, metadata }: DiligenceTimelineProps) {
+export function DiligenceTimeline({ land, landId, metadata, children }: DiligenceTimelineProps) {
   const [stages, setStages] = useState<ExternalStage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -186,7 +192,7 @@ export function DiligenceTimeline({ land, landId, metadata }: DiligenceTimelineP
         <CardHeader className="pb-3">
           <CardTitle className="font-display text-lg text-brand-primary flex items-center gap-2">
             <ExternalLink className="w-5 h-5 text-brand-secondary" />
-            Tempo Total de Diligência (Externo)
+            Tempo Total de Diligência
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -206,6 +212,8 @@ export function DiligenceTimeline({ land, landId, metadata }: DiligenceTimelineP
         </CardContent>
       </Card>
 
+      {children}
+
       <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen}>
         <Card className="border-brand-primary/10 shadow-sm">
           <CardHeader className="pb-3">
@@ -216,7 +224,7 @@ export function DiligenceTimeline({ land, landId, metadata }: DiligenceTimelineP
               >
                 <CardTitle className="font-display text-lg text-brand-primary flex items-center gap-2">
                   <Timer className="w-5 h-5 text-brand-secondary" />
-                  Linha do Tempo de Diligência Externa
+                  Linha do Tempo da Terra
                 </CardTitle>
                 <ChevronDown
                   className={cn(
