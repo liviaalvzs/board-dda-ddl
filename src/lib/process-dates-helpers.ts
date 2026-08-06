@@ -67,6 +67,26 @@ export interface DdaFlag {
   badgeClassName: string
 }
 
+/** Dias até a data estimada. Negativo = já venceu. Compara por dia, não por hora. */
+function daysUntilPlanned(planned: Date): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const plannedDate = new Date(planned)
+  plannedDate.setHours(0, 0, 0, 0)
+  return differenceInDays(plannedDate, today)
+}
+
+/** DDA solicitada = existe data estimada de recebimento. */
+export function isDdaRequested(planned: Date | undefined): boolean {
+  return !!planned
+}
+
+/** DDA atrasada = tinha data estimada, venceu e ainda não foi recebida. */
+export function isDdaOverdue(planned: Date | undefined, actual: Date | undefined): boolean {
+  if (actual || !planned) return false
+  return daysUntilPlanned(planned) < 0
+}
+
 /**
  * Sinalização de DDA usada no card do board e no bloco da terra.
  * Sem data estimada, a DDA é considerada não solicitada.
@@ -88,11 +108,7 @@ export function calculateDdaFlag(planned: Date | undefined, actual: Date | undef
     }
   }
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const plannedDate = new Date(planned)
-  plannedDate.setHours(0, 0, 0, 0)
-  const diff = differenceInDays(plannedDate, today)
+  const diff = daysUntilPlanned(planned)
 
   if (diff > 0) {
     return {

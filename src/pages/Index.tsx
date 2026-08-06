@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge'
 import { KANBAN_COLUMNS as KANBAN_STAGES } from '@/lib/kanban-columns'
 import { fetchFirstStageEntry, FIRST_STAGE_ID } from '@/services/land-stages'
 import { parseStageDates } from '@/lib/stage-dates-helpers'
+import { parseDateValue, isDdaRequested, isDdaOverdue } from '@/lib/process-dates-helpers'
 import { useAuth } from '@/hooks/use-auth'
 import {
   AlertDialog,
@@ -74,6 +75,7 @@ export default function Index() {
   const [selectedResponsible, setSelectedResponsible] = useState('all')
   const [selectedCluster, setSelectedCluster] = useState('all')
   const [selectedState, setSelectedState] = useState('all')
+  const [selectedDda, setSelectedDda] = useState('all')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
   const [users, setUsers] = useState<any[]>([])
@@ -339,22 +341,40 @@ export default function Index() {
 
       const matchState = selectedState === 'all' || c.location.state === selectedState
 
-      return matchSearch && matchResponsible && matchCluster && matchState
+      // As datas de DDA vivem no metadata, não no card montado aqui.
+      const ddaPlanned = parseDateValue(meta?.data_pedido_dda)
+      const ddaActual = parseDateValue(meta?.data_recebimento_dda)
+      const matchDda =
+        selectedDda === 'all' ||
+        (selectedDda === 'solicitada' && isDdaRequested(ddaPlanned)) ||
+        (selectedDda === 'atrasada' && isDdaOverdue(ddaPlanned, ddaActual))
+
+      return matchSearch && matchResponsible && matchCluster && matchState && matchDda
     })
-  }, [allCards, metadata, searchQuery, selectedResponsible, selectedCluster, selectedState])
+  }, [
+    allCards,
+    metadata,
+    searchQuery,
+    selectedResponsible,
+    selectedCluster,
+    selectedState,
+    selectedDda,
+  ])
 
   const resetFilters = () => {
     setSearchQuery('')
     setSelectedResponsible('all')
     setSelectedCluster('all')
     setSelectedState('all')
+    setSelectedDda('all')
   }
 
   const activeFilterCount =
     (searchQuery ? 1 : 0) +
     (selectedResponsible !== 'all' ? 1 : 0) +
     (selectedCluster !== 'all' ? 1 : 0) +
-    (selectedState !== 'all' ? 1 : 0)
+    (selectedState !== 'all' ? 1 : 0) +
+    (selectedDda !== 'all' ? 1 : 0)
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-white relative">
@@ -577,6 +597,27 @@ export default function Index() {
                             {c}
                           </option>
                         ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold text-slate-900 border-b pb-2">
+                      Diligência Ambiental
+                    </h4>
+                    <div className="space-y-2">
+                      <label htmlFor="filtro-dda" className="text-xs font-medium text-slate-600">
+                        Situação da DDA
+                      </label>
+                      <select
+                        id="filtro-dda"
+                        value={selectedDda}
+                        onChange={(e) => setSelectedDda(e.target.value)}
+                        className={FILTER_SELECT_CLASS}
+                      >
+                        <option value="all">Todas</option>
+                        <option value="solicitada">DDA solicitada</option>
+                        <option value="atrasada">DDA atrasada</option>
                       </select>
                     </div>
                   </div>
