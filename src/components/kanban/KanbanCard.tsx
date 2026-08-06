@@ -9,6 +9,7 @@ import { differenceInDays, differenceInHours, format } from 'date-fns'
 import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { getDocumentLabel } from '@/lib/document-labels'
 import { parseDateValue, calculateDdaFlag } from '@/lib/process-dates-helpers'
+import { getCurrentStageEntry } from '@/lib/stage-dates-helpers'
 
 interface KanbanCardProps {
   card: KanbanCardType
@@ -21,34 +22,38 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
   const attentionThreshold = Math.max(1, Math.floor(delayedThreshold / 2))
 
   const createdDate = new Date(card.createdAt || new Date())
-  const updatedDate = new Date(card.updatedAt || new Date())
 
   const isNew = differenceInHours(new Date(), createdDate) <= 48
-  const daysInStatus = differenceInDays(new Date(), updatedDate)
 
-  const urgencyClass =
-    daysInStatus > delayedThreshold
-      ? 'bg-white border-rose-200'
-      : daysInStatus > attentionThreshold
-        ? 'bg-white border-amber-200'
-        : 'bg-white border-slate-200'
-  const hoverClass =
-    daysInStatus > delayedThreshold
-      ? 'hover:border-rose-400'
-      : daysInStatus > attentionThreshold
-        ? 'hover:border-amber-400'
-        : 'hover:border-brand-secondary/60'
+  // Conta a partir da data de entrada na etapa, não de `updated` — aquele campo
+  // é bumpado por qualquer edição do registro e zerava o contador sem que a
+  // etapa tivesse mudado. A data é editável na tela da terra.
+  const stageEntry = getCurrentStageEntry(card.stageDates, card.stageId)
+  const daysInStatus = stageEntry ? differenceInDays(new Date(), stageEntry) : null
 
-  const urgencyBadge =
-    daysInStatus > delayedThreshold ? (
-      <Badge className="bg-rose-500 hover:bg-rose-600 text-white text-[9px] px-1.5 py-0 border-none font-bold">
-        ATRASADO
-      </Badge>
-    ) : daysInStatus > attentionThreshold ? (
-      <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] px-1.5 py-0 border-none font-bold">
-        ATENÇÃO
-      </Badge>
-    ) : null
+  const isDelayed = daysInStatus !== null && daysInStatus > delayedThreshold
+  const needsAttention = daysInStatus !== null && !isDelayed && daysInStatus > attentionThreshold
+
+  const urgencyClass = isDelayed
+    ? 'bg-white border-rose-200'
+    : needsAttention
+      ? 'bg-white border-amber-200'
+      : 'bg-white border-slate-200'
+  const hoverClass = isDelayed
+    ? 'hover:border-rose-400'
+    : needsAttention
+      ? 'hover:border-amber-400'
+      : 'hover:border-brand-secondary/60'
+
+  const urgencyBadge = isDelayed ? (
+    <Badge className="bg-rose-500 hover:bg-rose-600 text-white text-[9px] px-1.5 py-0 border-none font-bold">
+      ATRASADO
+    </Badge>
+  ) : needsAttention ? (
+    <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] px-1.5 py-0 border-none font-bold">
+      ATENÇÃO
+    </Badge>
+  ) : null
 
   const ddaLabel = {
     existing: 'DDA Existente',
@@ -199,16 +204,20 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
         <div
           className={cn(
             'flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-md',
-            daysInStatus > delayedThreshold
-              ? 'bg-rose-100 text-rose-700'
-              : daysInStatus > attentionThreshold
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-emerald-100 text-emerald-700',
+            daysInStatus === null
+              ? 'bg-slate-100 text-slate-500'
+              : isDelayed
+                ? 'bg-rose-100 text-rose-700'
+                : needsAttention
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-emerald-100 text-emerald-700',
           )}
         >
           <Clock className="w-3 h-3" />
           <span>
-            {daysInStatus} {daysInStatus === 1 ? 'dia' : 'dias'} na etapa
+            {daysInStatus === null
+              ? 'Data da etapa não informada'
+              : `${daysInStatus} ${daysInStatus === 1 ? 'dia' : 'dias'} na etapa`}
           </span>
         </div>
 

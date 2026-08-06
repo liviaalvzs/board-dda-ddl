@@ -125,6 +125,7 @@ export function KanbanBoard({
         ddaStatusLabel: meta?.dda_status || '',
         ddaEstimatedDate: meta?.data_pedido_dda || '',
         ddaReceivedDate: meta?.data_recebimento_dda || '',
+        stageDates: meta?.stage_dates || {},
         createdAt: meta?.created || new Date().toISOString(),
         updatedAt: meta?.updated || new Date().toISOString(),
       }

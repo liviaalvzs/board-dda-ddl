@@ -41,6 +41,7 @@ import { StageTimeline } from '@/components/kanban/StageTimeline'
 import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
 import { ProcessDatesSection } from '@/components/kanban/ProcessDatesSection'
 import { DdaSection } from '@/components/kanban/DdaSection'
+import { StageDatesSection } from '@/components/kanban/StageDatesSection'
 import { getStatusLabel } from '@/lib/status-mapping'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
@@ -729,6 +730,11 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                       onUpdated={handleMetadataUpdated}
                     />
                     <DdaSection
+                      metadata={metadata}
+                      externalId={effectiveExternalId}
+                      onUpdated={handleMetadataUpdated}
+                    />
+                    <StageDatesSection
                       metadata={metadata}
                       externalId={effectiveExternalId}
                       onUpdated={handleMetadataUpdated}

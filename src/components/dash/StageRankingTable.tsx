@@ -13,30 +13,22 @@ import { Button } from '@/components/ui/button'
 import { calculateLandStageRanking } from '@/lib/dash-utils'
 import { getKanbanColumnColor } from '@/lib/kanban-columns'
 
-export function StageRankingTable({
-  lands,
-  historyLogs = [],
-}: {
-  lands: unknown
-  historyLogs?: unknown
-}) {
-  const ranking = useMemo(
-    () => calculateLandStageRanking(lands, 10, historyLogs),
-    [lands, historyLogs],
-  )
+export function StageRankingTable({ lands }: { lands: unknown }) {
+  const ranking = useMemo(() => calculateLandStageRanking(lands, 10), [lands])
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Terras paradas há mais tempo</CardTitle>
         <CardDescription>
-          Contado desde a entrada na etapa atual, não desde a última edição do registro
+          Contado desde a data de entrada na etapa atual. Terras sem essa data informada não
+          aparecem aqui.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {ranking.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            Nenhuma terra com tempo registrado.
+            Nenhuma terra com data de entrada na etapa informada.
           </div>
         ) : (
           <div className="overflow-x-auto">

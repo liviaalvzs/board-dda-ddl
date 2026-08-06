@@ -8,7 +8,6 @@ import {
 } from '@/components/ui/chart'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import pb from '@/lib/pocketbase/client'
 import { fetchAllLandMetadata } from '@/services/lands'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -57,18 +56,14 @@ function KpiCard({
 
 export default function Dashboard() {
   const [lands, setLands] = useState<Record<string, any>[]>([])
-  const [historyLogs, setHistoryLogs] = useState<Record<string, any>[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      const [metadata, logs] = await Promise.all([
-        fetchAllLandMetadata(),
-        // As transições de etapa são a fonte do tempo por etapa.
-        pb.collection('history_logs').getFullList({ sort: 'created' }),
-      ])
+      // O tempo por etapa vem de land_metadata.stage_dates — mesma fonte do card
+      // do board, e editável na tela da terra.
+      const metadata = await fetchAllLandMetadata()
       setLands(Array.from(metadata.values()))
-      setHistoryLogs(logs)
     } catch (e) {
       console.error(e)
     } finally {
@@ -83,10 +78,7 @@ export default function Dashboard() {
 
   const delays = useMemo(() => calculateStageDelays(lands), [lands])
   const statusDist = useMemo(() => calculateStatusDistribution(lands), [lands])
-  const stageTimes = useMemo(
-    () => calculateStageAverageTime(lands, historyLogs),
-    [lands, historyLogs],
-  )
+  const stageTimes = useMemo(() => calculateStageAverageTime(lands), [lands])
 
   const kpis = useMemo(() => {
     const inProgress = lands.filter((l) => (l.status || '').trim()).length
@@ -171,8 +163,8 @@ export default function Dashboard() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Tempo no processo
           </h2>
-          <StageTimeChart lands={lands} historyLogs={historyLogs} />
-          <StageRankingTable lands={lands} historyLogs={historyLogs} />
+          <StageTimeChart lands={lands} />
+          <StageRankingTable lands={lands} />
         </section>
 
         {/* Prazos */}

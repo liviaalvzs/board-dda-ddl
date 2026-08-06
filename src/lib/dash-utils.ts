@@ -1,6 +1,7 @@
 import { differenceInDays } from 'date-fns'
 import { parseDateValue } from '@/lib/process-dates-helpers'
 import { getStatusLabel } from '@/lib/status-mapping'
+import { buildStageSpans, getCurrentStageEntry } from '@/lib/stage-dates-helpers'
 
 /**
  * `kind` distingue o que a diferença entre as duas datas realmente mede:
@@ -171,71 +172,30 @@ export interface StageAverageTimeData {
 }
 
 /**
- * Tempo médio por etapa, reconstruído a partir das transições registradas em
- * history_logs (change_details.field === 'status').
+ * Tempo médio por etapa, calculado a partir de `land_metadata.stage_dates` —
+ * as datas de entrada em cada etapa, carimbadas ao mover o card e corrigíveis
+ * na tela da terra.
  *
- * Para cada terra, os logs de etapa em ordem cronológica delimitam os períodos:
- * o intervalo entre duas transições é o tempo passado na etapa de origem. A
- * etapa atual entra como período em aberto (da última transição até hoje).
- *
- * Usar 'updated' de land_metadata como referência — como era feito antes — mede
- * a coisa errada: aquele campo é atualizado por qualquer edição do registro.
+ * É a mesma fonte que o card do board usa, então o que se lê aqui e lá nunca
+ * diverge. Antes isso era reconstruído de history_logs, que não é editável.
  */
-export function calculateStageAverageTime(
-  lands: unknown,
-  historyLogs: unknown = [],
-): StageAverageTimeData[] {
+export function calculateStageAverageTime(lands: unknown): StageAverageTimeData[] {
   const landArray = toLandArray(lands)
-  const logs = toLandArray(historyLogs)
   const now = new Date()
-
-  // Transições de etapa por terra, em ordem cronológica.
-  const transitionsByLand = new Map<string, { at: Date; from: string; to: string }[]>()
-  for (const log of logs) {
-    const details = log.change_details
-    if (!details || details.field !== 'status') continue
-    const at = parseDateValue(log.created)
-    if (!at) continue
-    const landId = String(log.land_id || '')
-    if (!landId) continue
-    if (!transitionsByLand.has(landId)) transitionsByLand.set(landId, [])
-    transitionsByLand.get(landId)!.push({
-      at,
-      from: String(details.old || '').trim(),
-      to: String(details.new || '').trim(),
-    })
-  }
-  for (const list of transitionsByLand.values()) {
-    list.sort((a, b) => a.at.getTime() - b.at.getTime())
-  }
 
   const closed = new Map<string, number[]>()
   const open = new Map<string, number[]>()
 
   const push = (map: Map<string, number[]>, status: string, days: number) => {
-    if (!status || status === 'N/A' || days < 0) return
+    if (!status || days < 0) return
     if (!map.has(status)) map.set(status, [])
     map.get(status)!.push(days)
   }
 
   for (const land of landArray) {
-    const landId = String(land.external_id || land.id || '')
-    const currentStatus = (land.status || '').trim()
-    const createdAt = parseDateValue(land.created)
-    const transitions = transitionsByLand.get(landId) || []
-
-    // Períodos encerrados: da entrada na etapa até a transição seguinte.
-    let spanStart = createdAt
-    for (const t of transitions) {
-      if (spanStart && t.from) {
-        push(closed, t.from, differenceInDays(t.at, spanStart))
-      }
-      spanStart = t.at
-    }
-
-    // Período em aberto na etapa atual.
-    if (currentStatus && spanStart) {
-      push(open, currentStatus, differenceInDays(now, spanStart))
+    const spans = buildStageSpans(land.stage_dates, now)
+    for (const span of spans) {
+      push(span.end ? closed : open, span.stageId, span.days)
     }
   }
 
@@ -273,25 +233,9 @@ export interface LandStageRankingItem {
 export function calculateLandStageRanking(
   lands: unknown,
   limit: number = 10,
-  historyLogs: unknown = [],
 ): LandStageRankingItem[] {
   const landArray = toLandArray(lands)
-  const logs = toLandArray(historyLogs)
   const now = new Date()
-
-  // Momento em que cada terra entrou na etapa atual: a última transição de
-  // status registrada. Sem transição, vale a criação do registro.
-  const enteredStageAt = new Map<string, Date>()
-  for (const log of logs) {
-    const details = log.change_details
-    if (!details || details.field !== 'status') continue
-    const at = parseDateValue(log.created)
-    if (!at) continue
-    const landId = String(log.land_id || '')
-    if (!landId) continue
-    const previous = enteredStageAt.get(landId)
-    if (!previous || at.getTime() > previous.getTime()) enteredStageAt.set(landId, at)
-  }
 
   const items: LandStageRankingItem[] = []
 
@@ -299,8 +243,9 @@ export function calculateLandStageRanking(
     const status = (land.status || '').trim()
     if (!status) continue
 
-    const landId = String(land.external_id || land.id || '')
-    const referenceDate = enteredStageAt.get(landId) || parseDateValue(land.created)
+    // Terras sem data de entrada informada ficam de fora: exibi-las com "0 dias"
+    // ou com a data de criação inventaria um número que ninguém informou.
+    const referenceDate = getCurrentStageEntry(land.stage_dates, status)
     if (!referenceDate) continue
 
     const days = differenceInDays(now, referenceDate)

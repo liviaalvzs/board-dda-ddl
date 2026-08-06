@@ -18,11 +18,10 @@ const config = {
 
 interface StageTimeChartProps {
   lands: unknown
-  historyLogs: unknown
 }
 
-export function StageTimeChart({ lands, historyLogs }: StageTimeChartProps) {
-  const stages = useMemo(() => calculateStageAverageTime(lands, historyLogs), [lands, historyLogs])
+export function StageTimeChart({ lands }: StageTimeChartProps) {
+  const stages = useMemo(() => calculateStageAverageTime(lands), [lands])
 
   const hasClosedSpans = stages.some((s) => s.closedCount > 0)
   const chartData = stages.map((s) => ({
@@ -36,8 +35,8 @@ export function StageTimeChart({ lands, historyLogs }: StageTimeChartProps) {
       <CardHeader>
         <CardTitle>Tempo médio por etapa</CardTitle>
         <CardDescription>
-          Dias que uma terra permanece em cada coluna do board, considerando períodos já encerrados
-          e o tempo corrente na etapa atual
+          Dias que uma terra permanece em cada coluna do board, a partir das datas de entrada
+          informadas em cada etapa
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -104,9 +103,8 @@ export function StageTimeChart({ lands, historyLogs }: StageTimeChartProps) {
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
             <p className="text-xs text-amber-800">
-              O registro de mudanças de etapa começou agora, então ainda não há passagens
-              concluídas. Os valores acima refletem apenas o tempo corrente na etapa atual e vão
-              ficar precisos conforme as terras avançarem no board.
+              Ainda não há etapas concluídas com data informada. Preencha as datas de entrada em
+              cada terra (aba Informações → Datas das etapas) para as médias ficarem completas.
             </p>
           </div>
         )}

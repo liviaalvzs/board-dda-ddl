@@ -30,6 +30,8 @@ export interface KanbanCardType {
   /** Data estimada de recebimento da DDA (coluna legada `data_pedido_dda`). */
   ddaEstimatedDate?: string
   ddaReceivedDate?: string
+  /** { idDaEtapa: dataISO } — entrada em cada etapa. */
+  stageDates?: Record<string, string>
   createdAt?: string
   updatedAt?: string
   isSaving?: boolean

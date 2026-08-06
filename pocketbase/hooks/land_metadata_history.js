@@ -71,17 +71,9 @@ onRecordAfterUpdateSuccess((e) => {
       })
     }
 
-    // Mudança de etapa do kanban. É o registro que permite medir quanto tempo
-    // cada terra passou em cada coluna: sem ele, o dashboard só consegue olhar
-    // para 'updated', que é bumpado por qualquer edição (uma data, um
-    // escritório) e zera o relógio da etapa sem que ela tenha mudado.
-    if (original.getString('status') !== current.getString('status')) {
-      changes.push({
-        field: 'status',
-        old: original.getString('status') || 'N/A',
-        new: current.getString('status') || 'N/A',
-      })
-    }
+    // Mudança de etapa NÃO é registrada aqui: upsertLandMetadata (frontend) já
+    // cria o log de status. Registrar nos dois lugares duplicava cada
+    // movimentação no histórico da terra.
 
     if (original.getString('risk_level') !== current.getString('risk_level')) {
       changes.push({
@@ -101,7 +93,6 @@ onRecordAfterUpdateSuccess((e) => {
 
     if (changes.length > 0) {
       var fieldLabels = {
-        status: 'Etapa',
         responsible_user: 'Responsável',
         external_offices: 'Escritório Externo',
         owner_marital_status: 'Estado Civil',
