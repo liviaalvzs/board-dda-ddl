@@ -32,6 +32,8 @@ import { useRealtime } from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Badge } from '@/components/ui/badge'
 import { KANBAN_COLUMNS as KANBAN_STAGES } from '@/lib/kanban-columns'
+import { fetchFirstStageEntry, FIRST_STAGE_ID } from '@/services/land-stages'
+import { parseStageDates } from '@/lib/stage-dates-helpers'
 import { useAuth } from '@/hooks/use-auth'
 import {
   AlertDialog,
@@ -201,16 +203,32 @@ export default function Index() {
                 .catch((e) => console.error('Failed to update cluster_serial', e)),
             )
           }
+          // Autocorreção: terra já no board mas sem a data da primeira etapa
+          // (criada antes desta regra, ou cuja consulta falhou na época).
+          if (!parseStageDates(meta.stage_dates)[FIRST_STAGE_ID]) {
+            newMetadataPromises.push(
+              (async () => {
+                const entry = await fetchFirstStageEntry(item.id)
+                if (!entry) return
+                const dates = { ...parseStageDates(meta.stage_dates), [FIRST_STAGE_ID]: entry }
+                await pb.collection('land_metadata').update(meta.id, { stage_dates: dates })
+              })().catch((e) => console.error('Failed to backfill first stage date', e)),
+            )
+          }
         } else if (!meta) {
+          // Terra nova: nasce já com a data de entrada na primeira etapa, vinda
+          // da etapa "Diligência em confecção" da API. Sem isso o card entraria
+          // sem contagem de dias até alguém preencher à mão.
           newMetadataPromises.push(
-            pb
-              .collection('land_metadata')
-              .create({
+            (async () => {
+              const entry = await fetchFirstStageEntry(item.id)
+              await pb.collection('land_metadata').create({
                 external_id: item.id,
                 status: stageId,
                 cluster_serial: apiClusterSerial,
+                stage_dates: entry ? { [FIRST_STAGE_ID]: entry } : {},
               })
-              .catch((e) => console.error('Failed to init land_metadata', e)),
+            })().catch((e) => console.error('Failed to init land_metadata', e)),
           )
         }
 
