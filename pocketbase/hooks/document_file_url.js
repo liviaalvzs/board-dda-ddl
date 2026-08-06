@@ -186,7 +186,13 @@ routerAdd(
       return e.internalServerError('Credenciais AWS não configuradas')
     }
 
-    var filename = decodedKey.substring(decodedKey.lastIndexOf('/') + 1)
+    // A chave do arquivo atual não tem extensão (para que substituições sempre
+    // sobrescrevam a mesma chave), então ela vem de file_ext para compor o nome
+    // sugerido no download. Arquivos arquivados já trazem a extensão na chave.
+    var baseName = decodedKey.substring(decodedKey.lastIndexOf('/') + 1)
+    var fileExt = record.getString('file_ext') || ''
+    var filename = baseName.indexOf('.') === -1 ? baseName + fileExt : baseName
+
     var contentDisposition =
       disposition === 'attachment'
         ? 'attachment; filename="' + filename.replace(/"/g, '') + '"'

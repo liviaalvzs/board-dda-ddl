@@ -279,15 +279,26 @@ routerAdd(
       $app.logger().warn('proxy-upload: document_type não encontrado', 'key', documentKey)
     }
 
+    // A chave do arquivo ATUAL não leva extensão de propósito: assim uma
+    // substituição por outro tipo (PNG -> PDF) sobrescreve exatamente a mesma
+    // chave, em vez de criar uma segunda e deixar a antiga órfã. Sem permissão
+    // de exclusão no bucket, essa é a única forma de não acumular resíduo.
+    // O tipo real fica no Content-Type e em document_checks.file_ext.
     var safeLandCode = landCode.replace(/[^a-zA-Z0-9._-]/g, '_')
-    var safeFilename = sanitizeFilename(docName + ' - ' + landCode) + ext
+    var safeFilename = sanitizeFilename(docName + ' - ' + landCode)
     var s3Key =
       'transient/skip-applications/due_dilligence_control/documents/' +
       safeLandCode +
       '/' +
       safeFilename
 
-    var contentType = 'application/octet-stream'
+    var contentTypeByExt = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+    }
+    var contentType = contentTypeByExt[ext] || 'application/octet-stream'
     var service = 's3'
     var now = new Date()
     var amzDate = now
@@ -350,7 +361,6 @@ routerAdd(
     var previousUrl = record.getString('document_url')
     var expectedOrigin = 'https://' + host + '/'
     var replacedCount = Number(record.get('replaced_count') || 0)
-    var staleKey = ''
 
     if (previousUrl && previousUrl.indexOf(expectedOrigin) === 0) {
       var previousEncodedKey = previousUrl.substring(expectedOrigin.length)
@@ -361,11 +371,11 @@ routerAdd(
         previousDecodedKey = previousEncodedKey
       }
 
-      var dotAt = previousDecodedKey.lastIndexOf('.')
-      var prevBase = dotAt === -1 ? previousDecodedKey : previousDecodedKey.substring(0, dotAt)
-      var prevExt = dotAt === -1 ? '' : previousDecodedKey.substring(dotAt)
+      // A chave anterior não tem extensão; ela vem de file_ext e só é usada
+      // para nomear a cópia arquivada, que é imutável.
+      var prevExt = record.getString('file_ext') || ''
       var oldSuffix = replacedCount === 0 ? ' OLD' : ' OLD ' + replacedCount
-      var archiveKey = prevBase + oldSuffix + prevExt
+      var archiveKey = previousDecodedKey + oldSuffix + prevExt
       var archiveUri = '/' + archiveKey.split('/').map(awsUriEncode).join('/')
 
       var copySource = '/' + bucket + '/' + previousEncodedKey
@@ -466,84 +476,17 @@ routerAdd(
         )
       }
 
-      // A extensão faz parte da chave. Se o tipo de arquivo mudou (PNG -> PDF),
-      // o novo objeto vai para OUTRA chave e não sobrescreve a anterior — ela
-      // sobreviveria no bucket parecendo a versão atual. Nesse caso a original
-      // precisa ser apagada. Quando o tipo não muda, o PUT seguinte já
-      // sobrescreve e não há nada a remover.
+      // Registros antigos apontam para chaves COM extensão (formato anterior).
+      // Essas não serão sobrescritas pelo novo PUT e ficam no bucket como
+      // resíduo — sem permissão de exclusão, só a limpeza manual resolve.
       if (previousDecodedKey !== s3Key) {
-        var delAmzDate = new Date()
-          .toISOString()
-          .replace(/[:\-]/g, '')
-          .replace(/\.\d{3}/, '')
-        var delDateStamp = delAmzDate.substring(0, 8)
-        var delScope = delDateStamp + '/' + region + '/' + service + '/aws4_request'
-        var delUri = '/' + previousEncodedKey
-        var delSignedHeaders = 'host;x-amz-content-sha256;x-amz-date'
-        var delCanonicalHeaders =
-          'host:' +
-          host +
-          '\n' +
-          'x-amz-content-sha256:UNSIGNED-PAYLOAD\n' +
-          'x-amz-date:' +
-          delAmzDate +
-          '\n'
-
-        var delCanonicalRequest = [
-          'DELETE',
-          delUri,
-          '',
-          delCanonicalHeaders,
-          delSignedHeaders,
-          'UNSIGNED-PAYLOAD',
-        ].join('\n')
-
-        var delStringToSign = [
-          'AWS4-HMAC-SHA256',
-          delAmzDate,
-          delScope,
-          toHex(sha256(strBytes(delCanonicalRequest))),
-        ].join('\n')
-
-        var dkDate = hmac(strBytes('AWS4' + secretAccessKey), strBytes(delDateStamp))
-        var dkRegion = hmac(dkDate, strBytes(region))
-        var dkService = hmac(dkRegion, strBytes(service))
-        var dkSigning = hmac(dkService, strBytes('aws4_request'))
-        var delSignature = toHex(hmac(dkSigning, strBytes(delStringToSign)))
-
-        var delRes = $http.send({
-          url: 'https://' + host + delUri,
-          method: 'DELETE',
-          headers: {
-            Authorization:
-              'AWS4-HMAC-SHA256 Credential=' +
-              accessKeyId +
-              '/' +
-              delScope +
-              ', SignedHeaders=' +
-              delSignedHeaders +
-              ', Signature=' +
-              delSignature,
-            'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-            'x-amz-date': delAmzDate,
-          },
-          timeout: 60,
-        })
-
-        // Não aborta: a versão anterior já foi arquivada e o arquivo novo é o
-        // que importa. Só avisa que sobrou um objeto obsoleto no bucket.
-        if (delRes.statusCode < 200 || delRes.statusCode >= 300) {
-          staleKey = previousDecodedKey
-          $app
-            .logger()
-            .warn(
-              'proxy-upload: não foi possível remover a versão anterior de outro tipo',
-              'status',
-              delRes.statusCode,
-              'chave',
-              previousDecodedKey,
-            )
-        }
+        $app
+          .logger()
+          .warn(
+            'proxy-upload: chave anterior em formato antigo permanece no bucket',
+            'chave',
+            previousDecodedKey,
+          )
       }
 
       replacedCount = replacedCount + 1
@@ -571,6 +514,8 @@ routerAdd(
     record.set('document_url', s3Url)
     record.set('is_completed', true)
     record.set('replaced_count', replacedCount)
+    // Guarda o tipo, já que a chave no S3 não o carrega mais.
+    record.set('file_ext', ext)
     // O S3 é o repositório definitivo. A cópia no PocketBase serve apenas para
     // obter os bytes do upload (não há API para lê-los direto do multipart), e é
     // descartada assim que o objeto está no bucket.
@@ -585,7 +530,7 @@ routerAdd(
       return e.internalServerError('Falha ao atualizar registro: ' + String(finalSaveErr))
     }
 
-    return e.json(200, { url: s3Url, key: s3Key, staleKey: staleKey })
+    return e.json(200, { url: s3Url, key: s3Key })
   },
   $apis.requireAuth(),
 )
