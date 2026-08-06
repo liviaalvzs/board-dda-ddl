@@ -83,21 +83,12 @@ onRecordAfterUpdateSuccess((e) => {
       })
     }
 
-    if (original.getString('dda_status') !== current.getString('dda_status')) {
-      changes.push({
-        field: 'dda_status',
-        old: original.getString('dda_status') || 'N/A',
-        new: current.getString('dda_status') || 'N/A',
-      })
-    }
-
     if (changes.length > 0) {
       var fieldLabels = {
         responsible_user: 'Responsável',
         external_offices: 'Escritório Externo',
         owner_marital_status: 'Estado Civil',
         risk_level: 'Nível de Risco',
-        dda_status: 'Status DDA',
       }
       var historyCol = $app.findCollectionByNameOrId('history_logs')
       for (var i = 0; i < changes.length; i++) {

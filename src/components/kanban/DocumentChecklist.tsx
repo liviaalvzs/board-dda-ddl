@@ -42,8 +42,12 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   }
 
   useEffect(() => {
+    // Sem filtro por "dda": ele excluía os tipos de documento dda_existente e
+    // dda_distribuida, que não existem mais desde a troca pela lista dos Anexos.
+    // Mantê-lo esconderia silenciosamente qualquer documento futuro cujo nome
+    // contivesse "dda".
     getDocumentTypes()
-      .then((types) => setDocTypes(types.filter((t) => !t.key.toLowerCase().includes('dda'))))
+      .then(setDocTypes)
       .catch(() => setDocTypes([]))
     fetchChecks()
   }, [landId])

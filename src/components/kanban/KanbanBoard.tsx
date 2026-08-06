@@ -28,7 +28,6 @@ export function KanbanBoard({
       string,
       {
         count: number
-        dda: number
         details: Array<{ documentKey: string; userName: string; createdAt: string }>
       }
     >
@@ -64,12 +63,8 @@ export function KanbanBoard({
       })
       const map = records.reduce(
         (acc, r) => {
-          if (!acc[r.land_id]) acc[r.land_id] = { count: 0, dda: 0, details: [] }
-          if (r.document_key === 'dda_existente' || r.document_key === 'dda_distribuida') {
-            acc[r.land_id].dda += 1
-          } else {
-            acc[r.land_id].count += 1
-          }
+          if (!acc[r.land_id]) acc[r.land_id] = { count: 0, details: [] }
+          acc[r.land_id].count += 1
           const userName =
             r.expand?.user?.name || r.expand?.user?.email?.split('@')[0] || 'Desconhecido'
           acc[r.land_id].details.push({
@@ -83,7 +78,6 @@ export function KanbanBoard({
           string,
           {
             count: number
-            dda: number
             details: Array<{ documentKey: string; userName: string; createdAt: string }>
           }
         >,
@@ -111,7 +105,7 @@ export function KanbanBoard({
     return cards.map((c) => {
       const meta = metadataMap[c.id] || metadataMap[c.clusterSerial || '']
       const checks = docChecksMap[c.id] ||
-        docChecksMap[c.clusterSerial || ''] || { count: 0, dda: 0, details: [] }
+        docChecksMap[c.clusterSerial || ''] || { count: 0, details: [] }
       return {
         ...c,
         stageId: meta?.status || c.stageId,
@@ -119,10 +113,8 @@ export function KanbanBoard({
         responsible: meta?.expand?.responsible_user?.name || 'Unassigned',
         externalOffice: meta?.expand?.external_offices?.name || 'Sem Escritório',
         completedDocs: checks.count,
-        completedDda: checks.dda,
         documentChecks: checks.details,
         riskLevel: meta?.risk_level || '',
-        ddaStatusLabel: meta?.dda_status || '',
         ddaEstimatedDate: meta?.data_pedido_dda || '',
         ddaReceivedDate: meta?.data_recebimento_dda || '',
         stageDates: meta?.stage_dates || {},

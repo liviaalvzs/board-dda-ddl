@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T19:45:34.726Z",
+  "generatedAt": "2026-08-06T19:51:32.498Z",
   "collections": [
     {
       "name": "users",
@@ -136,17 +136,6 @@
             "low",
             "medium",
             "high"
-          ]
-        },
-        {
-          "name": "dda_status",
-          "type": "select",
-          "required": false,
-          "system": false,
-          "selectValues": [
-            "existing",
-            "distributed",
-            "none"
           ]
         },
         {

@@ -23,7 +23,6 @@ const FIELD_LABELS: Record<string, string> = {
   external_offices: 'Escritório Externo',
   owner_marital_status: 'Estado Civil',
   risk_level: 'Nível de Risco',
-  dda_status: 'Status DDA',
 }
 
 export function ChangeHistoryCard({ historyLogs, fallbackHistory }: ChangeHistoryCardProps) {

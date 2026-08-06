@@ -55,19 +55,6 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
     </Badge>
   ) : null
 
-  const ddaLabel = {
-    existing: 'DDA Existente',
-    distributed: 'DDA Distribuída',
-    none: 'Sem DDA',
-    '': '',
-  }
-  const ddaColors = {
-    existing: 'bg-blue-100 text-blue-700',
-    distributed: 'bg-purple-100 text-purple-700',
-    none: 'bg-slate-100 text-slate-600',
-    '': 'hidden',
-  }
-
   const ddaFlag = calculateDdaFlag(
     parseDateValue(card.ddaEstimatedDate),
     parseDateValue(card.ddaReceivedDate),
@@ -128,17 +115,6 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
         >
           {card.area.toLocaleString('pt-BR')} ha
         </Badge>
-        {card.ddaStatusLabel && card.ddaStatusLabel !== 'none' && (
-          <Badge
-            variant="outline"
-            className={cn(
-              'font-bold text-[10px] px-2 py-0 border-none shadow-sm',
-              ddaColors[card.ddaStatusLabel as keyof typeof ddaColors],
-            )}
-          >
-            {ddaLabel[card.ddaStatusLabel as keyof typeof ddaLabel]}
-          </Badge>
-        )}
         <Badge
           variant="outline"
           className={cn(

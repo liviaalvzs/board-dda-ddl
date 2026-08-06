@@ -8,7 +8,6 @@ export interface LandMetadataUpsertParams {
   responsibleUser?: string | null
   ownerMaritalStatus?: string | null
   riskLevel?: string | null
-  ddaStatus?: string | null
   status?: string | null
   clusterSerial?: string | null
   name?: string | null
@@ -43,9 +42,6 @@ function buildPayload(data: Partial<LandMetadataUpsertParams>): Record<string, a
   }
   if (data.riskLevel !== undefined) {
     payload.risk_level = data.riskLevel || null
-  }
-  if (data.ddaStatus !== undefined) {
-    payload.dda_status = data.ddaStatus || null
   }
   if (data.status !== undefined) {
     payload.status = data.status || null
