@@ -54,6 +54,12 @@ const KANBAN_COLUMNS: KanbanColumnType[] = KANBAN_STAGES.map((c) => ({
   color: c.dotClass,
 }))
 
+function extractLandItems(payload: any): any[] {
+  if (!payload) return []
+  if (Array.isArray(payload)) return payload
+  return payload.data?.items ?? payload.items ?? payload.data ?? []
+}
+
 export default function Index() {
   const [cards, setCards] = useState<KanbanCardType[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -140,15 +146,42 @@ export default function Index() {
         { method: 'GET' },
       )
 
-      const list: any[] = Array.isArray(data)
-        ? data
-        : (data.data?.items ?? data.items ?? data.data ?? [])
+      const list: any[] = extractLandItems(data)
 
       const metadataRecords = await pb
         .collection('land_metadata')
         .getFullList({ expand: 'responsible_user,external_offices' })
       const metadataMap = new Map(metadataRecords.map((r: any) => [r.external_id, r]))
       setMetadata(Object.fromEntries(metadataMap))
+
+      // Uma terra que já entrou no board nunca sai dele. A API só define quem
+      // ENTRA (grupo "Due Diligence"); quem avança para outro grupo na origem
+      // — Comitê de Terras, por exemplo — deixa de ser devolvida e sumiria,
+      // levando junto etapa, datas e documentos já registrados aqui.
+      //
+      // O filtro por `status` também protege contra registros malformados, em
+      // que o serial foi gravado no lugar do id: sem etapa, não são buscados.
+      const listedIds = new Set(list.map((item: any) => item.id))
+      const retainedIds = metadataRecords
+        .filter((r: any) => r.status && r.external_id && !listedIds.has(r.external_id))
+        .map((r: any) => r.external_id)
+
+      if (retainedIds.length > 0) {
+        try {
+          const retained = await pb.send(
+            `/backend/v1/lands?ids=${encodeURIComponent(retainedIds.join(','))}`,
+            { method: 'GET' },
+          )
+          for (const item of extractLandItems(retained)) {
+            if (!listedIds.has(item.id)) {
+              list.push(item)
+              listedIds.add(item.id)
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao recarregar terras já presentes no board:', err)
+        }
+      }
 
       const newMetadataPromises: Promise<any>[] = []
 
