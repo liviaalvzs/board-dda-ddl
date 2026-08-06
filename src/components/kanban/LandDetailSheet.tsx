@@ -38,7 +38,7 @@ import { useRealtime } from '@/hooks/use-realtime'
 import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { DocumentChecklist } from '@/components/kanban/DocumentChecklist'
 import { OfficeSelector } from '@/components/kanban/OfficeSelector'
-import { StageTimeline } from '@/components/kanban/StageTimeline'
+
 import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
 import { ProcessDatesSection } from '@/components/kanban/ProcessDatesSection'
 import { DdaSection } from '@/components/kanban/DdaSection'
@@ -951,15 +951,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                 </TabsContent>
 
                 <TabsContent value="deadlines" className="animate-fade-in-up mt-0 outline-none">
-                  <div className="space-y-6">
-                    <DiligenceTimeline land={land} landId={landId} metadata={metadata} />
-                    <StageTimeline
-                      historyLogs={historyLogs}
-                      metadata={metadata}
-                      land={land}
-                      landId={landId}
-                    />
-                  </div>
+                  <DiligenceTimeline land={land} landId={landId} metadata={metadata} />
                 </TabsContent>
               </div>
             </Tabs>
