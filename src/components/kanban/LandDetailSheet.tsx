@@ -40,6 +40,7 @@ import { OfficeSelector } from '@/components/kanban/OfficeSelector'
 import { StageTimeline } from '@/components/kanban/StageTimeline'
 import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
 import { ProcessDatesSection } from '@/components/kanban/ProcessDatesSection'
+import { DdaSection } from '@/components/kanban/DdaSection'
 import { getStatusLabel } from '@/lib/status-mapping'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
@@ -658,7 +659,6 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   </div>
                 </div>
               </div>
-
               <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto">
                 <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-brand-primary/10 shadow-sm">
                   <Avatar className="w-10 h-10 border border-brand-primary/10">
@@ -675,15 +675,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                     </span>
                   </div>
                 </div>
-                <OfficeSelector
-                  metadata={metadata}
-                  externalId={effectiveExternalId}
-                  fieldName="externalOffices"
-                  expandKey="external_offices"
-                  label="Escritório de Advocacia"
-                  onUpdated={handleMetadataUpdated}
-                />
-              </div>
+              </div>{' '}
             </div>{' '}
           </div>
 
@@ -732,6 +724,11 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ProcessDatesSection
+                      metadata={metadata}
+                      externalId={effectiveExternalId}
+                      onUpdated={handleMetadataUpdated}
+                    />
+                    <DdaSection
                       metadata={metadata}
                       externalId={effectiveExternalId}
                       onUpdated={handleMetadataUpdated}

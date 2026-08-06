@@ -41,12 +41,82 @@ export const MILESTONES: MilestoneConfig[] = [
       label: 'Realizado',
     },
   },
-  {
-    title: 'DDA',
-    planned: { key: 'data_pedido_dda', param: 'dataPedidoDda', label: 'Previsto' },
-    actual: { key: 'data_recebimento_dda', param: 'dataRecebimentoDda', label: 'Realizado' },
-  },
 ]
+
+/**
+ * Diligência Ambiental. Fica fora de MILESTONES porque tem bloco próprio na
+ * tela da terra, com prestador e sinalização de prazo.
+ *
+ * Nota sobre o nome da coluna: `data_pedido_dda` é hoje a *data estimada* de
+ * recebimento, não a data do pedido. O nome no banco é legado; o rótulo aqui
+ * reflete o que o campo realmente significa.
+ */
+export const DDA_MILESTONE: MilestoneConfig = {
+  title: 'Diligência Ambiental (DDA)',
+  planned: { key: 'data_pedido_dda', param: 'dataPedidoDda', label: 'Data estimada' },
+  actual: {
+    key: 'data_recebimento_dda',
+    param: 'dataRecebimentoDda',
+    label: 'Data de recebimento',
+  },
+}
+
+export interface DdaFlag {
+  text: string
+  className: string
+  badgeClassName: string
+}
+
+/**
+ * Sinalização de DDA usada no card do board e no bloco da terra.
+ * Sem data estimada, a DDA é considerada não solicitada.
+ */
+export function calculateDdaFlag(planned: Date | undefined, actual: Date | undefined): DdaFlag {
+  if (actual) {
+    return {
+      text: 'DDA recebida',
+      className: 'bg-emerald-100 text-emerald-800',
+      badgeClassName: 'bg-emerald-100 text-emerald-700',
+    }
+  }
+
+  if (!planned) {
+    return {
+      text: 'DDA não solicitada',
+      className: 'bg-slate-100 text-slate-700',
+      badgeClassName: 'bg-slate-100 text-slate-600',
+    }
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const plannedDate = new Date(planned)
+  plannedDate.setHours(0, 0, 0, 0)
+  const diff = differenceInDays(plannedDate, today)
+
+  if (diff > 0) {
+    return {
+      text: `DDA em ${diff} ${diff === 1 ? 'dia' : 'dias'}`,
+      className: diff <= 3 ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800',
+      badgeClassName: diff <= 3 ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700',
+    }
+  }
+
+  if (diff === 0) {
+    return {
+      text: 'DDA vence hoje',
+      className: 'bg-amber-100 text-amber-800',
+      badgeClassName: 'bg-amber-100 text-amber-700',
+    }
+  }
+
+  const overdue = Math.abs(diff)
+  return {
+    text: `DDA atrasada ${overdue} ${overdue === 1 ? 'dia' : 'dias'}`,
+    className: 'bg-rose-100 text-rose-800',
+    badgeClassName: 'bg-rose-100 text-rose-700',
+  }
+}
 
 export interface ChipStatus {
   text: string

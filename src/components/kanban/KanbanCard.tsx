@@ -1,4 +1,4 @@
-import { MapPin, Clock, FileText, Building2, Loader2, CheckCircle2 } from 'lucide-react'
+import { MapPin, Clock, FileText, Building2, Loader2, CheckCircle2, Leaf } from 'lucide-react'
 import { KanbanCardType } from '@/types/kanban'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { differenceInDays, differenceInHours, format } from 'date-fns'
 import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { getDocumentLabel } from '@/lib/document-labels'
+import { parseDateValue, calculateDdaFlag } from '@/lib/process-dates-helpers'
 
 interface KanbanCardProps {
   card: KanbanCardType
@@ -61,6 +62,11 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
     none: 'bg-slate-100 text-slate-600',
     '': 'hidden',
   }
+
+  const ddaFlag = calculateDdaFlag(
+    parseDateValue(card.ddaEstimatedDate),
+    parseDateValue(card.ddaReceivedDate),
+  )
 
   const completedDocs = card.completedDocs || 0
   const totalDocs = 11
@@ -128,6 +134,16 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
             {ddaLabel[card.ddaStatusLabel as keyof typeof ddaLabel]}
           </Badge>
         )}
+        <Badge
+          variant="outline"
+          className={cn(
+            'font-bold text-[10px] px-2 py-0 border-none shadow-sm inline-flex items-center gap-1',
+            ddaFlag.badgeClassName,
+          )}
+        >
+          <Leaf className="w-2.5 h-2.5" />
+          {ddaFlag.text}
+        </Badge>
       </div>
 
       <div className="flex items-center gap-1.5 text-xs text-slate-600">

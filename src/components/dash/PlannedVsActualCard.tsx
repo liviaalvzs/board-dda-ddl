@@ -70,9 +70,9 @@ export function PlannedVsActualCard({ lands }: { lands: unknown }) {
       <CardHeader>
         <CardTitle>Previsto × Realizado</CardTitle>
         <CardDescription>
-          Comparação entre as datas informadas no board. Só a DDL conclusiva tem uma data estimada
-          de conclusão — nas outras duas, a data de referência é a do pedido, então a diferença mede
-          tempo de resposta, não atraso.
+          Comparação entre as datas informadas no board. DDL conclusiva e DDA têm data estimada de
+          conclusão, então a diferença é desvio de prazo. Na DDL preliminar a referência é a data do
+          pedido, então ali a diferença mede tempo de resposta, não atraso.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

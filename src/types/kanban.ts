@@ -27,6 +27,9 @@ export interface KanbanCardType {
   completedDda?: number
   riskLevel?: 'low' | 'medium' | 'high' | ''
   ddaStatusLabel?: 'existing' | 'distributed' | 'none' | ''
+  /** Data estimada de recebimento da DDA (coluna legada `data_pedido_dda`). */
+  ddaEstimatedDate?: string
+  ddaReceivedDate?: string
   createdAt?: string
   updatedAt?: string
   isSaving?: boolean

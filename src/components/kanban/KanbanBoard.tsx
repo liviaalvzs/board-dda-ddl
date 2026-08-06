@@ -123,6 +123,8 @@ export function KanbanBoard({
         documentChecks: checks.details,
         riskLevel: meta?.risk_level || '',
         ddaStatusLabel: meta?.dda_status || '',
+        ddaEstimatedDate: meta?.data_pedido_dda || '',
+        ddaReceivedDate: meta?.data_recebimento_dda || '',
         createdAt: meta?.created || new Date().toISOString(),
         updatedAt: meta?.updated || new Date().toISOString(),
       }

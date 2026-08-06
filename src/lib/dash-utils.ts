@@ -41,12 +41,14 @@ export const DELAY_STAGES: DelayStageConfig[] = [
     kind: 'deviation',
   },
   {
+    // A coluna se chama data_pedido_dda por legado, mas o campo passou a ser a
+    // data estimada de recebimento — por isso a diferença virou desvio de prazo.
     label: 'DDA',
     plannedKey: 'data_pedido_dda',
     actualKey: 'data_recebimento_dda',
-    plannedLabel: 'Pedido',
-    actualLabel: 'Recebimento',
-    kind: 'leadtime',
+    plannedLabel: 'Recebimento estimado',
+    actualLabel: 'Recebimento efetivo',
+    kind: 'deviation',
   },
 ]
 
