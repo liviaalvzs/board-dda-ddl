@@ -40,7 +40,6 @@ import { OfficeSelector } from '@/components/kanban/OfficeSelector'
 
 import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
 import { ChangeHistoryCard } from '@/components/kanban/ChangeHistoryCard'
-import { ProcessDatesSection } from '@/components/kanban/ProcessDatesSection'
 import { DdaSection } from '@/components/kanban/DdaSection'
 import { StageDatesSection } from '@/components/kanban/StageDatesSection'
 import { getStatusLabel } from '@/lib/status-mapping'
@@ -725,11 +724,11 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   className="space-y-4 animate-fade-in-up mt-0 outline-none"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <ProcessDatesSection
-                      metadata={metadata}
-                      externalId={effectiveExternalId}
-                      onUpdated={handleMetadataUpdated}
-                    />
+                    {/* "Datas do processo" (ProcessDatesSection) está oculto
+                        temporariamente a pedido. O componente segue no projeto
+                        em @/components/kanban/ProcessDatesSection — para
+                        reexibir, basta importar e voltar a renderizar aqui. Os
+                        campos de data continuam no banco, intactos. */}
                     <DdaSection
                       metadata={metadata}
                       externalId={effectiveExternalId}
