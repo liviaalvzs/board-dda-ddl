@@ -354,90 +354,6 @@ export default function Index() {
     (selectedCluster !== 'all' ? 1 : 0) +
     (selectedState !== 'all' ? 1 : 0)
 
-  const FilterPanel = () => (
-    <div className="flex flex-col gap-6 pt-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-700">Pesquisar</label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Nome, código, serial..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-white"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h4 className="text-sm font-semibold text-slate-900 border-b pb-2">Localização</h4>
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-slate-600">Estado</label>
-          <Select value={selectedState} onValueChange={setSelectedState}>
-            <SelectTrigger className="bg-white">
-              <SelectValue placeholder="Selecione..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Estados</SelectItem>
-              {uniqueStates.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-slate-600">Cluster</label>
-          <Select value={selectedCluster} onValueChange={setSelectedCluster}>
-            <SelectTrigger className="bg-white">
-              <SelectValue placeholder="Selecione..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Clusters</SelectItem>
-              {uniqueClusters.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <h4 className="text-sm font-semibold text-slate-900 border-b pb-2">Equipe</h4>
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-slate-600">Responsável</label>
-          <Select value={selectedResponsible} onValueChange={setSelectedResponsible}>
-            <SelectTrigger className="bg-white">
-              <SelectValue placeholder="Selecione..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Responsáveis</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.name || u.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {activeFilterCount > 0 && (
-        <Button
-          variant="outline"
-          onClick={resetFilters}
-          className="w-full mt-4 flex items-center gap-2 border-slate-200 text-slate-600"
-        >
-          <X className="w-4 h-4" />
-          Limpar Filtros
-        </Button>
-      )}
-    </div>
-  )
-
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-white relative">
       <div className="px-4 sm:px-6 py-4 bg-white border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 z-10">
@@ -599,7 +515,94 @@ export default function Index() {
                     Refine a visualização das propriedades no board.
                   </SheetDescription>
                 </SheetHeader>
-                <FilterPanel />
+                {/* JSX inline, e não um componente declarado dentro do Index.
+                    Declarado aqui dentro, ele vira um TIPO novo a cada render:
+                    o React desmonta e remonta o painel, fechando os Selects no
+                    instante em que abrem e tirando o foco do campo de busca a
+                    cada tecla. */}
+                <div className="flex flex-col gap-6 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Pesquisar</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Nome, código, serial..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold text-slate-900 border-b pb-2">
+                      Localização
+                    </h4>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-600">Estado</label>
+                      <Select value={selectedState} onValueChange={setSelectedState}>
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os Estados</SelectItem>
+                          {uniqueStates.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-600">Cluster</label>
+                      <Select value={selectedCluster} onValueChange={setSelectedCluster}>
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os Clusters</SelectItem>
+                          {uniqueClusters.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-semibold text-slate-900 border-b pb-2">Equipe</h4>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-600">Responsável</label>
+                      <Select value={selectedResponsible} onValueChange={setSelectedResponsible}>
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os Responsáveis</SelectItem>
+                          {users.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name || u.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {activeFilterCount > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={resetFilters}
+                      className="w-full mt-4 flex items-center gap-2 border-slate-200 text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                      Limpar Filtros
+                    </Button>
+                  )}
+                </div>
               </SheetContent>
             </Sheet>
           </div>
