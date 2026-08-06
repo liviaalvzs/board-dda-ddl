@@ -29,6 +29,7 @@ import {
   FileIcon,
   Building2,
   Timer,
+  Settings2,
 } from 'lucide-react'
 
 import pb from '@/lib/pocketbase/client'
@@ -692,6 +693,12 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                     <Info className="w-4 h-4 mr-2" /> Informações
                   </TabsTrigger>
                   <TabsTrigger
+                    value="redefinir-datas"
+                    className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
+                  >
+                    <Settings2 className="w-4 h-4 mr-2" /> Redefinir datas
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="docs"
                     className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
                   >
@@ -734,11 +741,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                       externalId={effectiveExternalId}
                       onUpdated={handleMetadataUpdated}
                     />
-                    <StageDatesSection
-                      metadata={metadata}
-                      externalId={effectiveExternalId}
-                      onUpdated={handleMetadataUpdated}
-                    />
+
                     {/* Identificação */}
                     <div className="bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm space-y-4">
                       <h3 className="font-display text-lg text-brand-primary flex items-center gap-2 border-b border-brand-primary/5 pb-3">
@@ -837,6 +840,19 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                         />
                       </div>
                     </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent
+                  value="redefinir-datas"
+                  className="animate-fade-in-up mt-0 outline-none"
+                >
+                  <div className="grid grid-cols-1">
+                    <StageDatesSection
+                      metadata={metadata}
+                      externalId={effectiveExternalId}
+                      onUpdated={handleMetadataUpdated}
+                    />
                   </div>
                 </TabsContent>
 
