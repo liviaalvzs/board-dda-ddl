@@ -1,5 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { ClientResponseError } from 'pocketbase'
+import { parseStageDates } from '@/lib/stage-dates-helpers'
 
 export interface LandMetadataUpsertParams {
   externalId: string
@@ -131,6 +132,23 @@ export async function upsertLandMetadata(
 
   const payload = buildPayload(data)
 
+  // Carimba a data de entrada na etapa quando o status muda.
+  //
+  // Fica aqui, e não num hook do PocketBase, porque no runtime dos hooks um
+  // campo JSON não volta como objeto JS comum — a manipulação falhava em
+  // silêncio e a data nunca era gravada. Aqui o objeto é JS puro.
+  //
+  // Uma edição manual (stageDates no payload) tem precedência: nesse caso o
+  // usuário está corrigindo as datas e não queremos sobrescrever.
+  const isStatusChange = data.status !== undefined && previousStatus !== data.status
+  if (isStatusChange && data.status && data.stageDates === undefined) {
+    const currentDates = parseStageDates(existing?.stage_dates)
+    payload.stage_dates = {
+      ...currentDates,
+      [data.status]: new Date().toISOString(),
+    }
+  }
+
   let record: any
 
   const EXPAND_RELATIONS = 'responsible_user,external_offices,prestador_dda'
@@ -170,7 +188,7 @@ export async function upsertLandMetadata(
     }
   }
 
-  if (data.status !== undefined && previousStatus !== data.status) {
+  if (isStatusChange && data.status) {
     await createStatusHistoryLog(externalId, previousStatus, data.status)
   }
 
