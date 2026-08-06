@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import { KanbanCardType, KanbanColumnType } from '@/types/kanban'
 import { useToast } from '@/hooks/use-toast'
-import { AlertCircle, RefreshCcw, Leaf, Search, X, Filter, SlidersHorizontal } from 'lucide-react'
+import { AlertCircle, RefreshCcw, Leaf, Search, X, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -574,7 +574,12 @@ export default function Index() {
               </AlertDialog>
             </>
           )}
-          <div className="hidden lg:flex items-center">
+          {/* Único painel de filtros, em todos os tamanhos de tela. Existia um
+              segundo Sheet (inferior, para mobile) com wrapper `lg:hidden`, mas
+              o conteúdo do Sheet é portalado para o body: a classe responsiva
+              ficava no wrapper do gatilho e nunca escondia o painel, então os
+              dois abriam ao mesmo tempo. */}
+          <div className="flex items-center">
             <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2 border-slate-200">
@@ -639,33 +644,6 @@ export default function Index() {
             onMoveCard={handleMoveCard}
           />
         )}
-      </div>
-
-      <div className="fixed bottom-6 right-6 lg:hidden z-50">
-        <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-          <SheetTrigger asChild>
-            <Button
-              size="icon"
-              className="h-14 w-14 rounded-full shadow-xl bg-brand-primary hover:bg-brand-primary/90 text-white relative"
-            >
-              <Filter className="w-6 h-6" />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-amber-400 text-amber-950 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shadow-sm">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-[85vh] bg-white rounded-t-3xl px-6">
-            <SheetHeader className="text-left mb-2 mt-2">
-              <SheetTitle>Filtros</SheetTitle>
-              <SheetDescription>Refine a lista de propriedades.</SheetDescription>
-            </SheetHeader>
-            <div className="overflow-y-auto pb-8 h-full">
-              <FilterPanel />
-            </div>
-          </SheetContent>
-        </Sheet>
       </div>
     </div>
   )
