@@ -5,13 +5,7 @@ import { useToast } from '@/hooks/use-toast'
 import { AlertCircle, RefreshCcw, Leaf, Search, X, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+
 import {
   Sheet,
   SheetContent,
@@ -55,6 +49,14 @@ const KANBAN_COLUMNS: KanbanColumnType[] = KANBAN_STAGES.map((c) => ({
   title: c.title,
   color: c.dotClass,
 }))
+
+// Os filtros usam <select> nativo de propósito, e não o Select do Radix.
+// O Radix renderiza a lista num portal no body; dentro do painel lateral
+// (que é um Dialog modal, também portalado) a lista não chegava a aparecer.
+// O nativo não usa portal, não disputa empilhamento com o modal, e no celular
+// abre o seletor do próprio sistema.
+const FILTER_SELECT_CLASS =
+  'flex h-10 w-full items-center rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
 
 function extractLandItems(payload: any): any[] {
   if (!payload) return []
@@ -539,56 +541,68 @@ export default function Index() {
                       Localização
                     </h4>
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-600">Estado</label>
-                      <Select value={selectedState} onValueChange={setSelectedState}>
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos os Estados</SelectItem>
-                          {uniqueStates.map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <label htmlFor="filtro-estado" className="text-xs font-medium text-slate-600">
+                        Estado
+                      </label>
+                      <select
+                        id="filtro-estado"
+                        value={selectedState}
+                        onChange={(e) => setSelectedState(e.target.value)}
+                        className={FILTER_SELECT_CLASS}
+                      >
+                        <option value="all">Todos os Estados</option>
+                        {uniqueStates.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-600">Cluster</label>
-                      <Select value={selectedCluster} onValueChange={setSelectedCluster}>
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos os Clusters</SelectItem>
-                          {uniqueClusters.map((c) => (
-                            <SelectItem key={c} value={c}>
-                              {c}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <label
+                        htmlFor="filtro-cluster"
+                        className="text-xs font-medium text-slate-600"
+                      >
+                        Cluster
+                      </label>
+                      <select
+                        id="filtro-cluster"
+                        value={selectedCluster}
+                        onChange={(e) => setSelectedCluster(e.target.value)}
+                        className={FILTER_SELECT_CLASS}
+                      >
+                        <option value="all">Todos os Clusters</option>
+                        {uniqueClusters.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
                   <div className="space-y-4">
                     <h4 className="text-sm font-semibold text-slate-900 border-b pb-2">Equipe</h4>
                     <div className="space-y-2">
-                      <label className="text-xs font-medium text-slate-600">Responsável</label>
-                      <Select value={selectedResponsible} onValueChange={setSelectedResponsible}>
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos os Responsáveis</SelectItem>
-                          {users.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.name || u.email}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <label
+                        htmlFor="filtro-responsavel"
+                        className="text-xs font-medium text-slate-600"
+                      >
+                        Responsável
+                      </label>
+                      <select
+                        id="filtro-responsavel"
+                        value={selectedResponsible}
+                        onChange={(e) => setSelectedResponsible(e.target.value)}
+                        className={FILTER_SELECT_CLASS}
+                      >
+                        <option value="all">Todos os Responsáveis</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name || u.email}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
