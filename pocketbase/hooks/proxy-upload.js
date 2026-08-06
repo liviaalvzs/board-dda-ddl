@@ -350,6 +350,7 @@ routerAdd(
     var previousUrl = record.getString('document_url')
     var expectedOrigin = 'https://' + host + '/'
     var replacedCount = Number(record.get('replaced_count') || 0)
+    var staleKey = ''
 
     if (previousUrl && previousUrl.indexOf(expectedOrigin) === 0) {
       var previousEncodedKey = previousUrl.substring(expectedOrigin.length)
@@ -465,6 +466,86 @@ routerAdd(
         )
       }
 
+      // A extensão faz parte da chave. Se o tipo de arquivo mudou (PNG -> PDF),
+      // o novo objeto vai para OUTRA chave e não sobrescreve a anterior — ela
+      // sobreviveria no bucket parecendo a versão atual. Nesse caso a original
+      // precisa ser apagada. Quando o tipo não muda, o PUT seguinte já
+      // sobrescreve e não há nada a remover.
+      if (previousDecodedKey !== s3Key) {
+        var delAmzDate = new Date()
+          .toISOString()
+          .replace(/[:\-]/g, '')
+          .replace(/\.\d{3}/, '')
+        var delDateStamp = delAmzDate.substring(0, 8)
+        var delScope = delDateStamp + '/' + region + '/' + service + '/aws4_request'
+        var delUri = '/' + previousEncodedKey
+        var delSignedHeaders = 'host;x-amz-content-sha256;x-amz-date'
+        var delCanonicalHeaders =
+          'host:' +
+          host +
+          '\n' +
+          'x-amz-content-sha256:UNSIGNED-PAYLOAD\n' +
+          'x-amz-date:' +
+          delAmzDate +
+          '\n'
+
+        var delCanonicalRequest = [
+          'DELETE',
+          delUri,
+          '',
+          delCanonicalHeaders,
+          delSignedHeaders,
+          'UNSIGNED-PAYLOAD',
+        ].join('\n')
+
+        var delStringToSign = [
+          'AWS4-HMAC-SHA256',
+          delAmzDate,
+          delScope,
+          toHex(sha256(strBytes(delCanonicalRequest))),
+        ].join('\n')
+
+        var dkDate = hmac(strBytes('AWS4' + secretAccessKey), strBytes(delDateStamp))
+        var dkRegion = hmac(dkDate, strBytes(region))
+        var dkService = hmac(dkRegion, strBytes(service))
+        var dkSigning = hmac(dkService, strBytes('aws4_request'))
+        var delSignature = toHex(hmac(dkSigning, strBytes(delStringToSign)))
+
+        var delRes = $http.send({
+          url: 'https://' + host + delUri,
+          method: 'DELETE',
+          headers: {
+            Authorization:
+              'AWS4-HMAC-SHA256 Credential=' +
+              accessKeyId +
+              '/' +
+              delScope +
+              ', SignedHeaders=' +
+              delSignedHeaders +
+              ', Signature=' +
+              delSignature,
+            'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+            'x-amz-date': delAmzDate,
+          },
+          timeout: 60,
+        })
+
+        // Não aborta: a versão anterior já foi arquivada e o arquivo novo é o
+        // que importa. Só avisa que sobrou um objeto obsoleto no bucket.
+        if (delRes.statusCode < 200 || delRes.statusCode >= 300) {
+          staleKey = previousDecodedKey
+          $app
+            .logger()
+            .warn(
+              'proxy-upload: não foi possível remover a versão anterior de outro tipo',
+              'status',
+              delRes.statusCode,
+              'chave',
+              previousDecodedKey,
+            )
+        }
+      }
+
       replacedCount = replacedCount + 1
     }
 
@@ -504,7 +585,7 @@ routerAdd(
       return e.internalServerError('Falha ao atualizar registro: ' + String(finalSaveErr))
     }
 
-    return e.json(200, { url: s3Url, key: s3Key })
+    return e.json(200, { url: s3Url, key: s3Key, staleKey: staleKey })
   },
   $apis.requireAuth(),
 )
