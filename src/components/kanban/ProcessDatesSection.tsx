@@ -13,6 +13,7 @@ import { ProcessDateField } from '@/components/kanban/ProcessDateField'
 import {
   MARCO_INICIAL,
   MILESTONES,
+  DATA_SOLICITACAO_DD,
   parseDateValue,
   calculateChipStatus,
 } from '@/lib/process-dates-helpers'
@@ -135,6 +136,21 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
         <span className="text-[11px] font-semibold text-brand-primary/50 bg-white px-2.5 py-1 rounded-full border border-brand-primary/10 whitespace-nowrap shrink-0 mb-1">
           ponto de partida
         </span>
+      </div>
+
+      <div className="py-4 border-t border-brand-primary/10">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-brand-primary">Solicitação da DD</span>
+        </div>
+        <ProcessDateField
+          field={DATA_SOLICITACAO_DD}
+          milestoneTitle="Solicitação da DD"
+          columnLabel="Data"
+          value={metadata?.[DATA_SOLICITACAO_DD.key]}
+          externalId={externalId}
+          variant="planned"
+          onUpdated={onUpdated}
+        />
       </div>
 
       <div className="hidden sm:grid grid-cols-[1fr_28px_1fr] gap-0 items-center pb-2 border-b border-brand-primary/10">

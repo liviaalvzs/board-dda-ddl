@@ -61,6 +61,12 @@ export const DDA_MILESTONE: MilestoneConfig = {
   },
 }
 
+export const DATA_SOLICITACAO_DD: DateFieldConfig = {
+  key: 'data_solicitacao_dd',
+  param: 'dataSolicitacaoDd',
+  label: 'Solicitação da DD',
+}
+
 export interface DdaFlag {
   text: string
   className: string

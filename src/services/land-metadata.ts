@@ -19,6 +19,7 @@ export interface LandMetadataUpsertParams {
   dataPedidoDda?: string | null
   dataRecebimentoDda?: string | null
   prestadorDda?: string | null
+  dataSolicitacaoDd?: string | null
   /** Mapa { idDaEtapa: dataISO } com a entrada em cada etapa. */
   stageDates?: Record<string, string> | null
 }
@@ -76,6 +77,9 @@ function buildPayload(data: Partial<LandMetadataUpsertParams>): Record<string, a
   }
   if (data.prestadorDda !== undefined) {
     payload.prestador_dda = normalizeRelationValue(data.prestadorDda)
+  }
+  if (data.dataSolicitacaoDd !== undefined) {
+    payload.data_solicitacao_dd = data.dataSolicitacaoDd || null
   }
   if (data.stageDates !== undefined) {
     payload.stage_dates = data.stageDates || {}
