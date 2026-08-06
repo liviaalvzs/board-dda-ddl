@@ -31,7 +31,7 @@ import {
 import { useRealtime } from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Badge } from '@/components/ui/badge'
-import { getStatusLabel } from '@/lib/status-mapping'
+import { KANBAN_COLUMNS as KANBAN_STAGES } from '@/lib/kanban-columns'
 import { useAuth } from '@/hooks/use-auth'
 import {
   AlertDialog,
@@ -46,22 +46,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Trash2, Loader2, FileX2 } from 'lucide-react'
 
-const KANBAN_COLUMNS: KanbanColumnType[] = [
-  { id: 'assinatura-carta', title: getStatusLabel('assinatura-carta'), color: 'bg-slate-400' },
-  { id: 'aguardando-doc', title: getStatusLabel('aguardando-doc'), color: 'bg-amber-400' },
-  { id: 'emissao-certidoes', title: getStatusLabel('emissao-certidoes'), color: 'bg-sky-400' },
-  {
-    id: 'analise-interna-preliminar',
-    title: getStatusLabel('analise-interna-preliminar'),
-    color: 'bg-indigo-400',
-  },
-  { id: 'dd-conclusiva', title: getStatusLabel('dd-conclusiva'), color: 'bg-fuchsia-400' },
-  {
-    id: 'analise-interna-conclusiva',
-    title: getStatusLabel('analise-interna-conclusiva'),
-    color: 'bg-emerald-500',
-  },
-]
+// As colunas vêm da definição única em @/lib/kanban-columns. O board só traduz
+// o formato: `dotClass` é a classe Tailwind do marcador no cabeçalho.
+const KANBAN_COLUMNS: KanbanColumnType[] = KANBAN_STAGES.map((c) => ({
+  id: c.id,
+  title: c.title,
+  color: c.dotClass,
+}))
 
 export default function Index() {
   const [cards, setCards] = useState<KanbanCardType[]>([])

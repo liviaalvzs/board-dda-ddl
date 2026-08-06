@@ -1,3 +1,5 @@
+import { getKanbanColumnColor } from '@/lib/kanban-columns'
+
 export const COLOR_PALETTE: string[] = [
   '#2563eb',
   '#16a34a',
@@ -19,46 +21,30 @@ export const COLOR_PALETTE: string[] = [
 
 export const FALLBACK_COLOR = '#999999'
 
+/**
+ * A cor de uma etapa vem da definição do board. Antes havia um mapa de ids
+ * antigos embutido aqui (duplicado em duas funções), que saía de sincronia a
+ * cada mudança de fluxo.
+ */
 export function getStageColor(stageName: string | null | undefined): string {
-  if (!stageName) return FALLBACK_COLOR
-  const stageMap: Record<string, number> = {
-    'aguardando-doc': 0,
-    prospeccao: 1,
-    'analise-tecnica': 2,
-    'proposta-assinada': 3,
-    'dda-analise': 4,
-    aprovado: 5,
-    reprovado: 6,
-    'emissao-certidoes': 7,
-  }
-  const index = stageMap[stageName]
-  if (index !== undefined && index < COLOR_PALETTE.length) {
-    return COLOR_PALETTE[index]
-  }
-  return FALLBACK_COLOR
+  return getKanbanColumnColor(stageName) || FALLBACK_COLOR
 }
 
+/**
+ * Cor por status para o mapa. Etapas conhecidas do board usam a cor oficial;
+ * valores desconhecidos (etapas antigas ainda no histórico, por exemplo) caem
+ * na paleta genérica, sem repetir uma cor já usada.
+ */
 export function buildStatusColorMap(statusNames: string[]): Record<string, string> {
   const unique = [...new Set(statusNames.filter(Boolean))].sort()
   const map: Record<string, string> = {}
   const usedColors = new Set<string>()
 
-  const stageMap: Record<string, number> = {
-    'aguardando-doc': 0,
-    prospeccao: 1,
-    'analise-tecnica': 2,
-    'proposta-assinada': 3,
-    'dda-analise': 4,
-    aprovado: 5,
-    reprovado: 6,
-    'emissao-certidoes': 7,
-  }
-
   for (const name of unique) {
-    const knownIndex = stageMap[name]
-    if (knownIndex !== undefined && knownIndex < COLOR_PALETTE.length) {
-      map[name] = COLOR_PALETTE[knownIndex]
-      usedColors.add(COLOR_PALETTE[knownIndex])
+    const known = getKanbanColumnColor(name)
+    if (known) {
+      map[name] = known
+      usedColors.add(known)
     }
   }
 
