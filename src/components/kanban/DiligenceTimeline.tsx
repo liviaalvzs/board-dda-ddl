@@ -2,7 +2,16 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ExternalLink, Clock, CalendarDays, ArrowRight, AlertCircle, Timer } from 'lucide-react'
+import {
+  ExternalLink,
+  Clock,
+  CalendarDays,
+  ArrowRight,
+  AlertCircle,
+  Timer,
+  ChevronDown,
+} from 'lucide-react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import pb from '@/lib/pocketbase/client'
@@ -40,6 +49,7 @@ export function DiligenceTimeline({ land, landId, metadata }: DiligenceTimelineP
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [noIdentifier, setNoIdentifier] = useState(false)
+  const [timelineOpen, setTimelineOpen] = useState(true)
 
   useEffect(() => {
     let isMounted = true
@@ -196,119 +206,140 @@ export function DiligenceTimeline({ land, landId, metadata }: DiligenceTimelineP
         </CardContent>
       </Card>
 
-      <Card className="border-brand-primary/10 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="font-display text-lg text-brand-primary flex items-center gap-2">
-            <Timer className="w-5 h-5 text-brand-secondary" />
-            Linha do Tempo de Diligência Externa
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex gap-3">
-                  <Skeleton className="w-4 h-4 rounded-full shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-48" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="text-center py-10">
-              <AlertCircle className="w-8 h-8 text-brand-primary/30 mx-auto mb-3" />
-              <p className="text-sm text-brand-primary/60">
-                Não foi possível carregar os dados de diligência externa
-              </p>
-            </div>
-          ) : noIdentifier ? (
-            <div className="text-center py-10">
-              <AlertCircle className="w-8 h-8 text-brand-primary/30 mx-auto mb-3" />
-              <p className="text-sm text-brand-primary/60">
-                Nenhum identificador externo disponível para esta propriedade
-              </p>
-            </div>
-          ) : stages.length > 0 ? (
-            <>
-              <div className="flex items-center gap-2 mb-5 text-xs text-brand-primary/60">
-                <Clock className="w-3.5 h-3.5" />
-                <span>
-                  Tempo total:{' '}
-                  <strong className="text-brand-primary">{formatDuration(totalDiligenceMs)}</strong>
-                </span>
-              </div>
-              <div className="space-y-4 relative before:absolute before:inset-y-1 before:left-[7px] before:w-[2px] before:bg-brand-primary/10">
-                {reversedStages.map((stage, i) => (
-                  <div key={i} className="flex gap-3 relative z-10">
-                    <div
-                      className={cn(
-                        'w-4 h-4 rounded-full border-2 border-white shrink-0 mt-0.5 shadow-sm',
-                        stage.isCurrent ? 'bg-brand-secondary' : 'bg-slate-300',
-                      )}
-                    />
-                    <div className="flex-1 flex flex-col gap-1.5 pb-2">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-brand-primary">
-                          {stage.statusName}
-                        </span>
-                        {stage.isCurrent ? (
-                          <Badge className="bg-brand-secondary/10 text-brand-secondary border-none text-[9px] font-bold">
-                            EM ANDAMENTO
-                          </Badge>
-                        ) : (
-                          <span className="text-[10px] text-brand-primary/40 font-medium uppercase tracking-wider">
-                            Concluído
-                          </span>
-                        )}
-                      </div>
-                      {stage.groupName && (
-                        <span className="text-[10px] text-brand-primary/40 leading-none">
-                          {stage.groupName}
-                        </span>
-                      )}
-                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-brand-primary/60">
-                        <div className="flex items-center gap-1">
-                          <CalendarDays className="w-3 h-3" />
-                          <span>Entrada: {format(stage.startDate, "dd/MM/yyyy 'às' HH:mm")}</span>
-                        </div>
-                        {stage.endDate ? (
-                          <>
-                            <ArrowRight className="w-3 h-3" />
-                            <span>Saída: {format(stage.endDate, "dd/MM/yyyy 'às' HH:mm")}</span>
-                          </>
-                        ) : (
-                          <>
-                            <ArrowRight className="w-3 h-3" />
-                            <span className="italic">Em andamento</span>
-                          </>
-                        )}
-                      </div>
-                      <div
-                        className={cn(
-                          'text-xs font-semibold flex items-center gap-1',
-                          stage.isCurrent ? 'text-brand-secondary' : 'text-brand-primary/70',
-                        )}
-                      >
-                        <Clock className="w-3 h-3" />
-                        Duração: {formatDuration(stage.durationMs)}
+      <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen}>
+        <Card className="border-brand-primary/10 shadow-sm">
+          <CardHeader className="pb-3">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
+                <CardTitle className="font-display text-lg text-brand-primary flex items-center gap-2">
+                  <Timer className="w-5 h-5 text-brand-secondary" />
+                  Linha do Tempo de Diligência Externa
+                </CardTitle>
+                <ChevronDown
+                  className={cn(
+                    'w-4 h-4 shrink-0 text-brand-primary/50 transition-transform',
+                    timelineOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-3">
+                      <Skeleton className="w-4 h-4 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-48" />
                       </div>
                     </div>
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="text-center py-10">
+                  <AlertCircle className="w-8 h-8 text-brand-primary/30 mx-auto mb-3" />
+                  <p className="text-sm text-brand-primary/60">
+                    Não foi possível carregar os dados de diligência externa
+                  </p>
+                </div>
+              ) : noIdentifier ? (
+                <div className="text-center py-10">
+                  <AlertCircle className="w-8 h-8 text-brand-primary/30 mx-auto mb-3" />
+                  <p className="text-sm text-brand-primary/60">
+                    Nenhum identificador externo disponível para esta propriedade
+                  </p>
+                </div>
+              ) : stages.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-2 mb-5 text-xs text-brand-primary/60">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>
+                      Tempo total:{' '}
+                      <strong className="text-brand-primary">
+                        {formatDuration(totalDiligenceMs)}
+                      </strong>
+                    </span>
                   </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-10">
-              <Timer className="w-8 h-8 text-brand-primary/30 mx-auto mb-3" />
-              <p className="text-sm text-brand-primary/60">
-                Nenhum dado de diligência externa encontrado
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  <div className="space-y-4 relative before:absolute before:inset-y-1 before:left-[7px] before:w-[2px] before:bg-brand-primary/10">
+                    {reversedStages.map((stage, i) => (
+                      <div key={i} className="flex gap-3 relative z-10">
+                        <div
+                          className={cn(
+                            'w-4 h-4 rounded-full border-2 border-white shrink-0 mt-0.5 shadow-sm',
+                            stage.isCurrent ? 'bg-brand-secondary' : 'bg-slate-300',
+                          )}
+                        />
+                        <div className="flex-1 flex flex-col gap-1.5 pb-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="text-sm font-bold text-brand-primary">
+                              {stage.statusName}
+                            </span>
+                            {stage.isCurrent ? (
+                              <Badge className="bg-brand-secondary/10 text-brand-secondary border-none text-[9px] font-bold">
+                                EM ANDAMENTO
+                              </Badge>
+                            ) : (
+                              <span className="text-[10px] text-brand-primary/40 font-medium uppercase tracking-wider">
+                                Concluído
+                              </span>
+                            )}
+                          </div>
+                          {stage.groupName && (
+                            <span className="text-[10px] text-brand-primary/40 leading-none">
+                              {stage.groupName}
+                            </span>
+                          )}
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs text-brand-primary/60">
+                            <div className="flex items-center gap-1">
+                              <CalendarDays className="w-3 h-3" />
+                              <span>
+                                Entrada: {format(stage.startDate, "dd/MM/yyyy 'às' HH:mm")}
+                              </span>
+                            </div>
+                            {stage.endDate ? (
+                              <>
+                                <ArrowRight className="w-3 h-3" />
+                                <span>Saída: {format(stage.endDate, "dd/MM/yyyy 'às' HH:mm")}</span>
+                              </>
+                            ) : (
+                              <>
+                                <ArrowRight className="w-3 h-3" />
+                                <span className="italic">Em andamento</span>
+                              </>
+                            )}
+                          </div>
+                          <div
+                            className={cn(
+                              'text-xs font-semibold flex items-center gap-1',
+                              stage.isCurrent ? 'text-brand-secondary' : 'text-brand-primary/70',
+                            )}
+                          >
+                            <Clock className="w-3 h-3" />
+                            Duração: {formatDuration(stage.durationMs)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-10">
+                  <Timer className="w-8 h-8 text-brand-primary/30 mx-auto mb-3" />
+                  <p className="text-sm text-brand-primary/60">
+                    Nenhum dado de diligência externa encontrado
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   )
 }
