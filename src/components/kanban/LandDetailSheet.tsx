@@ -77,7 +77,7 @@ const CopyableField = ({ label, value, icon: Icon }: any) => {
           onClick={handleCopy}
         >
           {copied ? (
-            <Check className="w-3 h-3 text-emerald-500" />
+            <Check className="w-3 h-3 text-white" />
           ) : (
             <Copy className="w-3 h-3 text-brand-primary/40" />
           )}
