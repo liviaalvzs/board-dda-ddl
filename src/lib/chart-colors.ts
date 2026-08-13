@@ -1,10 +1,9 @@
 /**
  * Paleta dos gráficos do dashboard.
  *
- * Valores verificados com as mesmas fórmulas do validador de paletas da skill
- * de dataviz (banda de luminosidade OKLCH, piso de croma, contraste WCAG) —
- * rodadas à mão em PowerShell nesta máquina por falta de runtime Node/Python
- * para executar o script oficial. Não troque um valor sem revalidar.
+ * Valores verificados com `validate_palette.py` da skill de dataviz (banda de
+ * luminosidade OKLCH, piso de croma, contraste WCAG) nos modos claro e escuro.
+ * Não troque um valor sem revalidar.
  *
  * MAGNITUDE é série única (não há par adjacente), então a checagem de
  * separação para daltonismo não se aplica; ainda assim os gráficos que a usam
@@ -15,9 +14,9 @@
 /**
  * Série única de magnitude (tempo, contagem). Verde da marca (matiz OKLab
  * 140.6°, a 0.7° do brand-secondary #68C153 — lê como o mesmo verde, um passo
- * mais escuro). L=0.565 (banda clara 0.43–0.77), C=0.115 (piso 0.10), contraste
- * 4.31:1 contra branco (mínimo 3:1) — passa sem depender do alívio de rótulos.
- * O próprio #68C153 falha o contraste (2.25:1) e ficaria preso ao WARN.
+ * mais escuro). PASS em todos os checks do validador, claro e escuro. O
+ * próprio #68C153 falha o contraste (2.25:1 contra branco, mínimo 3:1) e
+ * ficaria preso ao alívio obrigatório de rótulos.
  */
 export const CHART_MAGNITUDE = '#3D8A2E'
 
