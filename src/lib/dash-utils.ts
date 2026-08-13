@@ -213,6 +213,50 @@ export function calculateStageAverageTime(lands: unknown): StageAverageTimeData[
   return result.sort((a, b) => b.averageDays - a.averageDays)
 }
 
+export interface StageLandSpanItem {
+  externalId: string
+  name: string
+  clusterSerial: string
+  days: number
+  start: Date
+  end: Date | null
+  isOpen: boolean
+}
+
+/**
+ * Detalhamento por trás da média de uma etapa: quem passou por ela e por quanto
+ * tempo.
+ *
+ * Uma entrada por *passagem*, não por terra — é assim que
+ * `calculateStageAverageTime` calcula, somando todos os períodos. Uma terra que
+ * voltou para a etapa aparece duas vezes, de propósito: só assim a média destas
+ * linhas reproduz exatamente o número mostrado no gráfico.
+ *
+ * Os mesmos filtros da média (dias >= 0) valem aqui, senão a conta não fecha.
+ */
+export function calculateStageLandSpans(lands: unknown, stageId: string): StageLandSpanItem[] {
+  const landArray = toLandArray(lands)
+  const now = new Date()
+  const items: StageLandSpanItem[] = []
+
+  for (const land of landArray) {
+    for (const span of buildStageSpans(land.stage_dates, now)) {
+      if (span.stageId !== stageId || span.days < 0) continue
+      items.push({
+        externalId: land.external_id || land.id || '',
+        name: land.name || land.external_id || 'Sem nome',
+        clusterSerial: land.cluster_serial || '',
+        days: span.days,
+        start: span.start,
+        end: span.end,
+        isOpen: !span.end,
+      })
+    }
+  }
+
+  return items.sort((a, b) => b.days - a.days)
+}
+
 export interface LandStageRankingItem {
   externalId: string
   name: string

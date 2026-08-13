@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Bar, BarChart, XAxis, YAxis, LabelList } from 'recharts'
 import {
   ChartContainer,
@@ -12,6 +12,8 @@ import { calculateStageAverageTime } from '@/lib/dash-utils'
 import { getKanbanColumnColor } from '@/lib/kanban-columns'
 import { CHART_MAGNITUDE } from '@/lib/chart-colors'
 import { DASH_CARD_CLASS, DASH_TILE_CLASS } from '@/components/dash/dash-chrome'
+import { StageLandsPanel } from '@/components/dash/StageLandsPanel'
+import { cn } from '@/lib/utils'
 
 const config = {
   averageDays: { label: 'Tempo médio (dias)', color: CHART_MAGNITUDE },
@@ -23,6 +25,14 @@ interface StageTimeChartProps {
 
 export function StageTimeChart({ lands }: StageTimeChartProps) {
   const stages = useMemo(() => calculateStageAverageTime(lands), [lands])
+  const [selectedStage, setSelectedStage] = useState<string | null>(null)
+
+  // O payload do Recharts às vezes chega com o dado na raiz, às vezes sob
+  // `payload` — aceitar os dois evita um clique que não faz nada.
+  const handleBarClick = (entry: any) => {
+    const status = entry?.payload?.status ?? entry?.status
+    if (status) setSelectedStage(status)
+  }
 
   const hasClosedSpans = stages.some((s) => s.closedCount > 0)
   const chartData = stages.map((s) => ({
@@ -39,7 +49,7 @@ export function StageTimeChart({ lands }: StageTimeChartProps) {
         </CardTitle>
         <CardDescription className="text-brand-primary/55">
           Dias que uma terra permanece em cada coluna do board, a partir das datas de entrada
-          informadas em cada etapa
+          informadas em cada etapa. Clique numa etapa para ver as terras por trás da média.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -65,7 +75,14 @@ export function StageTimeChart({ lands }: StageTimeChartProps) {
               <ChartTooltip content={<ChartTooltipContent />} />
               {/* Canto arredondado só na ponta do dado; a base fica reta sobre
                   a linha de origem. */}
-              <Bar dataKey="averageDays" fill={CHART_MAGNITUDE} radius={[0, 4, 4, 0]} barSize={18}>
+              <Bar
+                dataKey="averageDays"
+                fill={CHART_MAGNITUDE}
+                radius={[0, 4, 4, 0]}
+                barSize={18}
+                cursor="pointer"
+                onClick={handleBarClick}
+              >
                 {/* Rótulo direto: também é o alívio exigido pelo aviso de
                     contraste desta cor no modo escuro. */}
                 <LabelList
@@ -83,7 +100,17 @@ export function StageTimeChart({ lands }: StageTimeChartProps) {
         {stages.length > 0 && (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {stages.map((s) => (
-              <div key={s.status} className={DASH_TILE_CLASS}>
+              /* Também é o caminho de teclado para o painel — as barras do
+                 gráfico não são focáveis. */
+              <button
+                key={s.status}
+                type="button"
+                onClick={() => setSelectedStage(s.status)}
+                className={cn(
+                  DASH_TILE_CLASS,
+                  'w-full text-left transition-colors hover:border-brand-secondary/50 hover:bg-brand-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secondary',
+                )}
+              >
                 <div className="flex items-center gap-2">
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -101,7 +128,7 @@ export function StageTimeChart({ lands }: StageTimeChartProps) {
                   {s.closedCount === 1 ? 'passagem concluída' : 'passagens concluídas'}
                   {s.openCount > 0 && ` · ${s.openCount} em curso`}
                 </p>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -116,6 +143,12 @@ export function StageTimeChart({ lands }: StageTimeChartProps) {
           </div>
         )}
       </CardContent>
+
+      <StageLandsPanel
+        stageId={selectedStage}
+        lands={lands}
+        onClose={() => setSelectedStage(null)}
+      />
     </Card>
   )
 }
