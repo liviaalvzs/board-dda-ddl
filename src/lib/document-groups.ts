@@ -80,22 +80,30 @@ export function emptyDocumentProgress(): DocumentProgress {
   }
 }
 
-/** Chave do documento → grupo, a partir dos tipos configurados. */
-export function buildDocumentGroupMap(docTypes: DocumentType[]): Record<string, DocumentGroupId> {
-  const map: Record<string, DocumentGroupId> = {}
-  for (const type of docTypes) {
-    map[type.key] = getDocumentGroup(type.category)
-  }
-  return map
-}
+/**
+ * Progresso por grupo, contando só o que é exigido daquela terra.
+ *
+ * Fonte única do cálculo: card do board e aba Documentos chamam esta função,
+ * então os dois números nunca divergem.
+ */
+export function computeDocumentProgress(
+  docTypes: DocumentType[],
+  ownerType: OwnerType,
+  completedKeys: ReadonlySet<string>,
+  notApplicableKeys: ReadonlySet<string>,
+): DocumentProgress {
+  const progress = emptyDocumentProgress()
 
-/** Quantos tipos existem em cada grupo — o denominador dos contadores. */
-export function countGroupTotals(docTypes: DocumentType[]): Record<DocumentGroupId, number> {
-  const totals: Record<DocumentGroupId, number> = { basicos: 0, certidoes: 0 }
   for (const type of docTypes) {
-    totals[getDocumentGroup(type.category)]++
+    const excluded = getExclusionReason(type.category, ownerType, notApplicableKeys.has(type.key))
+    if (excluded) continue
+
+    const group = getDocumentGroup(type.category)
+    progress[group].total++
+    if (completedKeys.has(type.key)) progress[group].completed++
   }
-  return totals
+
+  return progress
 }
 
 export function progressPercent(group: DocumentGroupProgress): number {
