@@ -1,7 +1,7 @@
 import { KanbanColumnType, KanbanCardType } from '@/types/kanban'
 import { KanbanColumn } from './KanbanColumn'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
@@ -35,6 +35,84 @@ export function KanbanBoard({
   const [savingCards, setSavingCards] = useState<Set<string>>(new Set())
   const pendingUpdatesRef = useRef<Record<string, string>>({})
   const { toast } = useToast()
+
+  // Auto-scroll horizontal durante o arraste.
+  //
+  // O drag-and-drop nativo do HTML5 não rola o container sozinho. Com 12 etapas
+  // o board é bem mais largo que a tela, e arrastar um card para uma coluna fora
+  // do campo de visão era impossível: o ponteiro encostava na borda e parava ali.
+  // Enquanto o ponteiro fica na faixa de borda, um loop de rAF rola o container,
+  // mais rápido quanto mais perto da beirada.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollSpeedRef = useRef(0)
+  const scrollFrameRef = useRef(0)
+  const lastDragOverRef = useRef(0)
+
+  const stopAutoScroll = useCallback(() => {
+    scrollSpeedRef.current = 0
+    if (scrollFrameRef.current) {
+      cancelAnimationFrame(scrollFrameRef.current)
+      scrollFrameRef.current = 0
+    }
+  }, [])
+
+  const runAutoScroll = useCallback(() => {
+    const el = scrollRef.current
+    // Se o ponteiro sai do board (passa sobre o cabeçalho, por exemplo), os
+    // eventos de dragover param de chegar e a velocidade ficaria congelada — o
+    // board rolaria sozinho até o fim. Sem dragover recente, para.
+    const stale = Date.now() - lastDragOverRef.current > 200
+    if (!el || scrollSpeedRef.current === 0 || stale) {
+      scrollSpeedRef.current = 0
+      scrollFrameRef.current = 0
+      return
+    }
+    el.scrollLeft += scrollSpeedRef.current
+    scrollFrameRef.current = requestAnimationFrame(runAutoScroll)
+  }, [])
+
+  const handleBoardDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      const el = scrollRef.current
+      if (!el) return
+
+      const EDGE_ZONE = 140 // faixa sensível em cada borda, em px
+      const MAX_SPEED = 24 // px por frame quando o ponteiro encosta na beirada
+
+      const rect = el.getBoundingClientRect()
+      const fromLeft = e.clientX - rect.left
+      const fromRight = rect.right - e.clientX
+
+      let speed = 0
+      if (fromLeft < EDGE_ZONE) {
+        speed = -MAX_SPEED * ((EDGE_ZONE - Math.max(fromLeft, 0)) / EDGE_ZONE)
+      } else if (fromRight < EDGE_ZONE) {
+        speed = MAX_SPEED * ((EDGE_ZONE - Math.max(fromRight, 0)) / EDGE_ZONE)
+      }
+
+      lastDragOverRef.current = Date.now()
+      scrollSpeedRef.current = speed
+
+      if (speed !== 0 && !scrollFrameRef.current) {
+        scrollFrameRef.current = requestAnimationFrame(runAutoScroll)
+      } else if (speed === 0) {
+        stopAutoScroll()
+      }
+    },
+    [runAutoScroll, stopAutoScroll],
+  )
+
+  // O arraste pode terminar fora do board — soltando em qualquer lugar da página
+  // ou cancelando com ESC — e aí nenhum handler do container dispara.
+  useEffect(() => {
+    window.addEventListener('dragend', stopAutoScroll)
+    window.addEventListener('drop', stopAutoScroll)
+    return () => {
+      window.removeEventListener('dragend', stopAutoScroll)
+      window.removeEventListener('drop', stopAutoScroll)
+      stopAutoScroll()
+    }
+  }, [stopAutoScroll])
 
   const fetchMetadata = async () => {
     try {
@@ -221,7 +299,12 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex-1 overflow-x-auto overflow-y-hidden p-4 sm:p-6 animate-fade-in">
+    <div
+      ref={scrollRef}
+      onDragOver={handleBoardDragOver}
+      onDrop={stopAutoScroll}
+      className="flex-1 overflow-x-auto overflow-y-hidden p-4 sm:p-6 animate-fade-in"
+    >
       <div className="flex gap-4 sm:gap-6 h-full w-max items-start">
         {columns.map((column) => (
           <KanbanColumn
