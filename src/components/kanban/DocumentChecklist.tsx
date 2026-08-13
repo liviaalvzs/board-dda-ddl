@@ -24,6 +24,7 @@ import { setDocumentNotApplicable } from '@/services/documents'
 import { getLandSubjects } from '@/services/land-subjects'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
+import { SubjectsToolbar } from '@/components/document-upload/SubjectsToolbar'
 import {
   DOCUMENT_GROUP_IDS,
   DOCUMENT_GROUP_LABEL,
@@ -241,6 +242,13 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
 
   return (
     <div className="space-y-6">
+      <SubjectsToolbar
+        landId={landId}
+        subjects={subjects}
+        fallbackOwnerType={fallbackOwnerType}
+        onChanged={fetchSubjects}
+      />
+
       <div className="bg-white p-6 rounded-xl shadow-sm border border-brand-primary/10">
         <h3 className="text-xl font-display text-brand-primary flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5 text-brand-secondary" /> Progresso da Due Diligence

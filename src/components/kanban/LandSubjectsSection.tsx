@@ -36,20 +36,15 @@ interface LandSubjectsSectionProps {
   onChanged?: () => void
 }
 
-const KIND_CONFIG: Record<
-  SubjectKind,
-  { title: string; singular: string; placeholder: string; empty: string }
-> = {
+const KIND_CONFIG: Record<SubjectKind, { title: string; singular: string; empty: string }> = {
   owner: {
     title: 'Proprietários',
     singular: 'proprietário',
-    placeholder: 'Nome do proprietário',
     empty: 'Nenhum proprietário cadastrado. A terra é tratada como tendo um só.',
   },
   matricula: {
     title: 'Matrículas',
     singular: 'matrícula',
-    placeholder: 'Ex.: Matrícula 12.345',
     empty: 'Nenhuma matrícula cadastrada. A terra é tratada como tendo uma só.',
   },
 }
@@ -75,8 +70,7 @@ export function LandSubjectsSection({
   const [savingId, setSavingId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingLabel, setEditingLabel] = useState('')
-  const [addingKind, setAddingKind] = useState<SubjectKind | null>(null)
-  const [newLabel, setNewLabel] = useState('')
+
   const [pendingDelete, setPendingDelete] = useState<{
     subject: LandSubject
     uploads: number
@@ -102,14 +96,12 @@ export function LandSubjectsSection({
     onChanged?.()
   }
 
+  // O nome sai automático em sequência. Renomear continua disponível no lápis,
+  // para quem quiser trocar por um nome real.
   const handleAdd = async (kind: SubjectKind) => {
-    const label = newLabel.trim()
-    if (!label) return
     setSavingId('new')
     try {
-      await createLandSubject(externalId, kind, label, kind === 'owner' ? fallbackOwnerType : '')
-      setNewLabel('')
-      setAddingKind(null)
+      await createLandSubject(externalId, kind, kind === 'owner' ? fallbackOwnerType : '')
       await refresh()
     } catch (err) {
       toast({
@@ -198,17 +190,20 @@ export function LandSubjectsSection({
           <Button
             variant="ghost"
             size="sm"
+            disabled={savingId === 'new'}
             className="h-7 px-2 text-xs font-semibold text-brand-primary/60 hover:text-brand-primary"
-            onClick={() => {
-              setAddingKind(kind)
-              setNewLabel('')
-            }}
+            onClick={() => handleAdd(kind)}
           >
-            <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar
+            {savingId === 'new' ? (
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="mr-1 h-3.5 w-3.5" />
+            )}
+            Adicionar
           </Button>
         </div>
 
-        {items.length === 0 && addingKind !== kind && (
+        {items.length === 0 && (
           <p className="rounded-lg border border-dashed border-brand-primary/15 px-3 py-2 text-[11px] leading-relaxed text-brand-primary/45">
             {config.empty}
           </p>
@@ -302,38 +297,6 @@ export function LandSubjectsSection({
             </div>
           )
         })}
-
-        {addingKind === kind && (
-          <div className="flex items-center gap-2">
-            <Input
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAdd(kind)
-                if (e.key === 'Escape') setAddingKind(null)
-              }}
-              placeholder={config.placeholder}
-              className="h-8 flex-1 text-sm"
-              autoFocus
-            />
-            <Button
-              size="sm"
-              className="h-8 bg-brand-primary text-white hover:bg-brand-primary/90"
-              disabled={!newLabel.trim() || savingId === 'new'}
-              onClick={() => handleAdd(kind)}
-            >
-              {savingId === 'new' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Salvar'}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 text-brand-primary/40"
-              onClick={() => setAddingKind(null)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
       </div>
     )
   }
@@ -346,7 +309,8 @@ export function LandSubjectsSection({
 
       <p className="text-[11px] leading-relaxed text-brand-primary/45">
         Cada proprietário recebe a sua lista de documentos pessoais, e cada matrícula a sua lista do
-        imóvel e certidões. O progresso na aba Documentos é somado por sujeito.
+        imóvel e certidões. O progresso na aba Documentos é somado por sujeito. Os nomes são
+        numerados automaticamente — use o lápis para trocar por um nome real.
       </p>
 
       {loading ? (

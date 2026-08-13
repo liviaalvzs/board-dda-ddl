@@ -1,6 +1,38 @@
 import pb from '@/lib/pocketbase/client'
 import type { LandSubject, OwnerType, SubjectKind } from '@/lib/document-groups'
 
+const AUTO_LABEL_PREFIX: Record<SubjectKind, string> = {
+  owner: 'Proprietário',
+  matricula: 'Matrícula',
+}
+
+/**
+ * Próximo nome automático da sequência: "Proprietário 1", "Proprietário 2"...
+ *
+ * Continua de onde a numeração parou em vez de contar quantos existem — apagar
+ * o 2 de [1,2,3] e adicionar de novo daria "Proprietário 3", repetido. E o nome
+ * repetido não é cosmético: o rótulo entra na chave do arquivo no S3, então dois
+ * iguais fariam um envio sobrescrever o outro.
+ */
+export function nextSubjectLabel(subjects: LandSubject[], kind: SubjectKind): string {
+  const prefix = AUTO_LABEL_PREFIX[kind]
+  const siblings = subjects.filter((s) => s.kind === kind)
+  const used = new Set(siblings.map((s) => s.label.trim().toLowerCase()))
+
+  let highest = 0
+  for (const subject of siblings) {
+    const match = subject.label.trim().match(/^(.*?)\s+(\d+)$/)
+    if (match && match[1].toLowerCase() === prefix.toLowerCase()) {
+      highest = Math.max(highest, Number(match[2]))
+    }
+  }
+
+  // Pula números que alguém já ocupou renomeando à mão.
+  let next = highest + 1
+  while (used.has(`${prefix} ${next}`.toLowerCase())) next++
+  return `${prefix} ${next}`
+}
+
 /**
  * Proprietários e matrículas de uma terra.
  *
@@ -26,21 +58,24 @@ export async function getAllLandSubjects(): Promise<Record<string, LandSubject[]
   return map
 }
 
+/**
+ * Cria o próximo da sequência. O nome sai automático; renomear depois é
+ * opcional, na tela de Informações.
+ */
 export async function createLandSubject(
   landId: string,
   kind: SubjectKind,
-  label: string,
   ownerType: OwnerType = '',
 ): Promise<LandSubject> {
-  // Entra no fim da lista: o sort_order é o maior atual + 10, deixando espaço
-  // para reordenar entre dois itens sem renumerar todo mundo.
   const existing = await getLandSubjects(landId)
+  // sort_order salta de 10 em 10 para caber uma reordenação entre dois itens
+  // sem renumerar a lista inteira.
   const maxOrder = existing.reduce((max, s) => Math.max(max, s.sort_order ?? 0), 0)
 
   const record = await pb.collection('land_subjects').create({
     land_id: landId,
     kind,
-    label: label.trim(),
+    label: nextSubjectLabel(existing, kind),
     owner_type: kind === 'owner' ? ownerType || null : null,
     sort_order: maxOrder + 10,
   })
@@ -52,7 +87,29 @@ export async function updateLandSubject(
   data: { label?: string; ownerType?: OwnerType },
 ): Promise<LandSubject> {
   const payload: Record<string, any> = {}
-  if (data.label !== undefined) payload.label = data.label.trim()
+
+  if (data.label !== undefined) {
+    const label = data.label.trim()
+    if (!label) throw new Error('O nome não pode ficar vazio.')
+
+    // Nome repetido faria os dois apontarem para a mesma chave no S3, e um
+    // envio arquivaria o do outro como versão anterior.
+    const current = await pb.collection('land_subjects').getOne(subjectId)
+    const siblings = await getLandSubjects(current.land_id)
+    const clash = siblings.some(
+      (s) =>
+        s.id !== subjectId &&
+        s.kind === current.kind &&
+        s.label.trim().toLowerCase() === label.toLowerCase(),
+    )
+    if (clash) {
+      throw new Error(
+        'Já existe outro item com esse nome. Nomes iguais fariam os arquivos se sobrescreverem.',
+      )
+    }
+    payload.label = label
+  }
+
   if (data.ownerType !== undefined) payload.owner_type = data.ownerType || null
 
   const record = await pb.collection('land_subjects').update(subjectId, payload)

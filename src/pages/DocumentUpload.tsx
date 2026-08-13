@@ -9,6 +9,7 @@ import { FilterTabs, type FilterType } from '@/components/document-upload/Filter
 import { DocumentRow } from '@/components/document-upload/DocumentRow'
 import { BulkUploadModal } from '@/components/document-upload/BulkUploadModal'
 import { DocumentHistory } from '@/components/document-upload/DocumentHistory'
+import { SubjectsToolbar } from '@/components/document-upload/SubjectsToolbar'
 import { getDocumentChecksForLand } from '@/services/document-upload'
 import { getLandSubjects } from '@/services/land-subjects'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
@@ -274,6 +275,13 @@ export default function DocumentUpload() {
                   </p>
                 </div>
               </div>
+
+              <SubjectsToolbar
+                landId={selectedLand.external_id}
+                subjects={subjects}
+                fallbackOwnerType={fallbackOwnerType}
+                onChanged={fetchSubjects}
+              />
 
               <FilterTabs active={activeFilter} onChange={setActiveFilter} counts={counts} />
 
