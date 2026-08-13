@@ -7,7 +7,13 @@ import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { upsertLandMetadata } from '@/services/land-metadata'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
-import { computeDocumentProgress, type OwnerType } from '@/lib/document-groups'
+import { getAllLandSubjects } from '@/services/land-subjects'
+import {
+  computeDocumentProgress,
+  instanceKey,
+  type LandSubject,
+  type OwnerType,
+} from '@/lib/document-groups'
 
 interface KanbanBoardProps {
   columns: KanbanColumnType[]
@@ -36,6 +42,7 @@ export function KanbanBoard({
     >
   >({})
   const [docTypes, setDocTypes] = useState<DocumentType[]>([])
+  const [subjectsMap, setSubjectsMap] = useState<Record<string, LandSubject[]>>({})
   const [savingCards, setSavingCards] = useState<Set<string>>(new Set())
   const pendingUpdatesRef = useRef<Record<string, string>>({})
   const { toast } = useToast()
@@ -154,12 +161,16 @@ export function KanbanBoard({
             acc[r.land_id] = { completedKeys: [], notApplicableKeys: [], details: [] }
           }
 
+          // Chave composta: o mesmo tipo existe uma vez por proprietário ou
+          // matrícula, então só o par tipo+sujeito identifica a instância.
+          const key = instanceKey(r.document_key, r.subject_id || '')
+
           if (r.not_applicable) {
-            acc[r.land_id].notApplicableKeys.push(r.document_key)
+            acc[r.land_id].notApplicableKeys.push(key)
             return acc
           }
 
-          acc[r.land_id].completedKeys.push(r.document_key)
+          acc[r.land_id].completedKeys.push(key)
           const userName =
             r.expand?.user?.name || r.expand?.user?.email?.split('@')[0] || 'Desconhecido'
           acc[r.land_id].details.push({
@@ -184,15 +195,28 @@ export function KanbanBoard({
     }
   }
 
+  const fetchSubjects = async () => {
+    try {
+      setSubjectsMap(await getAllLandSubjects())
+    } catch {
+      setSubjectsMap({})
+    }
+  }
+
   useEffect(() => {
     fetchMetadata()
     fetchDocumentChecks()
+    fetchSubjects()
     // Os tipos definem o denominador de cada grupo — sem eles não há como saber
     // quantos documentos são esperados, nem a que grupo cada chave pertence.
     getDocumentTypes()
       .then(setDocTypes)
       .catch(() => setDocTypes([]))
   }, [])
+
+  useRealtime('land_subjects', () => {
+    fetchSubjects()
+  })
 
   useRealtime('land_metadata', () => {
     fetchMetadata()
@@ -212,8 +236,10 @@ export function KanbanBoard({
           details: [],
         }
 
+      const subjects = subjectsMap[c.id] || subjectsMap[c.clusterSerial || ''] || []
       const docProgress = computeDocumentProgress(
         docTypes,
+        subjects,
         (meta?.owner_type || '') as OwnerType,
         new Set(checks.completedKeys),
         new Set(checks.notApplicableKeys),
@@ -237,7 +263,7 @@ export function KanbanBoard({
         updatedAt: meta?.updated || new Date().toISOString(),
       }
     })
-  }, [cards, metadataMap, docChecksMap, savingCards, docTypes])
+  }, [cards, metadataMap, docChecksMap, savingCards, docTypes, subjectsMap])
 
   const validStatuses = useMemo(() => columns.map((c) => c.id), [columns])
 

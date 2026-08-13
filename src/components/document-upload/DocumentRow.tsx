@@ -15,6 +15,10 @@ interface DocumentRowProps {
   check: any
   onUploaded: () => void
   clusterSerial: string
+  /** Proprietário ou matrícula a que este envio pertence. Vazio = terra sem sujeitos. */
+  subjectId?: string
+  /** Nome do sujeito, exibido ao lado do estado. */
+  subjectLabel?: string
   /**
    * Texto do chip quando o documento não é exigido desta terra. Preenchido =
    * dispensado: sem envio, e a linha desce para o fim do grupo.
@@ -35,6 +39,8 @@ export function DocumentRow({
   check,
   onUploaded,
   clusterSerial,
+  subjectId = '',
+  subjectLabel,
   exclusionLabel,
 }: DocumentRowProps) {
   const [uploading, setUploading] = useState(false)
@@ -56,7 +62,7 @@ export function DocumentRow({
     }
     setUploading(true)
     try {
-      await uploadDocument(landId, documentKey, file, clusterSerial)
+      await uploadDocument(landId, documentKey, file, clusterSerial, subjectId)
       toast({
         title: isCompleted
           ? `Documento ${documentLabel} substituído. A versão anterior foi arquivada.`

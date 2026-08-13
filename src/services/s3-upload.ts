@@ -34,7 +34,8 @@ export async function uploadDocumentToS3(
   documentKey: string,
   file: File,
   _existingCheckId?: string,
+  subjectId: string = '',
 ): Promise<string> {
-  const result = await uploadDocument(landId, documentKey, file, clusterSerial)
+  const result = await uploadDocument(landId, documentKey, file, clusterSerial, subjectId)
   return result.url
 }

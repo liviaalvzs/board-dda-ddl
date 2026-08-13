@@ -10,6 +10,8 @@ import {
   AlertCircle,
   Ban,
   Undo2,
+  User,
+  FileStack,
 } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -19,6 +21,7 @@ import { format } from 'date-fns'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { uploadDocumentToS3 } from '@/services/s3-upload'
 import { setDocumentNotApplicable } from '@/services/documents'
+import { getLandSubjects } from '@/services/land-subjects'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 import {
@@ -27,7 +30,11 @@ import {
   computeDocumentProgress,
   getExclusionLabel,
   getExclusionReason,
+  getSubjectKindForCategory,
+  instanceKey,
   progressPercent,
+  subjectsOfKind,
+  type LandSubject,
   type OwnerType,
 } from '@/lib/document-groups'
 
@@ -37,6 +44,7 @@ const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
 export function DocumentChecklist({ landId, metadata }: { landId: string; metadata: any }) {
   const [checks, setChecks] = useState<Record<string, any>>({})
   const [docTypes, setDocTypes] = useState<DocumentType[]>([])
+  const [subjects, setSubjects] = useState<LandSubject[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
   const [togglingKey, setTogglingKey] = useState<string | null>(null)
@@ -44,6 +52,8 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const { toast } = useToast()
 
+  // Indexado por instância (tipo + sujeito), não por tipo: o mesmo documento
+  // existe uma vez para cada proprietário ou matrícula.
   const fetchChecks = async () => {
     try {
       const records = await pb
@@ -51,13 +61,22 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
         .getFullList({ filter: `land_id="${landId}"`, expand: 'user' })
       const map: Record<string, any> = {}
       records.forEach((r) => {
-        if (!map[r.document_key]) map[r.document_key] = r
+        const key = instanceKey(r.document_key, r.subject_id || '')
+        if (!map[key]) map[key] = r
       })
       setChecks(map)
     } catch (e) {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchSubjects = async () => {
+    try {
+      setSubjects(await getLandSubjects(landId))
+    } catch {
+      setSubjects([])
     }
   }
 
@@ -70,63 +89,57 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
       .then(setDocTypes)
       .catch(() => setDocTypes([]))
     fetchChecks()
+    fetchSubjects()
   }, [landId])
 
   useRealtime('document_checks', (e) => {
     if (e.record.land_id === landId) fetchChecks()
   })
 
-  const handleFileUpload = async (key: string, file: File) => {
-    setErrors((prev) => ({ ...prev, [key]: '' }))
+  useRealtime('land_subjects', (e) => {
+    if (e.record.land_id === landId) fetchSubjects()
+  })
+
+  const fallbackOwnerType = (metadata?.owner_type || '') as OwnerType
+
+  const handleFileUpload = async (key: string, subjectId: string, file: File) => {
+    const uiKey = instanceKey(key, subjectId)
+    setErrors((prev) => ({ ...prev, [uiKey]: '' }))
     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
     if (!ALLOWED_MIMES.includes(file.type) && !['.pdf', '.jpg', '.jpeg', '.png'].includes(ext)) {
-      setErrors((prev) => ({ ...prev, [key]: 'Formato não permitido. Aceitos: PDF, JPG, PNG.' }))
+      setErrors((prev) => ({ ...prev, [uiKey]: 'Formato não permitido. Aceitos: PDF, JPG, PNG.' }))
       return
     }
     if (file.size > MAX_SIZE) {
-      setErrors((prev) => ({ ...prev, [key]: 'O arquivo excede o tamanho máximo de 10 MB.' }))
+      setErrors((prev) => ({ ...prev, [uiKey]: 'O arquivo excede o tamanho máximo de 10 MB.' }))
       return
     }
-    setUploadingKey(key)
+    setUploadingKey(uiKey)
     try {
       const clusterSerial = metadata?.cluster_serial || ''
       if (!clusterSerial) {
         setErrors((prev) => ({
           ...prev,
-          [key]: 'Cluster serial não definido para esta terra.',
+          [uiKey]: 'Cluster serial não definido para esta terra.',
         }))
         return
       }
-      const existing = checks[key]
-      await uploadDocumentToS3(landId, clusterSerial, key, file, existing?.id)
+      await uploadDocumentToS3(landId, clusterSerial, key, file, undefined, subjectId)
       toast({ title: 'Documento enviado com sucesso!' })
       fetchChecks()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erro ao enviar arquivo. Tente novamente.'
-      setErrors((prev) => ({ ...prev, [key]: msg }))
+      setErrors((prev) => ({ ...prev, [uiKey]: msg }))
     } finally {
       setUploadingKey(null)
     }
   }
 
-  // O status vem do envio do arquivo, não de marcação manual. Os arquivos vivem
-  // só no S3, então a presença de document_url é o que define "enviado". Mesma
-  // regra da aba Documentos, para os dois lugares nunca divergirem.
-  const ownerType = (metadata?.owner_type || '') as OwnerType
-
-  const docsWithStatus = useMemo(() => {
-    return docTypes.map((doc) => {
-      const check = checks[doc.key]
-      const isCompleted = !!(check?.is_completed && check?.document_url)
-      const exclusion = getExclusionReason(doc.category, ownerType, !!check?.not_applicable)
-      return { doc, check, isCompleted, exclusion }
-    })
-  }, [docTypes, checks, ownerType])
-
-  const handleToggleNotApplicable = async (key: string, next: boolean) => {
-    setTogglingKey(key)
+  const handleToggleNotApplicable = async (key: string, subjectId: string, next: boolean) => {
+    const uiKey = instanceKey(key, subjectId)
+    setTogglingKey(uiKey)
     try {
-      await setDocumentNotApplicable(landId, key, next)
+      await setDocumentNotApplicable(landId, key, next, subjectId)
       toast({
         title: next ? 'Documento dispensado' : 'Documento voltou a ser exigido',
         description: 'A contagem de progresso foi ajustada.',
@@ -143,44 +156,75 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     }
   }
 
-  const groupedDocs = useMemo(() => {
-    const groups: { category: string; docs: typeof docsWithStatus }[] = []
-    for (const item of docsWithStatus) {
-      const category = item.doc.category || 'Outros documentos'
-      let group = groups.find((g) => g.category === category)
-      if (!group) {
-        group = { category, docs: [] }
-        groups.push(group)
+  /**
+   * Um bloco por sujeito: a categoria se repete para cada proprietário ou
+   * matrícula, com o nome no cabeçalho e contador próprio. Responde direto a
+   * "o que falta do proprietário B?", que é a pergunta real de quem cobra.
+   */
+  const blocks = useMemo(() => {
+    const result: {
+      id: string
+      category: string
+      subject: LandSubject
+      docs: {
+        doc: DocumentType
+        check: any
+        isCompleted: boolean
+        exclusion: ReturnType<typeof getExclusionReason>
+      }[]
+    }[] = []
+
+    for (const doc of docTypes) {
+      const category = doc.category || 'Outros documentos'
+      const kind = getSubjectKindForCategory(doc.category)
+
+      for (const subject of subjectsOfKind(subjects, kind, fallbackOwnerType)) {
+        const key = instanceKey(doc.key, subject.id)
+        const check = checks[key]
+        const isCompleted = !!(check?.is_completed && check?.document_url)
+        const ownerType = (subject.owner_type || fallbackOwnerType) as OwnerType
+        const exclusion = getExclusionReason(doc.category, ownerType, !!check?.not_applicable)
+
+        const blockId = `${category}::${subject.id}`
+        let block = result.find((b) => b.id === blockId)
+        if (!block) {
+          block = { id: blockId, category, subject, docs: [] }
+          result.push(block)
+        }
+        block.docs.push({ doc, check, isCompleted, exclusion })
       }
-      group.docs.push(item)
     }
 
-    // O que não é exigido desce: o documento vai para o fim do seu grupo, e o
-    // grupo inteiro para o fim da página quando nada nele é exigido (o caso de
-    // PF/PJ). Entre itens de mesma situação a ordem original — o sort_order dos
-    // Anexos — é preservada, porque o filter percorre na ordem de entrada.
-    for (const group of groups) {
-      group.docs = [
-        ...group.docs.filter((d) => !d.exclusion),
-        ...group.docs.filter((d) => d.exclusion),
+    // Dispensado desce dentro do bloco; bloco sem nada exigido vai para o fim.
+    for (const block of result) {
+      block.docs = [
+        ...block.docs.filter((d) => !d.exclusion),
+        ...block.docs.filter((d) => d.exclusion),
       ]
     }
-
-    const isFullyExcluded = (g: (typeof groups)[number]) => g.docs.every((d) => !!d.exclusion)
-    return [...groups.filter((g) => !isFullyExcluded(g)), ...groups.filter(isFullyExcluded)]
-  }, [docsWithStatus])
+    const isFullyExcluded = (b: (typeof result)[number]) => b.docs.every((d) => !!d.exclusion)
+    return [...result.filter((b) => !isFullyExcluded(b)), ...result.filter(isFullyExcluded)]
+  }, [docTypes, subjects, checks, fallbackOwnerType])
 
   // Básicos e certidões andam separados: um depende do proprietário entregar,
   // o outro de órgão emitir. Um número só não dizia qual dos dois estava preso.
   //
   // O cálculo é o mesmo que o card do board usa, para os dois não divergirem.
   const groupProgress = useMemo(() => {
-    const completedKeys = new Set(docsWithStatus.filter((d) => d.isCompleted).map((d) => d.doc.key))
-    const notApplicableKeys = new Set(
-      docsWithStatus.filter((d) => !!d.check?.not_applicable).map((d) => d.doc.key),
+    const completedKeys = new Set<string>()
+    const notApplicableKeys = new Set<string>()
+    for (const [key, check] of Object.entries(checks)) {
+      if (check?.is_completed && check?.document_url) completedKeys.add(key)
+      if (check?.not_applicable) notApplicableKeys.add(key)
+    }
+    return computeDocumentProgress(
+      docTypes,
+      subjects,
+      fallbackOwnerType,
+      completedKeys,
+      notApplicableKeys,
     )
-    return computeDocumentProgress(docTypes, ownerType, completedKeys, notApplicableKeys)
-  }, [docsWithStatus, docTypes, ownerType])
+  }, [checks, docTypes, subjects, fallbackOwnerType])
 
   if (loading) return null
 
@@ -232,26 +276,33 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
         </div>
       </div>
 
-      {groupedDocs.map((group) => {
-        const required = group.docs.filter((d) => !d.exclusion)
-        const groupCompleted = required.filter((d) => d.isCompleted).length
+      {blocks.map((block) => {
+        const required = block.docs.filter((d) => !d.exclusion)
+        const blockCompleted = required.filter((d) => d.isCompleted).length
+        const SubjectIcon = block.subject.kind === 'owner' ? User : FileStack
 
         return (
           <div
-            key={group.category}
+            key={block.id}
             className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden"
           >
             <div className="bg-brand-primary/[0.02] px-5 py-3 border-b border-brand-primary/5 flex items-center gap-2">
               <FileText className="w-4 h-4 text-brand-primary/50 shrink-0" />
-              <h4 className="font-semibold text-brand-primary text-sm">{group.category}</h4>
+              <h4 className="font-semibold text-brand-primary text-sm">{block.category}</h4>
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-primary/5 px-2 py-0.5 text-[11px] font-semibold text-brand-primary/60">
+                <SubjectIcon className="h-3 w-3" />
+                {block.subject.label}
+              </span>
               <span className="ml-auto text-xs font-medium text-brand-primary/50 shrink-0">
-                {required.length === 0 ? 'Não se aplica' : `${groupCompleted}/${required.length}`}
+                {required.length === 0 ? 'Não se aplica' : `${blockCompleted}/${required.length}`}
               </span>
             </div>
             <div className="divide-y divide-brand-primary/5">
-              {group.docs.map(({ doc, check, isCompleted, exclusion }) => {
+              {block.docs.map(({ doc, check, isCompleted, exclusion }) => {
+                const uiKey = instanceKey(doc.key, block.subject.id)
                 const userName = check?.expand?.user?.name || check?.expand?.user?.email
-                const isToggling = togglingKey === doc.key
+                const isToggling = togglingKey === uiKey
+                const ownerType = (block.subject.owner_type || fallbackOwnerType) as OwnerType
 
                 // Dispensar só vale para campo vazio: com arquivo enviado, a
                 // saída é remover o documento, não escondê-lo da conta. A opção
@@ -261,7 +312,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
 
                 return (
                   <div
-                    key={doc.key}
+                    key={uiKey}
                     className={cn(
                       'p-5 transition-colors hover:bg-brand-primary/[0.01]',
                       isCompleted && !exclusion && 'bg-emerald-50/30',
@@ -328,15 +379,19 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                         )}
                         {/* Escondido quando já há arquivo (dispensar deixaria de
                             fazer sentido) e quando a dispensa vem do tipo de
-                            proprietário — nesse caso a mudança é no seletor de
-                            PF/PJ, não documento a documento. */}
+                            proprietário — nesse caso a mudança é no cadastro do
+                            proprietário, não documento a documento. */}
                         {canToggle && (
                           <Button
                             variant="ghost"
                             size="sm"
                             disabled={isToggling}
                             onClick={() =>
-                              handleToggleNotApplicable(doc.key, exclusion !== 'manual')
+                              handleToggleNotApplicable(
+                                doc.key,
+                                block.subject.id,
+                                exclusion !== 'manual',
+                              )
                             }
                             className={cn(
                               'h-9 shrink-0 text-xs font-semibold',
@@ -357,14 +412,14 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                         )}
                         <input
                           ref={(el) => {
-                            fileInputRefs.current[doc.key] = el
+                            fileInputRefs.current[uiKey] = el
                           }}
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0]
-                            if (file) handleFileUpload(doc.key, file)
+                            if (file) handleFileUpload(doc.key, block.subject.id, file)
                             e.target.value = ''
                           }}
                         />
@@ -375,8 +430,8 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                           <Button
                             variant={isCompleted ? 'outline' : 'default'}
                             size="sm"
-                            disabled={uploadingKey === doc.key}
-                            onClick={() => fileInputRefs.current[doc.key]?.click()}
+                            disabled={uploadingKey === uiKey}
+                            onClick={() => fileInputRefs.current[uiKey]?.click()}
                             className={cn(
                               'h-9 shrink-0',
                               isCompleted
@@ -384,7 +439,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                                 : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
                             )}
                           >
-                            {uploadingKey === doc.key ? (
+                            {uploadingKey === uiKey ? (
                               <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
                             ) : isCompleted ? (
                               <RefreshCw className="w-3.5 h-3.5 mr-1" />
@@ -396,8 +451,8 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                         )}
                       </div>
                     </div>
-                    {errors[doc.key] && (
-                      <p className="text-xs text-brand-critical mt-2 md:ml-8">{errors[doc.key]}</p>
+                    {errors[uiKey] && (
+                      <p className="text-xs text-brand-critical mt-2 md:ml-8">{errors[uiKey]}</p>
                     )}
                   </div>
                 )

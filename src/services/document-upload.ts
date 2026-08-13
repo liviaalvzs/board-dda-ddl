@@ -49,12 +49,16 @@ export async function uploadDocument(
   documentKey: string,
   file: File,
   clusterSerial: string,
+  subjectId: string = '',
 ): Promise<any> {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('land_code', clusterSerial || landId)
   formData.append('document_key', documentKey)
   formData.append('land_id', landId)
+  // O hook usa o sujeito para achar o registro certo e para compor a chave no
+  // S3 — sem ele, dois proprietários sobrescreveriam o arquivo um do outro.
+  formData.append('subject_id', subjectId)
 
   return pb.send('/backend/v1/proxy-upload', {
     method: 'POST',

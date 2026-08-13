@@ -1,16 +1,24 @@
 import { useState, useRef } from 'react'
-import { FileText, Loader2, Check, Upload } from 'lucide-react'
+import { FileText, Loader2, Check, Upload, User, FileStack } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { uploadDocument } from '@/services/document-upload'
 import type { DocumentType } from '@/services/app-settings'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
+import { instanceKey } from '@/lib/document-groups'
+
+export interface PendingInstance {
+  doc: DocumentType
+  subjectId: string
+  subjectLabel: string
+}
 
 interface BulkUploadModalProps {
   open: boolean
   onClose: () => void
-  pendingDocs: DocumentType[]
+  /** Instâncias pendentes: o mesmo tipo pode aparecer para vários sujeitos. */
+  pendingInstances: PendingInstance[]
   landId: string
   clusterSerial: string
   onComplete: () => void
@@ -19,18 +27,22 @@ interface BulkUploadModalProps {
 export function BulkUploadModal({
   open,
   onClose,
-  pendingDocs,
+  pendingInstances,
   landId,
   clusterSerial,
   onComplete,
 }: BulkUploadModalProps) {
-  const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({})
+  // Indexado por instância, não por tipo: com dois proprietários, o mesmo
+  // documento aparece duas vezes e a chave crua sobrescreveria um pelo outro.
+  const [selectedFiles, setSelectedFiles] = useState<
+    Record<string, { file: File; documentKey: string; subjectId: string }>
+  >({})
   const [uploading, setUploading] = useState(false)
   const { toast } = useToast()
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
-  const handleFileSelect = (key: string, file: File) => {
-    setSelectedFiles((prev) => ({ ...prev, [key]: file }))
+  const handleFileSelect = (uiKey: string, documentKey: string, subjectId: string, file: File) => {
+    setSelectedFiles((prev) => ({ ...prev, [uiKey]: { file, documentKey, subjectId } }))
   }
 
   const handleUpload = async () => {
@@ -40,10 +52,12 @@ export function BulkUploadModal({
     try {
       console.log('[DocumentUpload] BulkUploadModal: starting bulk upload', {
         landId,
-        entries: entries.map(([key, file]) => ({ key, fileName: file.name })),
+        entries: entries.map(([uiKey, entry]) => ({ uiKey, fileName: entry.file.name })),
       })
       await Promise.all(
-        entries.map(([key, file]) => uploadDocument(landId, key, file, clusterSerial)),
+        entries.map(([, entry]) =>
+          uploadDocument(landId, entry.documentKey, entry.file, clusterSerial, entry.subjectId),
+        ),
       )
       console.log('[DocumentUpload] BulkUploadModal: all uploads succeeded', {
         count: entries.length,
@@ -74,44 +88,54 @@ export function BulkUploadModal({
           <DialogTitle className="text-brand-primary">Enviar documentos pendentes</DialogTitle>
         </DialogHeader>
         <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-          {pendingDocs.map((doc) => {
-            const file = selectedFiles[doc.key]
+          {pendingInstances.map(({ doc, subjectId, subjectLabel }) => {
+            const uiKey = instanceKey(doc.key, subjectId)
+            const entry = selectedFiles[uiKey]
+            const SubjectIcon = doc.category === 'Imóvel' ? FileStack : User
             return (
               <div
-                key={doc.key}
+                key={uiKey}
                 className="flex items-center gap-3 p-3 rounded-lg border border-brand-primary/10"
               >
                 <FileText className="w-4 h-4 text-amber-500 shrink-0" />
-                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  <span className="text-sm font-medium text-brand-primary truncate">
-                    {doc.label}
+                <div className="flex flex-col flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm font-medium text-brand-primary truncate">
+                      {doc.label}
+                    </span>
+                    <DocumentInfo label={doc.label} description={doc.description} />
+                  </div>
+                  {/* Sem o sujeito não dá para saber de qual proprietário ou
+                      matrícula é a linha — o nome do documento se repete. */}
+                  <span className="mt-0.5 flex items-center gap-1 text-[11px] text-brand-primary/50">
+                    <SubjectIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{subjectLabel}</span>
                   </span>
-                  <DocumentInfo label={doc.label} description={doc.description} />
                 </div>
                 <input
                   ref={(el) => {
-                    fileInputRefs.current[doc.key] = el
+                    fileInputRefs.current[uiKey] = el
                   }}
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
-                    if (f) handleFileSelect(doc.key, f)
+                    if (f) handleFileSelect(uiKey, doc.key, subjectId, f)
                     e.target.value = ''
                   }}
                 />
                 <Button
-                  variant={file ? 'outline' : 'secondary'}
+                  variant={entry ? 'outline' : 'secondary'}
                   size="sm"
                   disabled={uploading}
-                  onClick={() => fileInputRefs.current[doc.key]?.click()}
+                  onClick={() => fileInputRefs.current[uiKey]?.click()}
                   className="min-h-[44px] h-9"
                 >
-                  {file ? (
+                  {entry ? (
                     <>
                       <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" />
-                      <span className="text-xs truncate max-w-[80px]">{file.name}</span>
+                      <span className="text-xs truncate max-w-[80px]">{entry.file.name}</span>
                     </>
                   ) : (
                     <>

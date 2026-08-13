@@ -154,6 +154,9 @@ routerAdd(
     var landId = String(body.land_id || body.landId || '').trim()
     var documentKey = String(body.document_key || body.documentKey || '').trim()
     var landCode = String(body.land_code || body.landCode || body.clusterSerial || '').trim()
+    // Proprietário ou matrícula a que este envio pertence. Vazio = terra sem
+    // sujeitos cadastrados, o comportamento anterior à multiplicação.
+    var subjectId = String(body.subject_id || body.subjectId || '').trim()
 
     if (!landId) return e.badRequestError('landId é obrigatório')
     if (!documentKey) return e.badRequestError('documentKey é obrigatório')
@@ -196,6 +199,8 @@ routerAdd(
           landId.replace(/"/g, '\\"') +
           '" && document_key = "' +
           documentKey.replace(/"/g, '\\"') +
+          '" && subject_id = "' +
+          subjectId.replace(/"/g, '\\"') +
           '"',
       )
       wasCompleted =
@@ -209,6 +214,7 @@ routerAdd(
       record = new Record(checksCol)
       record.set('land_id', landId)
       record.set('document_key', documentKey)
+      record.set('subject_id', subjectId)
       record.set('is_completed', false)
     }
 
@@ -279,13 +285,31 @@ routerAdd(
       $app.logger().warn('proxy-upload: document_type não encontrado', 'key', documentKey)
     }
 
+    // O sujeito entra no nome do arquivo. Sem isso, dois proprietários (ou duas
+    // matrículas) enviando o mesmo tipo de documento gerariam a MESMA chave: o
+    // segundo envio seria tratado como substituição e arquivaria o primeiro
+    // como " OLD", com a pessoa achando que tem os dois.
+    var subjectLabel = ''
+    if (subjectId) {
+      try {
+        subjectLabel = $app.findRecordById('land_subjects', subjectId).getString('label') || ''
+      } catch (_) {
+        $app.logger().warn('proxy-upload: sujeito não encontrado', 'subject_id', subjectId)
+      }
+    }
+
     // A chave do arquivo ATUAL não leva extensão de propósito: assim uma
     // substituição por outro tipo (PNG -> PDF) sobrescreve exatamente a mesma
     // chave, em vez de criar uma segunda e deixar a antiga órfã. Sem permissão
     // de exclusão no bucket, essa é a única forma de não acumular resíduo.
     // O tipo real fica no Content-Type e em document_checks.file_ext.
+    //
+    // Sem sujeito, a chave é exatamente a de antes — nenhum arquivo já enviado
+    // muda de lugar.
     var safeLandCode = landCode.replace(/[^a-zA-Z0-9._-]/g, '_')
-    var safeFilename = sanitizeFilename(docName + ' - ' + landCode)
+    var safeFilename = sanitizeFilename(
+      docName + ' - ' + landCode + (subjectLabel ? ' - ' + subjectLabel : ''),
+    )
     var s3Key =
       'transient/skip-applications/due_dilligence_control/documents/' +
       safeLandCode +

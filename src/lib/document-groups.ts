@@ -29,6 +29,72 @@ export const OWNER_TYPE_LABEL: Record<'pf' | 'pj', string> = {
   pj: 'Pessoa Jurídica',
 }
 
+// ── Sujeitos ────────────────────────────────────────────────────────────────
+
+/**
+ * Proprietário ou matrícula. Uma terra tem N de cada, e cada um exige a sua
+ * própria via dos documentos do seu escopo.
+ */
+export type SubjectKind = 'owner' | 'matricula'
+
+export interface LandSubject {
+  id: string
+  land_id: string
+  kind: SubjectKind
+  label: string
+  owner_type?: OwnerType
+  sort_order?: number
+}
+
+export const SUBJECT_KIND_LABEL: Record<SubjectKind, string> = {
+  owner: 'Proprietário',
+  matricula: 'Matrícula',
+}
+
+/**
+ * De quem é o documento: das pessoas ou do imóvel.
+ *
+ * Fixo por categoria, por decisão de produto. PF e PJ são do proprietário; o
+ * resto (Imóvel, Certidões Ambientais e Fiscais) acompanha a matrícula.
+ */
+export function getSubjectKindForCategory(category: string | undefined): SubjectKind {
+  return category === PF_CATEGORY || category === PJ_CATEGORY ? 'owner' : 'matricula'
+}
+
+/**
+ * Sujeitos de um tipo, já ordenados. Terra sem nenhum cadastrado devolve um
+ * sujeito implícito de id vazio, que reproduz exatamente o comportamento
+ * anterior à multiplicação — sem isso todo card do board zeraria no deploy.
+ */
+export function subjectsOfKind(
+  subjects: LandSubject[],
+  kind: SubjectKind,
+  fallbackOwnerType: OwnerType = '',
+): LandSubject[] {
+  const matching = subjects
+    .filter((s) => s.kind === kind)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.label.localeCompare(b.label))
+
+  if (matching.length > 0) return matching
+
+  return [
+    {
+      id: '',
+      land_id: '',
+      kind,
+      label: kind === 'owner' ? 'Proprietário' : 'Matrícula',
+      owner_type: kind === 'owner' ? fallbackOwnerType : '',
+    },
+  ]
+}
+
+/** Chave de uma instância de documento: o tipo dentro de um sujeito. */
+export function instanceKey(documentKey: string, subjectId: string): string {
+  return `${documentKey}::${subjectId}`
+}
+
+// ── Exclusões ───────────────────────────────────────────────────────────────
+
 /**
  * Por que um documento não conta — ou `null` se ele conta.
  *
@@ -37,6 +103,10 @@ export const OWNER_TYPE_LABEL: Record<'pf' | 'pj', string> = {
  */
 export type ExclusionReason = 'owner-type' | 'manual'
 
+/**
+ * O tipo de proprietário agora é de cada um, não da terra: um co-proprietário
+ * pessoa física e outro empresa recebem listas diferentes na mesma terra.
+ */
 export function getExclusionReason(
   category: string | undefined,
   ownerType: OwnerType,
@@ -59,6 +129,8 @@ export function getExclusionLabel(
   }
   return 'Dispensado'
 }
+
+// ── Grupos de progresso ─────────────────────────────────────────────────────
 
 export const DOCUMENT_GROUP_LABEL: Record<DocumentGroupId, string> = {
   basicos: 'Documentos básicos',
@@ -93,26 +165,35 @@ export function emptyDocumentProgress(): DocumentProgress {
 }
 
 /**
- * Progresso por grupo, contando só o que é exigido daquela terra.
+ * Progresso por grupo, contando **instâncias** — cada tipo de documento vezes
+ * cada sujeito do seu escopo.
  *
- * Fonte única do cálculo: card do board e aba Documentos chamam esta função,
- * então os dois números nunca divergem.
+ * Fonte única do cálculo: card do board, aba Documentos da terra e página
+ * /documents chamam esta função, então os três números nunca divergem.
+ *
+ * As chaves de `completedKeys` e `notApplicableKeys` são compostas por
+ * `instanceKey(documentKey, subjectId)`.
  */
 export function computeDocumentProgress(
   docTypes: DocumentType[],
-  ownerType: OwnerType,
+  subjects: LandSubject[],
+  fallbackOwnerType: OwnerType,
   completedKeys: ReadonlySet<string>,
   notApplicableKeys: ReadonlySet<string>,
 ): DocumentProgress {
   const progress = emptyDocumentProgress()
 
   for (const type of docTypes) {
-    const excluded = getExclusionReason(type.category, ownerType, notApplicableKeys.has(type.key))
-    if (excluded) continue
+    const kind = getSubjectKindForCategory(type.category)
+    for (const subject of subjectsOfKind(subjects, kind, fallbackOwnerType)) {
+      const key = instanceKey(type.key, subject.id)
+      const ownerType = (subject.owner_type || fallbackOwnerType) as OwnerType
+      if (getExclusionReason(type.category, ownerType, notApplicableKeys.has(key))) continue
 
-    const group = getDocumentGroup(type.category)
-    progress[group].total++
-    if (completedKeys.has(type.key)) progress[group].completed++
+      const group = getDocumentGroup(type.category)
+      progress[group].total++
+      if (completedKeys.has(key)) progress[group].completed++
+    }
   }
 
   return progress

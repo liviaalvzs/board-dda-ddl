@@ -37,11 +37,14 @@ export async function setDocumentNotApplicable(
   landId: string,
   documentKey: string,
   notApplicable: boolean,
+  subjectId: string = '',
 ) {
   try {
     const existing = await pb
       .collection('document_checks')
-      .getFirstListItem(`land_id = "${landId}" && document_key = "${documentKey}"`)
+      .getFirstListItem(
+        `land_id = "${landId}" && document_key = "${documentKey}" && subject_id = "${subjectId}"`,
+      )
     return await pb
       .collection('document_checks')
       .update(existing.id, { not_applicable: notApplicable })
@@ -49,6 +52,7 @@ export async function setDocumentNotApplicable(
     return await pb.collection('document_checks').create({
       land_id: landId,
       document_key: documentKey,
+      subject_id: subjectId,
       not_applicable: notApplicable,
       is_completed: false,
       user: pb.authStore.record?.id || '',
