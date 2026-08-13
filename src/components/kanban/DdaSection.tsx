@@ -24,10 +24,10 @@ export function DdaSection({ metadata, externalId, onUpdated }: DdaSectionProps)
   const flag = calculateDdaFlag(plannedDate, actualDate)
 
   return (
-    <div className="bg-white p-5 rounded-xl border border-emerald-200/70 shadow-sm space-y-5 md:col-span-2">
-      <div className="flex items-center justify-between gap-3 border-b border-emerald-100 pb-3">
+    <div className="bg-emerald-50/40 p-5 rounded-xl border-2 border-emerald-300 shadow-sm space-y-5 md:col-span-2 ring-1 ring-emerald-200/50">
+      <div className="flex items-center justify-between gap-3 border-b border-emerald-200 pb-3">
         <h3 className="font-display text-[22px] font-light text-brand-primary flex items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-emerald-300/60">
             <Leaf className="h-4 w-4 text-emerald-700" />
           </span>
           Diligência Ambiental
