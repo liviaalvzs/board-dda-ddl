@@ -16,9 +16,8 @@ migrate(
       lands.fields.add(
         new SelectField({
           name: 'owner_type',
-          required: false,
-          maxSelect: 1,
           values: ['pf', 'pj'],
+          maxSelect: 1,
         }),
       )
     }
@@ -26,21 +25,25 @@ migrate(
 
     const checks = app.findCollectionByNameOrId('document_checks')
     if (!checks.fields.getByName('not_applicable')) {
-      checks.fields.add(new BoolField({ name: 'not_applicable', required: false }))
+      checks.fields.add(new BoolField({ name: 'not_applicable' }))
     }
     app.save(checks)
   },
   (app) => {
-    const lands = app.findCollectionByNameOrId('land_metadata')
     try {
-      lands.fields.removeByName('owner_type')
+      const lands = app.findCollectionByNameOrId('land_metadata')
+      if (lands.fields.getByName('owner_type')) {
+        lands.fields.removeByName('owner_type')
+      }
+      app.save(lands)
     } catch (_) {}
-    app.save(lands)
 
-    const checks = app.findCollectionByNameOrId('document_checks')
     try {
-      checks.fields.removeByName('not_applicable')
+      const checks = app.findCollectionByNameOrId('document_checks')
+      if (checks.fields.getByName('not_applicable')) {
+        checks.fields.removeByName('not_applicable')
+      }
+      app.save(checks)
     } catch (_) {}
-    app.save(checks)
   },
 )
