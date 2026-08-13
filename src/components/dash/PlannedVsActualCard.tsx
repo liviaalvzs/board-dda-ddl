@@ -9,6 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { calculateStageDelays, type StageDelayData } from '@/lib/dash-utils'
 import { CHART_MAGNITUDE, CHART_POSITIVE, CHART_NEGATIVE, deviationColor } from '@/lib/chart-colors'
+import { DASH_CARD_CLASS, DASH_TILE_CLASS } from '@/components/dash/dash-chrome'
 
 const deviationConfig = {
   averageDelay: { label: 'Desvio (dias)', color: CHART_NEGATIVE },
@@ -24,9 +25,9 @@ function StageDetail({ stage }: { stage: StageDelayData }) {
   const sign = value > 0 ? '+' : ''
 
   return (
-    <div className="rounded-lg border p-3">
+    <div className={DASH_TILE_CLASS}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{stage.label}</span>
+        <span className="text-sm font-medium text-brand-primary">{stage.label}</span>
         <span
           className="text-sm font-bold"
           style={{ color: isDeviation ? deviationColor(value) : undefined }}
@@ -34,10 +35,10 @@ function StageDetail({ stage }: { stage: StageDelayData }) {
           {isDeviation ? `${sign}${value}d` : `${value}d`}
         </span>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="mt-1 text-xs text-brand-primary/50">
         {stage.plannedLabel} → {stage.actualLabel}
       </p>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-brand-primary/50">
         <span>{stage.count} terras</span>
         <span>·</span>
         <span>mediana {stage.medianDelay}d</span>
@@ -66,10 +67,12 @@ export function PlannedVsActualCard({ lands }: { lands: unknown }) {
   const hasData = stages.some((s) => s.count > 0)
 
   return (
-    <Card>
+    <Card className={DASH_CARD_CLASS}>
       <CardHeader>
-        <CardTitle>Previsto × Realizado</CardTitle>
-        <CardDescription>
+        <CardTitle className="font-display text-lg font-light text-brand-primary">
+          Previsto × Realizado
+        </CardTitle>
+        <CardDescription className="text-brand-primary/55">
           Comparação entre as datas informadas no board. Diligência (DDL) e DDA têm data estimada de
           recebimento, então a diferença é desvio de prazo: negativo quer dizer concluído antes do
           previsto.
@@ -77,15 +80,17 @@ export function PlannedVsActualCard({ lands }: { lands: unknown }) {
       </CardHeader>
       <CardContent className="space-y-6">
         {!hasData ? (
-          <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-brand-primary/15 text-sm text-brand-primary/50">
             Nenhuma terra com as duas datas preenchidas.
           </div>
         ) : (
           <>
             <section className="space-y-3">
               <div>
-                <h3 className="text-sm font-semibold">Desvio do prazo estimado</h3>
-                <p className="text-xs text-muted-foreground">
+                <h3 className="text-sm font-semibold text-brand-primary">
+                  Desvio do prazo estimado
+                </h3>
+                <p className="text-xs text-brand-primary/50">
                   Negativo = concluído antes do estimado · positivo = depois
                 </p>
               </div>
@@ -99,6 +104,9 @@ export function PlannedVsActualCard({ lands }: { lands: unknown }) {
                   <YAxis type="category" dataKey="label" width={120} fontSize={12} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ReferenceLine x={0} stroke="hsl(var(--border))" />
+                  {/* Radius simétrico de propósito: aqui a barra cresce para os
+                      dois lados do zero, então não há uma "ponta" fixa que o
+                      arredondamento possa seguir. */}
                   <Bar dataKey="averageDelay" radius={4} barSize={18}>
                     {deviationChart.map((d, i) => (
                       <Cell key={i} fill={deviationColor(d.averageDelay)} />
@@ -123,11 +131,11 @@ export function PlannedVsActualCard({ lands }: { lands: unknown }) {
             {leadTimes.length > 0 && (
               <section className="space-y-3">
                 <div>
-                  <h3 className="text-sm font-semibold">Tempo de resposta</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <h3 className="text-sm font-semibold text-brand-primary">Tempo de resposta</h3>
+                  <p className="text-xs text-brand-primary/50">
                     Dias entre o pedido e o recebimento — quanto menor, melhor
                   </p>
-                </div>
+                </div>{' '}
                 <ChartContainer config={leadTimeConfig} className="h-[120px] w-full">
                   <BarChart
                     data={leadTimeChart}
@@ -137,7 +145,12 @@ export function PlannedVsActualCard({ lands }: { lands: unknown }) {
                     <XAxis type="number" tickFormatter={(v) => `${v}d`} fontSize={12} />
                     <YAxis type="category" dataKey="label" width={120} fontSize={12} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="averageDelay" fill={CHART_MAGNITUDE} radius={4} barSize={18}>
+                    <Bar
+                      dataKey="averageDelay"
+                      fill={CHART_MAGNITUDE}
+                      radius={[0, 4, 4, 0]}
+                      barSize={18}
+                    >
                       <LabelList
                         dataKey="averageDelay"
                         position="right"

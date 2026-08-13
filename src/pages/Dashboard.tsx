@@ -15,16 +15,22 @@ import {
   calculateStageAverageTime,
   calculateStatusDistribution,
 } from '@/lib/dash-utils'
-import { AlertTriangle, CheckCircle2, Layers, Timer } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Layers, Timer, MapPin } from 'lucide-react'
 import { StageTimeChart } from '@/components/dash/StageTimeChart'
 import { PlannedVsActualCard } from '@/components/dash/PlannedVsActualCard'
 import { StageRankingTable } from '@/components/dash/StageRankingTable'
 import { CHART_MAGNITUDE, CHART_POSITIVE, CHART_NEGATIVE } from '@/lib/chart-colors'
+import { DASH_CARD_CLASS, SectionHeader } from '@/components/dash/dash-chrome'
 
 const statusConfig = {
   count: { label: 'Terras', color: CHART_MAGNITUDE },
 } satisfies ChartConfig
 
+/**
+ * Stat tile: rótulo, valor e uma dica de contexto. O valor usa a display da
+ * marca com figuras proporcionais — `tabular-nums` fica reservado às colunas
+ * de número que precisam alinhar na vertical (ver a tabela de ranking).
+ */
 function KpiCard({
   title,
   value,
@@ -39,16 +45,23 @@ function KpiCard({
   valueColor?: string
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold" style={valueColor ? { color: valueColor } : undefined}>
+    <Card className={DASH_CARD_CLASS}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-brand-primary/50">
+            {title}
+          </span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-secondary/10">
+            <Icon className="h-4 w-4 text-brand-primary" />
+          </span>
+        </div>
+        <div
+          className="mt-4 font-display text-[34px] font-light leading-none text-brand-primary"
+          style={valueColor ? { color: valueColor } : undefined}
+        >
           {value}
         </div>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        {hint && <p className="mt-2 text-xs leading-relaxed text-brand-primary/50">{hint}</p>}
       </CardContent>
     </Card>
   )
@@ -97,15 +110,17 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 md:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
+      <div className="h-full overflow-y-auto bg-brand-background/50 p-4 md:p-6">
+        <div className="mx-auto max-w-6xl space-y-8">
+          <Skeleton className="h-9 w-48 rounded-xl" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-2xl" />
+            ))}
+          </div>
+          <Skeleton className="h-72 rounded-2xl" />
+          <Skeleton className="h-72 rounded-2xl" />
         </div>
-        <Skeleton className="h-72" />
-        <Skeleton className="h-72" />
       </div>
     )
   }
@@ -113,20 +128,22 @@ export default function Dashboard() {
   const statusChart = statusDist.map((s) => ({ label: s.label, count: s.count }))
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-6">
-      <div className="mx-auto max-w-6xl space-y-8">
+    <div className="h-full overflow-y-auto bg-brand-background/50 p-4 md:p-6">
+      <div className="mx-auto max-w-6xl space-y-10">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Visão geral das diligências</p>
+          <h1 className="font-display text-[32px] font-light leading-tight text-brand-primary">
+            Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-brand-primary/60">
+            Visão geral das diligências em andamento
+          </p>
         </div>
 
         {/* Panorama */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Panorama
-          </h2>
+        <section className="space-y-4">
+          <SectionHeader title="Panorama" description="Os números do processo hoje" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard title="Total de terras" value={lands.length} icon={Layers} />
+            <KpiCard title="Total de terras" value={lands.length} icon={MapPin} />
             <KpiCard
               title="No board"
               value={kpis.inProgress}
@@ -159,35 +176,36 @@ export default function Dashboard() {
         </section>
 
         {/* Tempo */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Tempo no processo
-          </h2>
+        <section className="space-y-4">
+          <SectionHeader
+            title="Tempo no processo"
+            description="Quanto tempo as terras levam em cada etapa"
+          />
           <StageTimeChart lands={lands} />
           <StageRankingTable lands={lands} />
         </section>
 
         {/* Prazos */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Prazos
-          </h2>
+        <section className="space-y-4">
+          <SectionHeader title="Prazos" description="O previsto contra o que aconteceu" />
           <PlannedVsActualCard lands={lands} />
         </section>
 
         {/* Distribuição */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Distribuição
-          </h2>
-          <Card>
+        <section className="space-y-4">
+          <SectionHeader title="Distribuição" description="Onde as terras estão paradas" />
+          <Card className={DASH_CARD_CLASS}>
             <CardHeader>
-              <CardTitle>Terras por etapa</CardTitle>
-              <CardDescription>Quantas terras estão em cada coluna do board</CardDescription>
+              <CardTitle className="font-display text-lg font-light text-brand-primary">
+                Terras por etapa
+              </CardTitle>
+              <CardDescription className="text-brand-primary/55">
+                Quantas terras estão em cada coluna do board
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {statusChart.length === 0 ? (
-                <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
+                <div className="flex h-[280px] items-center justify-center rounded-xl border border-dashed border-brand-primary/15 text-sm text-brand-primary/50">
                   Sem dados de etapa disponíveis
                 </div>
               ) : (
@@ -206,7 +224,9 @@ export default function Dashboard() {
                       tickFormatter={(v: string) => (v.length > 28 ? v.slice(0, 28) + '…' : v)}
                     />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="count" fill={CHART_MAGNITUDE} radius={4} barSize={18}>
+                    {/* Canto arredondado só na ponta do dado; a base fica reta
+                        sobre a linha de origem. */}
+                    <Bar dataKey="count" fill={CHART_MAGNITUDE} radius={[0, 4, 4, 0]} barSize={18}>
                       <LabelList
                         dataKey="count"
                         position="right"
