@@ -20,7 +20,7 @@ import { StageTimeChart } from '@/components/dash/StageTimeChart'
 import { PlannedVsActualCard } from '@/components/dash/PlannedVsActualCard'
 import { StageRankingTable } from '@/components/dash/StageRankingTable'
 import { CHART_MAGNITUDE, CHART_POSITIVE, CHART_NEGATIVE } from '@/lib/chart-colors'
-import { DASH_CARD_CLASS, SectionHeader } from '@/components/dash/dash-chrome'
+import { DASH_CARD_CLASS, DashSection } from '@/components/dash/dash-chrome'
 
 const statusConfig = {
   count: { label: 'Terras', color: CHART_MAGNITUDE },
@@ -140,8 +140,7 @@ export default function Dashboard() {
         </div>
 
         {/* Panorama */}
-        <section className="space-y-4">
-          <SectionHeader title="Panorama" description="Os números do processo hoje" />
+        <DashSection title="Panorama" description="Os números do processo hoje">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard title="Total de terras" value={lands.length} icon={MapPin} />
             <KpiCard
@@ -173,27 +172,24 @@ export default function Dashboard() {
               />
             )}
           </div>
-        </section>
+        </DashSection>
 
         {/* Tempo */}
-        <section className="space-y-4">
-          <SectionHeader
-            title="Tempo no processo"
-            description="Quanto tempo as terras levam em cada etapa"
-          />
+        <DashSection
+          title="Tempo no processo"
+          description="Quanto tempo as terras levam em cada etapa"
+        >
           <StageTimeChart lands={lands} />
           <StageRankingTable lands={lands} />
-        </section>
+        </DashSection>
 
         {/* Prazos */}
-        <section className="space-y-4">
-          <SectionHeader title="Prazos" description="O previsto contra o que aconteceu" />
+        <DashSection title="Prazos" description="O previsto contra o que aconteceu">
           <PlannedVsActualCard lands={lands} />
-        </section>
+        </DashSection>
 
         {/* Distribuição */}
-        <section className="space-y-4">
-          <SectionHeader title="Distribuição" description="Onde as terras estão paradas" />
+        <DashSection title="Distribuição" description="Onde as terras estão paradas">
           <Card className={DASH_CARD_CLASS}>
             <CardHeader>
               <CardTitle className="font-display text-lg font-light text-brand-primary">
@@ -239,7 +235,7 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-        </section>
+        </DashSection>
       </div>
     </div>
   )
