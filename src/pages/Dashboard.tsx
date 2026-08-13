@@ -110,7 +110,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="h-full overflow-y-auto bg-brand-background/50 p-4 md:p-6">
+      <div className="h-full overflow-y-auto bg-white p-4 md:p-6">
         <div className="mx-auto max-w-6xl space-y-8">
           <Skeleton className="h-9 w-48 rounded-xl" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -128,7 +128,7 @@ export default function Dashboard() {
   const statusChart = statusDist.map((s) => ({ label: s.label, count: s.count }))
 
   return (
-    <div className="h-full overflow-y-auto bg-brand-background/50 p-4 md:p-6">
+    <div className="h-full overflow-y-auto bg-white p-4 md:p-6">
       <div className="mx-auto max-w-6xl space-y-10">
         <div>
           <h1 className="font-display text-[32px] font-light leading-tight text-brand-primary">
