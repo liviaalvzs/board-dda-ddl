@@ -12,10 +12,8 @@ export interface LandMetadataUpsertParams {
   clusterSerial?: string | null
   name?: string | null
   dataAssinaturaCartaProposta?: string | null
-  dataPedidoInicioDdl?: string | null
-  dataRecebimentoPreliminarDdm?: string | null
-  dataEstimadaRecebimentoDdlConclusiva?: string | null
-  dataRecebimentoDdConclusiva?: string | null
+  dataEstimadaDdl?: string | null
+  dataRecebimentoDdl?: string | null
   dataPedidoDda?: string | null
   dataRecebimentoDda?: string | null
   prestadorDda?: string | null
@@ -56,18 +54,11 @@ function buildPayload(data: Partial<LandMetadataUpsertParams>): Record<string, a
   if (data.dataAssinaturaCartaProposta !== undefined) {
     payload.data_assinatura_carta_proposta = data.dataAssinaturaCartaProposta || null
   }
-  if (data.dataPedidoInicioDdl !== undefined) {
-    payload.data_pedido_inicio_ddl = data.dataPedidoInicioDdl || null
+  if (data.dataEstimadaDdl !== undefined) {
+    payload.data_estimada_ddl = data.dataEstimadaDdl || null
   }
-  if (data.dataRecebimentoPreliminarDdm !== undefined) {
-    payload.data_recebimento_preliminar_ddm = data.dataRecebimentoPreliminarDdm || null
-  }
-  if (data.dataEstimadaRecebimentoDdlConclusiva !== undefined) {
-    payload.data_estimada_recebimento_ddl_conclusiva =
-      data.dataEstimadaRecebimentoDdlConclusiva || null
-  }
-  if (data.dataRecebimentoDdConclusiva !== undefined) {
-    payload.data_recebimento_dd_conclusiva = data.dataRecebimentoDdConclusiva || null
+  if (data.dataRecebimentoDdl !== undefined) {
+    payload.data_recebimento_ddl = data.dataRecebimentoDdl || null
   }
   if (data.dataPedidoDda !== undefined) {
     payload.data_pedido_dda = data.dataPedidoDda || null

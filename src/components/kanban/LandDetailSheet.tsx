@@ -41,6 +41,7 @@ import { OfficeSelector } from '@/components/kanban/OfficeSelector'
 import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
 import { ChangeHistoryCard } from '@/components/kanban/ChangeHistoryCard'
 import { DdaSection } from '@/components/kanban/DdaSection'
+import { DdlSection } from '@/components/kanban/DdlSection'
 import { StageDatesSection } from '@/components/kanban/StageDatesSection'
 import { getStatusLabel } from '@/lib/status-mapping'
 
@@ -729,6 +730,12 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                         em @/components/kanban/ProcessDatesSection — para
                         reexibir, basta importar e voltar a renderizar aqui. Os
                         campos de data continuam no banco, intactos. */}
+                    <DdlSection
+                      metadata={metadata}
+                      externalId={effectiveExternalId}
+                      onUpdated={handleMetadataUpdated}
+                    />
+
                     <DdaSection
                       metadata={metadata}
                       externalId={effectiveExternalId}

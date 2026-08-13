@@ -41,6 +41,27 @@ export function getEditableStages(currentStageId: string | null | undefined) {
   return KANBAN_COLUMNS.slice(0, index + 1)
 }
 
+/** Etapa a partir da qual o bloco de Diligência (DDL) fica editável. */
+export const DDL_UNLOCK_STAGE_ID = 'auditoria-escritorio-externo'
+
+/**
+ * A terra já alcançou `stageId`?
+ *
+ * Verdadeiro se a etapa atual é ela ou uma posterior, ou se há registro de
+ * entrada em alguma etapa igual/posterior — assim uma terra que avançou e
+ * depois voltou para trás continua liberada, já que ela de fato passou por lá.
+ */
+export function hasReachedStage(
+  currentStageId: string | null | undefined,
+  stageDates: unknown,
+  stageId: string,
+): boolean {
+  const target = getStageIndex(stageId)
+  if (target === -1) return false
+  if (getStageIndex(currentStageId) >= target) return true
+  return Object.keys(parseStageDates(stageDates)).some((id) => getStageIndex(id) >= target)
+}
+
 /** Momento em que a terra entrou na etapa atual, se registrado. */
 export function getCurrentStageEntry(
   stageDates: unknown,

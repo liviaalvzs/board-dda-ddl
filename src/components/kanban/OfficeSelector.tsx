@@ -25,6 +25,8 @@ interface OfficeSelectorProps {
   fieldName: 'externalOffices' | 'prestadorDda'
   expandKey: string
   label: string
+  /** Somente leitura: a terra ainda não chegou na etapa que libera o campo. */
+  disabled?: boolean
   onUpdated?: (record: any) => void
 }
 
@@ -39,6 +41,7 @@ export function OfficeSelector({
   fieldName,
   expandKey,
   label,
+  disabled,
   onUpdated,
 }: OfficeSelectorProps) {
   const [open, setOpen] = useState(false)
@@ -175,7 +178,7 @@ export function OfficeSelector({
             variant="ghost"
             size="sm"
             className="h-8 px-2 text-brand-primary/60 hover:text-brand-primary shrink-0"
-            disabled={saving}
+            disabled={saving || disabled}
           >
             <Pencil className="w-3.5 h-3.5" />
             <span className="ml-1 text-xs font-semibold">Editar</span>

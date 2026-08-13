@@ -19,6 +19,8 @@ interface ProcessDateFieldProps {
   externalId: string
   variant: 'planned' | 'actual'
   isPlannedFilled?: boolean
+  /** Somente leitura: a terra ainda não chegou na etapa que libera o campo. */
+  disabled?: boolean
   onUpdated?: (record: any) => void
 }
 
@@ -30,6 +32,7 @@ export function ProcessDateField({
   externalId,
   variant,
   isPlannedFilled,
+  disabled,
   onUpdated,
 }: ProcessDateFieldProps) {
   const { toast } = useToast()
@@ -97,8 +100,9 @@ export function ProcessDateField({
                       isPlannedFilled ? 'border-brand-primary/25' : 'border-brand-primary/10',
                     ),
                 !hasValue && 'text-brand-primary/40',
+                disabled && 'opacity-60',
               )}
-              disabled={saving}
+              disabled={saving || disabled}
             >
               {saving ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -127,7 +131,7 @@ export function ProcessDateField({
             />
           </PopoverContent>
         </Popover>
-        {hasValue && (
+        {hasValue && !disabled && (
           <Button
             variant="ghost"
             size="icon"

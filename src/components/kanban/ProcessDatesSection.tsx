@@ -5,18 +5,12 @@ import { Calendar } from '@/components/ui/calendar'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CalendarIcon, Clock, CheckCircle2, Loader2, X, ArrowRight } from 'lucide-react'
+import { CalendarIcon, Loader2, X } from 'lucide-react'
 import { upsertLandMetadata } from '@/services/land-metadata'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { ProcessDateField } from '@/components/kanban/ProcessDateField'
-import {
-  MARCO_INICIAL,
-  MILESTONES,
-  DATA_SOLICITACAO_DD,
-  parseDateValue,
-  calculateChipStatus,
-} from '@/lib/process-dates-helpers'
+import { MARCO_INICIAL, DATA_SOLICITACAO_DD, parseDateValue } from '@/lib/process-dates-helpers'
 
 interface ProcessDatesSectionProps {
   metadata: any
@@ -24,6 +18,15 @@ interface ProcessDatesSectionProps {
   onUpdated?: (record: any) => void
 }
 
+/**
+ * Marco inicial e solicitação da DD. Hoje não está renderizado em lugar nenhum
+ * — foi ocultado a pedido, e a tela da terra mostra os blocos de Diligência
+ * (DDL) e Diligência Ambiental no lugar. Para reexibir, importar e renderizar
+ * na aba Informações do LandDetailSheet.
+ *
+ * Os pares "DDL preliminar" e "DDL conclusiva" que ficavam aqui saíram na
+ * migration 0058: viraram o par único do bloco de Diligência (DDL).
+ */
 export function ProcessDatesSection({ metadata, externalId, onUpdated }: ProcessDatesSectionProps) {
   const { toast } = useToast()
   const [savingMarco, setSavingMarco] = useState(false)
@@ -151,71 +154,6 @@ export function ProcessDatesSection({ metadata, externalId, onUpdated }: Process
           variant="planned"
           onUpdated={onUpdated}
         />
-      </div>
-
-      <div className="hidden sm:grid grid-cols-[1fr_28px_1fr] gap-0 items-center pb-2 border-b border-brand-primary/10">
-        <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
-          <Clock className="w-3.5 h-3.5" /> Previsto
-        </div>
-        <div />
-        <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
-          <CheckCircle2 className="w-3.5 h-3.5" /> Realizado
-        </div>
-      </div>
-
-      <div>
-        {MILESTONES.map((milestone, index) => {
-          const plannedDate = parseDateValue(metadata?.[milestone.planned.key])
-          const actualDate = parseDateValue(metadata?.[milestone.actual.key])
-          const chip = calculateChipStatus(plannedDate, actualDate)
-
-          return (
-            <div
-              key={milestone.title}
-              className={cn('py-4', index > 0 && 'border-t border-brand-primary/10')}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-brand-primary">{milestone.title}</span>
-                <div aria-live="polite">
-                  {chip && (
-                    <span
-                      className={cn(
-                        'text-[12px] px-[10px] py-[3px] rounded-lg font-medium transition-all',
-                        chip.className,
-                      )}
-                    >
-                      {chip.text}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_28px_1fr] gap-2 sm:gap-0 sm:items-center">
-                <ProcessDateField
-                  field={milestone.planned}
-                  milestoneTitle={milestone.title}
-                  columnLabel="Previsto"
-                  value={metadata?.[milestone.planned.key]}
-                  externalId={externalId}
-                  variant="planned"
-                  onUpdated={onUpdated}
-                />
-                <div className="hidden sm:flex items-center justify-center text-brand-primary/30">
-                  <ArrowRight className="w-4 h-4" />
-                </div>
-                <ProcessDateField
-                  field={milestone.actual}
-                  milestoneTitle={milestone.title}
-                  columnLabel="Realizado"
-                  value={metadata?.[milestone.actual.key]}
-                  externalId={externalId}
-                  variant="actual"
-                  isPlannedFilled={!!plannedDate}
-                  onUpdated={onUpdated}
-                />
-              </div>
-            </div>
-          )
-        })}
       </div>
     </div>
   )

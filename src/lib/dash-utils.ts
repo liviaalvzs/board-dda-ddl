@@ -26,17 +26,9 @@ export interface DelayStageConfig {
 
 export const DELAY_STAGES: DelayStageConfig[] = [
   {
-    label: 'DDL preliminar',
-    plannedKey: 'data_pedido_inicio_ddl',
-    actualKey: 'data_recebimento_preliminar_ddm',
-    plannedLabel: 'Pedido de início',
-    actualLabel: 'Recebimento preliminar',
-    kind: 'leadtime',
-  },
-  {
-    label: 'DDL conclusiva',
-    plannedKey: 'data_estimada_recebimento_ddl_conclusiva',
-    actualKey: 'data_recebimento_dd_conclusiva',
+    label: 'Diligência (DDL)',
+    plannedKey: 'data_estimada_ddl',
+    actualKey: 'data_recebimento_ddl',
     plannedLabel: 'Recebimento estimado',
     actualLabel: 'Recebimento efetivo',
     kind: 'deviation',

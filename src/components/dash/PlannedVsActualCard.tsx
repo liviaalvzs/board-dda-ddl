@@ -70,9 +70,9 @@ export function PlannedVsActualCard({ lands }: { lands: unknown }) {
       <CardHeader>
         <CardTitle>Previsto × Realizado</CardTitle>
         <CardDescription>
-          Comparação entre as datas informadas no board. DDL conclusiva e DDA têm data estimada de
-          conclusão, então a diferença é desvio de prazo. Na DDL preliminar a referência é a data do
-          pedido, então ali a diferença mede tempo de resposta, não atraso.
+          Comparação entre as datas informadas no board. Diligência (DDL) e DDA têm data estimada de
+          recebimento, então a diferença é desvio de prazo: negativo quer dizer concluído antes do
+          previsto.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -120,39 +120,41 @@ export function PlannedVsActualCard({ lands }: { lands: unknown }) {
               </div>
             </section>
 
-            <section className="space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold">Tempo de resposta</h3>
-                <p className="text-xs text-muted-foreground">
-                  Dias entre o pedido e o recebimento — quanto menor, melhor
-                </p>
-              </div>
-              <ChartContainer config={leadTimeConfig} className="h-[120px] w-full">
-                <BarChart
-                  data={leadTimeChart}
-                  layout="vertical"
-                  margin={{ left: 10, right: 44, top: 4, bottom: 4 }}
-                >
-                  <XAxis type="number" tickFormatter={(v) => `${v}d`} fontSize={12} />
-                  <YAxis type="category" dataKey="label" width={120} fontSize={12} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="averageDelay" fill={CHART_MAGNITUDE} radius={4} barSize={18}>
-                    <LabelList
-                      dataKey="averageDelay"
-                      position="right"
-                      className="fill-foreground"
-                      fontSize={12}
-                      formatter={(v: number) => `${v}d`}
-                    />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {leadTimes.map((s) => (
-                  <StageDetail key={s.label} stage={s} />
-                ))}
-              </div>
-            </section>
+            {leadTimes.length > 0 && (
+              <section className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Tempo de resposta</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Dias entre o pedido e o recebimento — quanto menor, melhor
+                  </p>
+                </div>
+                <ChartContainer config={leadTimeConfig} className="h-[120px] w-full">
+                  <BarChart
+                    data={leadTimeChart}
+                    layout="vertical"
+                    margin={{ left: 10, right: 44, top: 4, bottom: 4 }}
+                  >
+                    <XAxis type="number" tickFormatter={(v) => `${v}d`} fontSize={12} />
+                    <YAxis type="category" dataKey="label" width={120} fontSize={12} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="averageDelay" fill={CHART_MAGNITUDE} radius={4} barSize={18}>
+                      <LabelList
+                        dataKey="averageDelay"
+                        position="right"
+                        className="fill-foreground"
+                        fontSize={12}
+                        formatter={(v: number) => `${v}d`}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {leadTimes.map((s) => (
+                    <StageDetail key={s.label} stage={s} />
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </CardContent>

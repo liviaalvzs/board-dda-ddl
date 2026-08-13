@@ -18,30 +18,23 @@ export const MARCO_INICIAL: DateFieldConfig = {
   label: 'Assinatura da carta proposta',
 }
 
-export const MILESTONES: MilestoneConfig[] = [
-  {
-    title: 'DDL preliminar',
-    planned: { key: 'data_pedido_inicio_ddl', param: 'dataPedidoInicioDdl', label: 'Previsto' },
-    actual: {
-      key: 'data_recebimento_preliminar_ddm',
-      param: 'dataRecebimentoPreliminarDdm',
-      label: 'Realizado',
-    },
+/**
+ * Diligência (DDL). Tem bloco próprio na tela da terra, no mesmo formato da
+ * Diligência Ambiental: prestador (o escritório externo) + data estimada de
+ * recebimento + data de recebimento.
+ *
+ * Substituiu os pares "DDL preliminar" e "DDL conclusiva", cujos dados foram
+ * migrados para cá na migration 0058.
+ */
+export const DDL_MILESTONE: MilestoneConfig = {
+  title: 'Diligência (DDL)',
+  planned: { key: 'data_estimada_ddl', param: 'dataEstimadaDdl', label: 'Data estimada' },
+  actual: {
+    key: 'data_recebimento_ddl',
+    param: 'dataRecebimentoDdl',
+    label: 'Data de recebimento',
   },
-  {
-    title: 'DDL conclusiva',
-    planned: {
-      key: 'data_estimada_recebimento_ddl_conclusiva',
-      param: 'dataEstimadaRecebimentoDdlConclusiva',
-      label: 'Previsto',
-    },
-    actual: {
-      key: 'data_recebimento_dd_conclusiva',
-      param: 'dataRecebimentoDdConclusiva',
-      label: 'Realizado',
-    },
-  },
-]
+}
 
 /**
  * Diligência Ambiental. Fica fora de MILESTONES porque tem bloco próprio na
@@ -94,13 +87,18 @@ export function isDdaOverdue(planned: Date | undefined, actual: Date | undefined
 }
 
 /**
- * Sinalização de DDA usada no card do board e no bloco da terra.
- * Sem data estimada, a DDA é considerada não solicitada.
+ * Sinalização de prazo de uma diligência, usada no card do board e no bloco da
+ * terra. `prefix` nomeia a diligência no texto ("DDA", "Diligência").
+ * Sem data estimada, a diligência é considerada não solicitada.
  */
-export function calculateDdaFlag(planned: Date | undefined, actual: Date | undefined): DdaFlag {
+export function calculateDiligenceFlag(
+  planned: Date | undefined,
+  actual: Date | undefined,
+  prefix: string,
+): DdaFlag {
   if (actual) {
     return {
-      text: 'DDA recebida',
+      text: `${prefix} recebida`,
       className: 'bg-emerald-100 text-emerald-800',
       badgeClassName: 'bg-emerald-100 text-emerald-700',
     }
@@ -108,7 +106,7 @@ export function calculateDdaFlag(planned: Date | undefined, actual: Date | undef
 
   if (!planned) {
     return {
-      text: 'DDA não solicitada',
+      text: `${prefix} não solicitada`,
       className: 'bg-slate-100 text-slate-700',
       badgeClassName: 'bg-slate-100 text-slate-600',
     }
@@ -118,7 +116,7 @@ export function calculateDdaFlag(planned: Date | undefined, actual: Date | undef
 
   if (diff > 0) {
     return {
-      text: `DDA em ${diff} ${diff === 1 ? 'dia' : 'dias'}`,
+      text: `${prefix} em ${diff} ${diff === 1 ? 'dia' : 'dias'}`,
       className: diff <= 3 ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800',
       badgeClassName: diff <= 3 ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700',
     }
@@ -126,7 +124,7 @@ export function calculateDdaFlag(planned: Date | undefined, actual: Date | undef
 
   if (diff === 0) {
     return {
-      text: 'DDA vence hoje',
+      text: `${prefix} vence hoje`,
       className: 'bg-amber-100 text-amber-800',
       badgeClassName: 'bg-amber-100 text-amber-700',
     }
@@ -134,10 +132,14 @@ export function calculateDdaFlag(planned: Date | undefined, actual: Date | undef
 
   const overdue = Math.abs(diff)
   return {
-    text: `DDA atrasada ${overdue} ${overdue === 1 ? 'dia' : 'dias'}`,
+    text: `${prefix} atrasada ${overdue} ${overdue === 1 ? 'dia' : 'dias'}`,
     className: 'bg-rose-100 text-rose-800',
     badgeClassName: 'bg-rose-100 text-rose-700',
   }
+}
+
+export function calculateDdaFlag(planned: Date | undefined, actual: Date | undefined): DdaFlag {
+  return calculateDiligenceFlag(planned, actual, 'DDA')
 }
 
 export interface ChipStatus {
