@@ -6,6 +6,12 @@ import { useRealtime } from '@/hooks/use-realtime'
 import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { upsertLandMetadata } from '@/services/land-metadata'
+import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
+import {
+  buildDocumentGroupMap,
+  countGroupTotals,
+  emptyDocumentProgress,
+} from '@/lib/document-groups'
 
 interface KanbanBoardProps {
   columns: KanbanColumnType[]
@@ -32,6 +38,7 @@ export function KanbanBoard({
       }
     >
   >({})
+  const [docTypes, setDocTypes] = useState<DocumentType[]>([])
   const [savingCards, setSavingCards] = useState<Set<string>>(new Set())
   const pendingUpdatesRef = useRef<Record<string, string>>({})
   const { toast } = useToast()
@@ -135,8 +142,11 @@ export function KanbanBoard({
 
   const fetchDocumentChecks = async () => {
     try {
+      // `document_url` entra no filtro porque o arquivo vive só no S3: um check
+      // marcado como completo mas sem URL não conta como enviado. É a mesma
+      // regra da aba Documentos — sem isso o card e o detalhe divergiam.
       const records = await pb.collection('document_checks').getFullList({
-        filter: 'is_completed = true',
+        filter: 'is_completed = true && document_url != ""',
         expand: 'user',
       })
       const map = records.reduce(
@@ -169,6 +179,11 @@ export function KanbanBoard({
   useEffect(() => {
     fetchMetadata()
     fetchDocumentChecks()
+    // Os tipos definem o denominador de cada grupo — sem eles não há como saber
+    // quantos documentos são esperados, nem a que grupo cada chave pertence.
+    getDocumentTypes()
+      .then(setDocTypes)
+      .catch(() => setDocTypes([]))
   }, [])
 
   useRealtime('land_metadata', () => {
@@ -179,18 +194,32 @@ export function KanbanBoard({
     fetchDocumentChecks()
   })
 
+  const docGroupMap = useMemo(() => buildDocumentGroupMap(docTypes), [docTypes])
+  const docGroupTotals = useMemo(() => countGroupTotals(docTypes), [docTypes])
+
   const enrichedCards = useMemo(() => {
     return cards.map((c) => {
       const meta = metadataMap[c.id] || metadataMap[c.clusterSerial || '']
       const checks = docChecksMap[c.id] ||
         docChecksMap[c.clusterSerial || ''] || { count: 0, details: [] }
+
+      const docProgress = emptyDocumentProgress()
+      docProgress.basicos.total = docGroupTotals.basicos
+      docProgress.certidoes.total = docGroupTotals.certidoes
+      for (const detail of checks.details) {
+        // Chave que não é mais um tipo conhecido fica de fora — ela também não
+        // entra no denominador, então contá-la estouraria o progresso.
+        const group = docGroupMap[detail.documentKey]
+        if (group) docProgress[group].completed++
+      }
+
       return {
         ...c,
         stageId: meta?.status || c.stageId,
         isSaving: savingCards.has(c.id),
         responsible: meta?.expand?.responsible_user?.name || 'Unassigned',
         externalOffice: meta?.expand?.external_offices?.name || 'Sem Escritório',
-        completedDocs: checks.count,
+        docProgress,
         documentChecks: checks.details,
         riskLevel: meta?.risk_level || '',
         ddaEstimatedDate: meta?.data_pedido_dda || '',
@@ -202,7 +231,7 @@ export function KanbanBoard({
         updatedAt: meta?.updated || new Date().toISOString(),
       }
     })
-  }, [cards, metadataMap, docChecksMap, savingCards])
+  }, [cards, metadataMap, docChecksMap, savingCards, docGroupMap, docGroupTotals])
 
   const validStatuses = useMemo(() => columns.map((c) => c.id), [columns])
 

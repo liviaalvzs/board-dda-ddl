@@ -1,3 +1,5 @@
+import type { DocumentProgress } from '@/lib/document-groups'
+
 export type CardStatus = 'info' | 'warning' | 'alert' | 'critical'
 
 export interface DocumentCheckInfo {
@@ -23,7 +25,8 @@ export interface KanbanCardType {
   responsible: string
   externalOffice?: string
   stageId: string
-  completedDocs?: number
+  /** Progresso de documentos separado por grupo (básicos × certidões). */
+  docProgress?: DocumentProgress
   riskLevel?: 'low' | 'medium' | 'high' | ''
   /** Data estimada de recebimento da DDA (coluna legada `data_pedido_dda`). */
   ddaEstimatedDate?: string

@@ -27,6 +27,42 @@ import {
   hasReachedStage,
   DDL_UNLOCK_STAGE_ID,
 } from '@/lib/stage-dates-helpers'
+import {
+  DOCUMENT_GROUP_SHORT_LABEL,
+  emptyDocumentProgress,
+  progressPercent,
+  type DocumentGroupProgress,
+} from '@/lib/document-groups'
+
+/** Uma linha de progresso — básicos ou certidões. */
+function DocProgressRow({
+  icon: Icon,
+  label,
+  progress,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  progress: DocumentGroupProgress
+}) {
+  const percent = progressPercent(progress)
+
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between items-center text-[10px] text-slate-600 font-bold">
+        <span className="flex items-center gap-1">
+          <Icon className="w-3 h-3 text-brand-primary/60" /> {label}: {progress.completed}/
+          {progress.total}
+        </span>
+        <span className="text-brand-secondary">{Math.round(percent)}%</span>
+      </div>
+      <Progress
+        value={percent}
+        className="h-1.5 bg-slate-200"
+        indicatorClassName="bg-brand-secondary"
+      />
+    </div>
+  )
+}
 
 interface KanbanCardProps {
   card: KanbanCardType
@@ -88,9 +124,10 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
     'DDL',
   )
 
-  const completedDocs = card.completedDocs || 0
-  const totalDocs = 11
-  const progressPercent = Math.min(100, Math.max(0, (completedDocs / totalDocs) * 100))
+  // Os totais vêm dos tipos cadastrados. Enquanto eles não carregam, os dois
+  // grupos ficam zerados e as barras não são renderizadas — melhor do que
+  // mostrar "0/0" e parecer que nada foi entregue.
+  const docProgress = card.docProgress || emptyDocumentProgress()
 
   return (
     <div
@@ -177,18 +214,21 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
         </span>
       </div>
 
-      <div className="bg-white/60 p-2.5 rounded-lg border border-slate-200/60 space-y-2 mt-1">
-        <div className="flex justify-between items-center text-[10px] text-slate-600 font-bold">
-          <span className="flex items-center gap-1">
-            <FileText className="w-3 h-3 text-brand-primary/60" /> Docs: {completedDocs}/{totalDocs}
-          </span>
-          <span className="text-brand-secondary">{Math.round(progressPercent)}%</span>
-        </div>
-        <Progress
-          value={progressPercent}
-          className="h-1.5 bg-slate-200"
-          indicatorClassName="bg-brand-secondary"
-        />
+      <div className="bg-white/60 p-2.5 rounded-lg border border-slate-200/60 space-y-2.5 mt-1">
+        {docProgress.basicos.total > 0 && (
+          <DocProgressRow
+            icon={FileText}
+            label={DOCUMENT_GROUP_SHORT_LABEL.basicos}
+            progress={docProgress.basicos}
+          />
+        )}
+        {docProgress.certidoes.total > 0 && (
+          <DocProgressRow
+            icon={Stamp}
+            label={DOCUMENT_GROUP_SHORT_LABEL.certidoes}
+            progress={docProgress.certidoes}
+          />
+        )}
         {card.documentChecks && card.documentChecks.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {card.documentChecks.slice(0, 4).map((doc, i) => (

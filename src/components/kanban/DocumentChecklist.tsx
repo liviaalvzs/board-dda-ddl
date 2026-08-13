@@ -11,6 +11,13 @@ import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { uploadDocumentToS3 } from '@/services/s3-upload'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
+import {
+  DOCUMENT_GROUP_IDS,
+  DOCUMENT_GROUP_LABEL,
+  emptyDocumentProgress,
+  getDocumentGroup,
+  progressPercent,
+} from '@/lib/document-groups'
 
 const MAX_SIZE = 10 * 1024 * 1024
 const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -114,9 +121,17 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     return groups
   }, [docsWithStatus])
 
-  const totalItems = docTypes.length
-  const completedCount = docsWithStatus.filter((d) => d.isCompleted).length
-  const progressPercent = totalItems > 0 ? (completedCount / totalItems) * 100 : 0
+  // Básicos e certidões andam separados: um depende do proprietário entregar,
+  // o outro de órgão emitir. Um número só não dizia qual dos dois estava preso.
+  const groupProgress = useMemo(() => {
+    const acc = emptyDocumentProgress()
+    for (const item of docsWithStatus) {
+      const group = getDocumentGroup(item.doc.category)
+      acc[group].total++
+      if (item.isCompleted) acc[group].completed++
+    }
+    return acc
+  }, [docsWithStatus])
 
   if (loading) return null
 
@@ -134,24 +149,38 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-brand-primary/10">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
-          <div>
-            <h3 className="text-xl font-display text-brand-primary flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-brand-secondary" /> Progresso da Due Diligence
-            </h3>
-            <p className="text-sm font-medium text-brand-primary/60 mt-1">
-              {completedCount} de {totalItems} documentos validados
-            </p>
-          </div>
-          <span className="text-3xl font-bold text-brand-secondary leading-none">
-            {Math.round(progressPercent)}%
-          </span>
+        <h3 className="text-xl font-display text-brand-primary flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 text-brand-secondary" /> Progresso da Due Diligence
+        </h3>
+        <div className="grid gap-5 sm:grid-cols-2 mt-4">
+          {DOCUMENT_GROUP_IDS.map((groupId) => {
+            const group = groupProgress[groupId]
+            const percent = progressPercent(group)
+
+            return (
+              <div key={groupId}>
+                <div className="flex items-end justify-between gap-3 mb-2">
+                  <div>
+                    <p className="text-sm font-semibold text-brand-primary">
+                      {DOCUMENT_GROUP_LABEL[groupId]}
+                    </p>
+                    <p className="text-xs font-medium text-brand-primary/60 mt-0.5">
+                      {group.completed} de {group.total} validados
+                    </p>
+                  </div>
+                  <span className="text-2xl font-bold text-brand-secondary leading-none">
+                    {Math.round(percent)}%
+                  </span>
+                </div>
+                <Progress
+                  value={percent}
+                  className="h-3 bg-brand-primary/5"
+                  indicatorClassName="bg-brand-secondary transition-all duration-500 ease-in-out"
+                />
+              </div>
+            )
+          })}
         </div>
-        <Progress
-          value={progressPercent}
-          className="h-3 bg-brand-primary/5"
-          indicatorClassName="bg-brand-secondary transition-all duration-500 ease-in-out"
-        />
       </div>
 
       {groupedDocs.map((group) => {
