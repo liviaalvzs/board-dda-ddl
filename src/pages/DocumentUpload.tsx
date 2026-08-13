@@ -12,6 +12,7 @@ import { DocumentHistory } from '@/components/document-upload/DocumentHistory'
 import { getDocumentChecksForLand } from '@/services/document-upload'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { useRealtime } from '@/hooks/use-realtime'
+import { getExclusionLabel, getExclusionReason, type OwnerType } from '@/lib/document-groups'
 
 export default function DocumentUpload() {
   const [selectedLand, setSelectedLand] = useState<any>(null)
@@ -59,24 +60,30 @@ export default function DocumentUpload() {
     if (selectedLand && e.record.land_id === selectedLand.external_id) fetchChecks()
   })
 
+  // A terra selecionada é o registro de land_metadata, então o tipo de
+  // proprietário vem junto e a mesma regra de dispensa vale aqui.
+  const ownerType = (selectedLand?.owner_type || '') as OwnerType
+
   const docsWithStatus = useMemo(() => {
     return documentTypes.map((doc) => {
       const check = checks[doc.key]
       // Os arquivos vivem só no S3: a presença de document_url é o que define
       // um documento como enviado.
       const isCompleted = !!(check?.is_completed && check?.document_url)
-      return { doc, check, isCompleted }
+      const exclusion = getExclusionReason(doc.category, ownerType, !!check?.not_applicable)
+      return { doc, check, isCompleted, exclusion }
     })
-  }, [documentTypes, checks])
+  }, [documentTypes, checks, ownerType])
 
   const searchLower = searchQuery.toLowerCase()
 
   const filteredDocs = useMemo(() => {
-    return docsWithStatus.filter(({ doc, isCompleted }) => {
+    return docsWithStatus.filter(({ doc, isCompleted, exclusion }) => {
       const matchesSearch = doc.label.toLowerCase().includes(searchLower)
+      // Dispensado não é "pendente": ninguém precisa entregá-lo.
       const matchesFilter =
         activeFilter === 'all' ||
-        (activeFilter === 'pending' && !isCompleted) ||
+        (activeFilter === 'pending' && !isCompleted && !exclusion) ||
         (activeFilter === 'uploaded' && isCompleted)
       return matchesSearch && matchesFilter
     })
@@ -96,7 +103,18 @@ export default function DocumentUpload() {
       }
       group.docs.push(item)
     }
-    return groups
+
+    // O que não é exigido desce: para o fim do grupo, e o grupo inteiro para o
+    // fim da página quando nada nele é exigido. Mesma ordenação da tela da terra.
+    for (const group of groups) {
+      group.docs = [
+        ...group.docs.filter((d) => !d.exclusion),
+        ...group.docs.filter((d) => d.exclusion),
+      ]
+    }
+
+    const isFullyExcluded = (g: (typeof groups)[number]) => g.docs.every((d) => !!d.exclusion)
+    return [...groups.filter((g) => !isFullyExcluded(g)), ...groups.filter(isFullyExcluded)]
   }, [filteredDocs])
 
   const counts = useMemo(() => {
@@ -105,16 +123,19 @@ export default function DocumentUpload() {
     )
     return {
       all: matching.length,
-      pending: matching.filter((d) => !d.isCompleted).length,
+      pending: matching.filter((d) => !d.isCompleted && !d.exclusion).length,
       uploaded: matching.filter((d) => d.isCompleted).length,
     }
   }, [docsWithStatus, searchLower])
 
-  const completedCount = docsWithStatus.filter((d) => d.isCompleted).length
-  const totalCount = documentTypes.length
+  // O progresso conta só o que é exigido desta terra — dispensado sai do
+  // numerador e do denominador, senão nunca chegaria a 100%.
+  const requiredDocs = docsWithStatus.filter((d) => !d.exclusion)
+  const completedCount = requiredDocs.filter((d) => d.isCompleted).length
+  const totalCount = requiredDocs.length
   const pendingCount = totalCount - completedCount
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
-  const pendingDocs = docsWithStatus.filter((d) => !d.isCompleted).map((d) => d.doc)
+  const pendingDocs = requiredDocs.filter((d) => !d.isCompleted).map((d) => d.doc)
 
   if (loading) {
     return (
@@ -126,7 +147,8 @@ export default function DocumentUpload() {
 
   const renderGroup = (title: string, docs: typeof filteredDocs) => {
     if (docs.length === 0) return null
-    const groupCompleted = docs.filter((d) => d.isCompleted).length
+    const required = docs.filter((d) => !d.exclusion)
+    const groupCompleted = required.filter((d) => d.isCompleted).length
     return (
       <div
         key={title}
@@ -135,11 +157,11 @@ export default function DocumentUpload() {
         <div className="px-4 py-2.5 bg-brand-primary/[0.02] border-b border-brand-primary/5 flex items-center gap-2">
           <h3 className="text-sm font-semibold text-brand-primary">{title}</h3>
           <span className="ml-auto text-xs font-medium text-brand-primary/50 shrink-0">
-            {groupCompleted}/{docs.length}
+            {required.length === 0 ? 'Não se aplica' : `${groupCompleted}/${required.length}`}
           </span>
         </div>
         <div className="divide-y divide-brand-primary/5">
-          {docs.map(({ doc, check }) => (
+          {docs.map(({ doc, check, exclusion }) => (
             <DocumentRow
               key={doc.key}
               landId={selectedLand.external_id}
@@ -149,6 +171,7 @@ export default function DocumentUpload() {
               check={check}
               onUploaded={fetchChecks}
               clusterSerial={selectedLand.cluster_serial || ''}
+              exclusionLabel={getExclusionLabel(exclusion, ownerType)}
             />
           ))}
         </div>

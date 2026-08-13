@@ -48,6 +48,18 @@ export function getExclusionReason(
   return null
 }
 
+/** Texto do chip que explica por que o documento não é exigido. */
+export function getExclusionLabel(
+  reason: ExclusionReason | null,
+  ownerType: OwnerType,
+): string | null {
+  if (!reason) return null
+  if (reason === 'owner-type') {
+    return `Não se aplica · proprietário ${ownerType === 'pf' ? 'PF' : 'PJ'}`
+  }
+  return 'Dispensado'
+}
+
 export const DOCUMENT_GROUP_LABEL: Record<DocumentGroupId, string> = {
   basicos: 'Documentos básicos',
   certidoes: 'Certidões',

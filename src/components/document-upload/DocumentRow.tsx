@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { CheckCircle2, Loader2, Upload, RefreshCw, FileText } from 'lucide-react'
+import { CheckCircle2, Loader2, Upload, RefreshCw, FileText, Ban } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
@@ -15,6 +15,13 @@ interface DocumentRowProps {
   check: any
   onUploaded: () => void
   clusterSerial: string
+  /**
+   * Texto do chip quando o documento não é exigido desta terra. Preenchido =
+   * dispensado: sem envio, e a linha desce para o fim do grupo.
+   *
+   * A marcação em si é feita na tela da terra; aqui a página só reflete.
+   */
+  exclusionLabel?: string | null
 }
 
 const ALLOWED_MIMES = ['application/pdf', 'image/jpeg', 'image/png']
@@ -28,12 +35,14 @@ export function DocumentRow({
   check,
   onUploaded,
   clusterSerial,
+  exclusionLabel,
 }: DocumentRowProps) {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const isCompleted = !!(check?.is_completed && check?.document_url)
+  const isExcluded = !!exclusionLabel
 
   const handleFile = async (file: File) => {
     const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
@@ -65,12 +74,18 @@ export function DocumentRow({
     <div
       className={cn(
         'px-4 py-3.5 transition-colors',
-        isCompleted ? 'bg-emerald-50/40' : 'hover:bg-brand-primary/[0.02]',
+        isExcluded
+          ? 'bg-slate-50/60'
+          : isCompleted
+            ? 'bg-emerald-50/40'
+            : 'hover:bg-brand-primary/[0.02]',
       )}
     >
       <div className="flex items-start gap-3">
         <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-          {isCompleted ? (
+          {isExcluded ? (
+            <Ban className="w-5 h-5 text-slate-400" />
+          ) : isCompleted ? (
             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           ) : (
             <FileText className="w-5 h-5 text-amber-500" />
@@ -84,7 +99,11 @@ export function DocumentRow({
             <span
               className={cn(
                 'text-sm font-medium leading-snug break-words',
-                isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+                isExcluded
+                  ? 'text-brand-primary/40 line-through'
+                  : isCompleted
+                    ? 'text-brand-primary/60'
+                    : 'text-brand-primary',
               )}
             >
               {documentLabel}
@@ -96,10 +115,14 @@ export function DocumentRow({
             <span
               className={cn(
                 'text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0',
-                isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+                isExcluded
+                  ? 'bg-slate-200 text-slate-600'
+                  : isCompleted
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-amber-100 text-amber-700',
               )}
             >
-              {isCompleted ? 'Enviado' : 'Pendente'}
+              {exclusionLabel ?? (isCompleted ? 'Enviado' : 'Pendente')}
             </span>
 
             <div className="flex items-center gap-1.5 ml-auto">
@@ -119,25 +142,29 @@ export function DocumentRow({
                 <DocumentFileActions checkId={check.id} documentLabel={documentLabel} />
               )}
 
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className={cn(
-                  'h-10 px-4 rounded-lg flex items-center gap-1.5 text-xs font-semibold disabled:opacity-50 transition-colors',
-                  isCompleted
-                    ? 'border border-brand-primary/15 text-brand-primary/70 hover:text-brand-secondary hover:border-brand-secondary/40'
-                    : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
-                )}
-              >
-                {uploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : isCompleted ? (
-                  <RefreshCw className="w-4 h-4" />
-                ) : (
-                  <Upload className="w-4 h-4" />
-                )}
-                {uploading ? 'Enviando' : isCompleted ? 'Substituir' : 'Enviar'}
-              </button>
+              {/* Dispensado não aceita envio. O botão sai de cena em vez de
+                  ficar desabilitado, senão a linha oferece uma ação morta. */}
+              {!isExcluded && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className={cn(
+                    'h-10 px-4 rounded-lg flex items-center gap-1.5 text-xs font-semibold disabled:opacity-50 transition-colors',
+                    isCompleted
+                      ? 'border border-brand-primary/15 text-brand-primary/70 hover:text-brand-secondary hover:border-brand-secondary/40'
+                      : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
+                  )}
+                >
+                  {uploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isCompleted ? (
+                    <RefreshCw className="w-4 h-4" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  {uploading ? 'Enviando' : isCompleted ? 'Substituir' : 'Enviar'}
+                </button>
+              )}
             </div>
           </div>
         </div>

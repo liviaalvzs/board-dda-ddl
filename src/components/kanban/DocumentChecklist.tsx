@@ -24,8 +24,8 @@ import { DocumentFileActions } from '@/components/document-upload/DocumentFileAc
 import {
   DOCUMENT_GROUP_IDS,
   DOCUMENT_GROUP_LABEL,
-  OWNER_TYPE_LABEL,
   computeDocumentProgress,
+  getExclusionLabel,
   getExclusionReason,
   progressPercent,
   type OwnerType,
@@ -154,7 +154,20 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
       }
       group.docs.push(item)
     }
-    return groups
+
+    // O que não é exigido desce: o documento vai para o fim do seu grupo, e o
+    // grupo inteiro para o fim da página quando nada nele é exigido (o caso de
+    // PF/PJ). Entre itens de mesma situação a ordem original — o sort_order dos
+    // Anexos — é preservada, porque o filter percorre na ordem de entrada.
+    for (const group of groups) {
+      group.docs = [
+        ...group.docs.filter((d) => !d.exclusion),
+        ...group.docs.filter((d) => d.exclusion),
+      ]
+    }
+
+    const isFullyExcluded = (g: (typeof groups)[number]) => g.docs.every((d) => !!d.exclusion)
+    return [...groups.filter((g) => !isFullyExcluded(g)), ...groups.filter(isFullyExcluded)]
   }, [docsWithStatus])
 
   // Básicos e certidões andam separados: um depende do proprietário entregar,
@@ -240,6 +253,12 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                 const userName = check?.expand?.user?.name || check?.expand?.user?.email
                 const isToggling = togglingKey === doc.key
 
+                // Dispensar só vale para campo vazio: com arquivo enviado, a
+                // saída é remover o documento, não escondê-lo da conta. A opção
+                // de desfazer continua disponível para não prender um registro
+                // marcado antes desta regra.
+                const canToggle = exclusion === 'manual' || (!exclusion && !isCompleted)
+
                 return (
                   <div
                     key={doc.key}
@@ -287,13 +306,8 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                                     : 'bg-amber-100 text-amber-700',
                               )}
                             >
-                              {exclusion === 'owner-type'
-                                ? `Não se aplica · ${OWNER_TYPE_LABEL[ownerType === 'pf' ? 'pf' : 'pj']}`
-                                : exclusion === 'manual'
-                                  ? 'Dispensado'
-                                  : isCompleted
-                                    ? 'Enviado'
-                                    : 'Pendente'}
+                              {getExclusionLabel(exclusion, ownerType) ??
+                                (isCompleted ? 'Enviado' : 'Pendente')}
                             </span>
                             {isCompleted && userName && (
                               <span className="text-[11px] text-brand-primary/50">
@@ -309,13 +323,14 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                         </div>
                       </div>
                       <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-                        {isCompleted && !exclusion && check?.id && (
+                        {isCompleted && check?.id && (
                           <DocumentFileActions checkId={check.id} documentLabel={doc.label} />
                         )}
-                        {/* A dispensa por tipo de proprietário é automática, então
-                            ali o botão só confundiria: mudar isso é no seletor de
+                        {/* Escondido quando já há arquivo (dispensar deixaria de
+                            fazer sentido) e quando a dispensa vem do tipo de
+                            proprietário — nesse caso a mudança é no seletor de
                             PF/PJ, não documento a documento. */}
-                        {exclusion !== 'owner-type' && (
+                        {canToggle && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -353,27 +368,32 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                             e.target.value = ''
                           }}
                         />
-                        <Button
-                          variant={isCompleted || exclusion ? 'outline' : 'default'}
-                          size="sm"
-                          disabled={uploadingKey === doc.key}
-                          onClick={() => fileInputRefs.current[doc.key]?.click()}
-                          className={cn(
-                            'h-9 shrink-0',
-                            isCompleted || exclusion
-                              ? 'border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5'
-                              : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
-                          )}
-                        >
-                          {uploadingKey === doc.key ? (
-                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                          ) : isCompleted ? (
-                            <RefreshCw className="w-3.5 h-3.5 mr-1" />
-                          ) : (
-                            <Upload className="w-3.5 h-3.5 mr-1" />
-                          )}
-                          {isCompleted ? 'Substituir' : 'Enviar'}
-                        </Button>
+                        {/* Documento dispensado não aceita envio: o botão sai de
+                            cena em vez de ficar desabilitado, senão a linha fica
+                            oferecendo uma ação morta. */}
+                        {!exclusion && (
+                          <Button
+                            variant={isCompleted ? 'outline' : 'default'}
+                            size="sm"
+                            disabled={uploadingKey === doc.key}
+                            onClick={() => fileInputRefs.current[doc.key]?.click()}
+                            className={cn(
+                              'h-9 shrink-0',
+                              isCompleted
+                                ? 'border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5'
+                                : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
+                            )}
+                          >
+                            {uploadingKey === doc.key ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                            ) : isCompleted ? (
+                              <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                            ) : (
+                              <Upload className="w-3.5 h-3.5 mr-1" />
+                            )}
+                            {isCompleted ? 'Substituir' : 'Enviar'}
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {errors[doc.key] && (
