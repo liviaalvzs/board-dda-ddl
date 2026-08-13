@@ -1,4 +1,13 @@
-import { MapPin, Clock, FileText, Building2, Loader2, CheckCircle2, Leaf } from 'lucide-react'
+import {
+  MapPin,
+  Clock,
+  FileText,
+  Building2,
+  Loader2,
+  CheckCircle2,
+  Leaf,
+  Scale,
+} from 'lucide-react'
 import { KanbanCardType } from '@/types/kanban'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -8,8 +17,16 @@ import { useNavigate } from 'react-router-dom'
 import { differenceInDays, differenceInHours, format } from 'date-fns'
 import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
 import { getDocumentLabel } from '@/lib/document-labels'
-import { parseDateValue, calculateDdaFlag } from '@/lib/process-dates-helpers'
-import { getCurrentStageEntry } from '@/lib/stage-dates-helpers'
+import {
+  parseDateValue,
+  calculateDdaFlag,
+  calculateDiligenceFlag,
+} from '@/lib/process-dates-helpers'
+import {
+  getCurrentStageEntry,
+  hasReachedStage,
+  DDL_UNLOCK_STAGE_ID,
+} from '@/lib/stage-dates-helpers'
 
 interface KanbanCardProps {
   card: KanbanCardType
@@ -58,6 +75,17 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
   const ddaFlag = calculateDdaFlag(
     parseDateValue(card.ddaEstimatedDate),
     parseDateValue(card.ddaReceivedDate),
+  )
+
+  // A DDL só é conduzida a partir de "4. Em auditoria / Escritório externo".
+  // Antes disso o selo diria "não solicitada" para toda terra nova, virando
+  // ruído em três colunas inteiras do board — a mesma regra que trava a edição
+  // do bloco na tela da terra.
+  const showDdlFlag = hasReachedStage(card.stageId, card.stageDates, DDL_UNLOCK_STAGE_ID)
+  const ddlFlag = calculateDiligenceFlag(
+    parseDateValue(card.ddlEstimatedDate),
+    parseDateValue(card.ddlReceivedDate),
+    'DDL',
   )
 
   const completedDocs = card.completedDocs || 0
@@ -125,6 +153,18 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
           <Leaf className="w-2.5 h-2.5" />
           {ddaFlag.text}
         </Badge>
+        {showDdlFlag && (
+          <Badge
+            variant="outline"
+            className={cn(
+              'font-bold text-[10px] px-2 py-0 border-none shadow-sm inline-flex items-center gap-1',
+              ddlFlag.badgeClassName,
+            )}
+          >
+            <Scale className="w-2.5 h-2.5" />
+            {ddlFlag.text}
+          </Badge>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5 text-xs text-slate-600">

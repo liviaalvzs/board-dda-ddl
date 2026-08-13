@@ -117,6 +117,8 @@ export function KanbanBoard({
         riskLevel: meta?.risk_level || '',
         ddaEstimatedDate: meta?.data_pedido_dda || '',
         ddaReceivedDate: meta?.data_recebimento_dda || '',
+        ddlEstimatedDate: meta?.data_estimada_ddl || '',
+        ddlReceivedDate: meta?.data_recebimento_ddl || '',
         stageDates: meta?.stage_dates || {},
         createdAt: meta?.created || new Date().toISOString(),
         updatedAt: meta?.updated || new Date().toISOString(),

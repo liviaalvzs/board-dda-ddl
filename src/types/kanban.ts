@@ -28,6 +28,9 @@ export interface KanbanCardType {
   /** Data estimada de recebimento da DDA (coluna legada `data_pedido_dda`). */
   ddaEstimatedDate?: string
   ddaReceivedDate?: string
+  /** Datas da Diligência (DDL). Só valem a partir da etapa que a libera. */
+  ddlEstimatedDate?: string
+  ddlReceivedDate?: string
   /** { idDaEtapa: dataISO } — entrada em cada etapa. */
   stageDates?: Record<string, string>
   createdAt?: string
