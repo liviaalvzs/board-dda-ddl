@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { differenceInDays } from 'date-fns'
 import { Bar, BarChart, XAxis, YAxis, LabelList } from 'recharts'
 import {
   ChartContainer,
@@ -10,12 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton'
 import { fetchAllLandMetadata } from '@/services/lands'
 import { useRealtime } from '@/hooks/use-realtime'
+import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
+import { getCurrentStageEntry } from '@/lib/stage-dates-helpers'
 import {
   calculateStageDelays,
   calculateStageAverageTime,
   calculateStatusDistribution,
 } from '@/lib/dash-utils'
-import { AlertTriangle, CheckCircle2, Layers, Timer, MapPin } from 'lucide-react'
+import { AlertTriangle, AlertOctagon, CheckCircle2, Layers, Timer } from 'lucide-react'
 import { StageTimeChart } from '@/components/dash/StageTimeChart'
 import { PlannedVsActualCard } from '@/components/dash/PlannedVsActualCard'
 import { StageRankingTable } from '@/components/dash/StageRankingTable'
@@ -93,6 +96,28 @@ export default function Dashboard() {
   const statusDist = useMemo(() => calculateStatusDistribution(lands), [lands])
   const stageTimes = useMemo(() => calculateStageAverageTime(lands), [lands])
 
+  // Mesma regra de urgência do card do board (badges ATRASADO/ATENÇÃO), só que
+  // somada — para responder "quantas terras precisam de atenção agora" sem
+  // abrir o board e contar card por card.
+  const { threshold: delayedThreshold } = useDelayedThreshold()
+  const attentionThreshold = Math.max(1, Math.floor(delayedThreshold / 2))
+  const urgency = useMemo(() => {
+    const now = new Date()
+    let delayed = 0
+    let attention = 0
+    for (const land of lands) {
+      const status = (land.status || '').trim()
+      if (!status) continue
+      const entry = getCurrentStageEntry(land.stage_dates, status)
+      if (!entry) continue
+      const days = differenceInDays(now, entry)
+      if (days < 0) continue
+      if (days > delayedThreshold) delayed++
+      else if (days > attentionThreshold) attention++
+    }
+    return { delayed, attention }
+  }, [lands, delayedThreshold, attentionThreshold])
+
   const kpis = useMemo(() => {
     const inProgress = lands.filter((l) => (l.status || '').trim()).length
     // O indicador de prazo usa só as etapas com data estimada de conclusão —
@@ -142,12 +167,18 @@ export default function Dashboard() {
         {/* Panorama */}
         <DashSection title="Panorama" description="Os números do processo hoje">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard title="Total de terras" value={lands.length} icon={MapPin} />
             <KpiCard
               title="No board"
               value={kpis.inProgress}
               hint="Terras com etapa atribuída"
               icon={Layers}
+            />
+            <KpiCard
+              title="Terras atrasadas"
+              value={urgency.delayed}
+              hint={`${urgency.attention} em atenção · limite ${delayedThreshold}d na etapa`}
+              icon={AlertOctagon}
+              valueColor={urgency.delayed > 0 ? CHART_NEGATIVE : CHART_POSITIVE}
             />
             <KpiCard
               title="Tempo médio por etapa"
