@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { CheckCircle2, FileText, Upload, RefreshCw, Loader2, AlertCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  FileText,
+  Upload,
+  RefreshCw,
+  Loader2,
+  AlertCircle,
+  Ban,
+  Undo2,
+} from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useToast } from '@/hooks/use-toast'
@@ -9,14 +18,17 @@ import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { uploadDocumentToS3 } from '@/services/s3-upload'
+import { setDocumentNotApplicable } from '@/services/documents'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 import {
   DOCUMENT_GROUP_IDS,
   DOCUMENT_GROUP_LABEL,
-  emptyDocumentProgress,
-  getDocumentGroup,
+  OWNER_TYPE_LABEL,
+  computeDocumentProgress,
+  getExclusionReason,
   progressPercent,
+  type OwnerType,
 } from '@/lib/document-groups'
 
 const MAX_SIZE = 10 * 1024 * 1024
@@ -27,6 +39,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   const [docTypes, setDocTypes] = useState<DocumentType[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
+  const [togglingKey, setTogglingKey] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const { toast } = useToast()
@@ -99,13 +112,36 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   // O status vem do envio do arquivo, não de marcação manual. Os arquivos vivem
   // só no S3, então a presença de document_url é o que define "enviado". Mesma
   // regra da aba Documentos, para os dois lugares nunca divergirem.
+  const ownerType = (metadata?.owner_type || '') as OwnerType
+
   const docsWithStatus = useMemo(() => {
     return docTypes.map((doc) => {
       const check = checks[doc.key]
       const isCompleted = !!(check?.is_completed && check?.document_url)
-      return { doc, check, isCompleted }
+      const exclusion = getExclusionReason(doc.category, ownerType, !!check?.not_applicable)
+      return { doc, check, isCompleted, exclusion }
     })
-  }, [docTypes, checks])
+  }, [docTypes, checks, ownerType])
+
+  const handleToggleNotApplicable = async (key: string, next: boolean) => {
+    setTogglingKey(key)
+    try {
+      await setDocumentNotApplicable(landId, key, next)
+      toast({
+        title: next ? 'Documento dispensado' : 'Documento voltou a ser exigido',
+        description: 'A contagem de progresso foi ajustada.',
+      })
+      fetchChecks()
+    } catch (e) {
+      toast({
+        title: 'Erro ao alterar o documento',
+        description: e instanceof Error ? e.message : 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setTogglingKey(null)
+    }
+  }
 
   const groupedDocs = useMemo(() => {
     const groups: { category: string; docs: typeof docsWithStatus }[] = []
@@ -123,15 +159,15 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
 
   // Básicos e certidões andam separados: um depende do proprietário entregar,
   // o outro de órgão emitir. Um número só não dizia qual dos dois estava preso.
+  //
+  // O cálculo é o mesmo que o card do board usa, para os dois não divergirem.
   const groupProgress = useMemo(() => {
-    const acc = emptyDocumentProgress()
-    for (const item of docsWithStatus) {
-      const group = getDocumentGroup(item.doc.category)
-      acc[group].total++
-      if (item.isCompleted) acc[group].completed++
-    }
-    return acc
-  }, [docsWithStatus])
+    const completedKeys = new Set(docsWithStatus.filter((d) => d.isCompleted).map((d) => d.doc.key))
+    const notApplicableKeys = new Set(
+      docsWithStatus.filter((d) => !!d.check?.not_applicable).map((d) => d.doc.key),
+    )
+    return computeDocumentProgress(docTypes, ownerType, completedKeys, notApplicableKeys)
+  }, [docsWithStatus, docTypes, ownerType])
 
   if (loading) return null
 
@@ -184,7 +220,8 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
       </div>
 
       {groupedDocs.map((group) => {
-        const groupCompleted = group.docs.filter((d) => d.isCompleted).length
+        const required = group.docs.filter((d) => !d.exclusion)
+        const groupCompleted = required.filter((d) => d.isCompleted).length
 
         return (
           <div
@@ -195,25 +232,29 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
               <FileText className="w-4 h-4 text-brand-primary/50 shrink-0" />
               <h4 className="font-semibold text-brand-primary text-sm">{group.category}</h4>
               <span className="ml-auto text-xs font-medium text-brand-primary/50 shrink-0">
-                {groupCompleted}/{group.docs.length}
+                {required.length === 0 ? 'Não se aplica' : `${groupCompleted}/${required.length}`}
               </span>
             </div>
             <div className="divide-y divide-brand-primary/5">
-              {group.docs.map(({ doc, check, isCompleted }) => {
+              {group.docs.map(({ doc, check, isCompleted, exclusion }) => {
                 const userName = check?.expand?.user?.name || check?.expand?.user?.email
+                const isToggling = togglingKey === doc.key
 
                 return (
                   <div
                     key={doc.key}
                     className={cn(
                       'p-5 transition-colors hover:bg-brand-primary/[0.01]',
-                      isCompleted && 'bg-emerald-50/30',
+                      isCompleted && !exclusion && 'bg-emerald-50/30',
+                      exclusion && 'bg-slate-50/60',
                     )}
                   >
                     <div className="flex flex-col md:flex-row md:items-center gap-4">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-                          {isCompleted ? (
+                          {exclusion ? (
+                            <Ban className="w-5 h-5 text-slate-400" />
+                          ) : isCompleted ? (
                             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                           ) : (
                             <FileText className="w-5 h-5 text-amber-500" />
@@ -224,7 +265,11 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                             <span
                               className={cn(
                                 'text-sm font-semibold',
-                                isCompleted ? 'text-brand-primary/60' : 'text-brand-primary',
+                                exclusion
+                                  ? 'text-brand-primary/40 line-through'
+                                  : isCompleted
+                                    ? 'text-brand-primary/60'
+                                    : 'text-brand-primary',
                               )}
                             >
                               {doc.label}
@@ -235,12 +280,20 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                             <span
                               className={cn(
                                 'text-[11px] font-semibold px-2 py-0.5 rounded-full',
-                                isCompleted
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : 'bg-amber-100 text-amber-700',
+                                exclusion
+                                  ? 'bg-slate-200 text-slate-600'
+                                  : isCompleted
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-amber-100 text-amber-700',
                               )}
                             >
-                              {isCompleted ? 'Enviado' : 'Pendente'}
+                              {exclusion === 'owner-type'
+                                ? `Não se aplica · ${OWNER_TYPE_LABEL[ownerType === 'pf' ? 'pf' : 'pj']}`
+                                : exclusion === 'manual'
+                                  ? 'Dispensado'
+                                  : isCompleted
+                                    ? 'Enviado'
+                                    : 'Pendente'}
                             </span>
                             {isCompleted && userName && (
                               <span className="text-[11px] text-brand-primary/50">
@@ -256,8 +309,36 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                         </div>
                       </div>
                       <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-                        {isCompleted && check?.id && (
+                        {isCompleted && !exclusion && check?.id && (
                           <DocumentFileActions checkId={check.id} documentLabel={doc.label} />
+                        )}
+                        {/* A dispensa por tipo de proprietário é automática, então
+                            ali o botão só confundiria: mudar isso é no seletor de
+                            PF/PJ, não documento a documento. */}
+                        {exclusion !== 'owner-type' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={isToggling}
+                            onClick={() =>
+                              handleToggleNotApplicable(doc.key, exclusion !== 'manual')
+                            }
+                            className={cn(
+                              'h-9 shrink-0 text-xs font-semibold',
+                              exclusion === 'manual'
+                                ? 'text-brand-primary/60 hover:text-brand-primary'
+                                : 'text-brand-primary/40 hover:text-brand-primary',
+                            )}
+                          >
+                            {isToggling ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                            ) : exclusion === 'manual' ? (
+                              <Undo2 className="w-3.5 h-3.5 mr-1" />
+                            ) : (
+                              <Ban className="w-3.5 h-3.5 mr-1" />
+                            )}
+                            {exclusion === 'manual' ? 'Voltar a exigir' : 'Não se aplica'}
+                          </Button>
                         )}
                         <input
                           ref={(el) => {
@@ -273,13 +354,13 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                           }}
                         />
                         <Button
-                          variant={isCompleted ? 'outline' : 'default'}
+                          variant={isCompleted || exclusion ? 'outline' : 'default'}
                           size="sm"
                           disabled={uploadingKey === doc.key}
                           onClick={() => fileInputRefs.current[doc.key]?.click()}
                           className={cn(
                             'h-9 shrink-0',
-                            isCompleted
+                            isCompleted || exclusion
                               ? 'border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5'
                               : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
                           )}

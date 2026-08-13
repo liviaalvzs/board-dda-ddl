@@ -17,6 +17,37 @@ export type DocumentGroupId = 'basicos' | 'certidoes'
 
 const CERTIDAO_CATEGORIES = new Set(['Certidões Ambientais', 'Certidões Fiscais'])
 
+/** Categorias que dependem do tipo de proprietário — nunca valem as duas. */
+const PF_CATEGORY = 'Pessoa Física (proprietário e cônjuge)'
+const PJ_CATEGORY = 'Pessoa Jurídica'
+
+/** Vazio = não informado; nesse caso as duas listas continuam sendo exigidas. */
+export type OwnerType = 'pf' | 'pj' | ''
+
+export const OWNER_TYPE_LABEL: Record<'pf' | 'pj', string> = {
+  pf: 'Pessoa Física',
+  pj: 'Pessoa Jurídica',
+}
+
+/**
+ * Por que um documento não conta — ou `null` se ele conta.
+ *
+ * `owner-type` vem antes de `manual` de propósito: quando a categoria inteira
+ * já não se aplica, a dispensa avulsa é redundante e a tela esconde o botão.
+ */
+export type ExclusionReason = 'owner-type' | 'manual'
+
+export function getExclusionReason(
+  category: string | undefined,
+  ownerType: OwnerType,
+  isMarkedNotApplicable: boolean,
+): ExclusionReason | null {
+  if (ownerType === 'pf' && category === PJ_CATEGORY) return 'owner-type'
+  if (ownerType === 'pj' && category === PF_CATEGORY) return 'owner-type'
+  if (isMarkedNotApplicable) return 'manual'
+  return null
+}
+
 export const DOCUMENT_GROUP_LABEL: Record<DocumentGroupId, string> = {
   basicos: 'Documentos básicos',
   certidoes: 'Certidões',

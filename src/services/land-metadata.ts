@@ -7,6 +7,8 @@ export interface LandMetadataUpsertParams {
   externalOffices?: string | null
   responsibleUser?: string | null
   ownerMaritalStatus?: string | null
+  /** 'pf' | 'pj' — dispensa a categoria de documentos oposta. */
+  ownerType?: string | null
   riskLevel?: string | null
   status?: string | null
   clusterSerial?: string | null
@@ -38,6 +40,9 @@ function buildPayload(data: Partial<LandMetadataUpsertParams>): Record<string, a
   }
   if (data.ownerMaritalStatus !== undefined) {
     payload.owner_marital_status = data.ownerMaritalStatus || null
+  }
+  if (data.ownerType !== undefined) {
+    payload.owner_type = data.ownerType || null
   }
   if (data.riskLevel !== undefined) {
     payload.risk_level = data.riskLevel || null

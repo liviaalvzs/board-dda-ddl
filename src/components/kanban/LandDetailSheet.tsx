@@ -42,6 +42,7 @@ import { DiligenceTimeline } from '@/components/kanban/DiligenceTimeline'
 import { ChangeHistoryCard } from '@/components/kanban/ChangeHistoryCard'
 import { DdaSection } from '@/components/kanban/DdaSection'
 import { DdlSection } from '@/components/kanban/DdlSection'
+import { OwnerTypeSelector } from '@/components/kanban/OwnerTypeSelector'
 import { StageDatesSection } from '@/components/kanban/StageDatesSection'
 import { getStatusLabel } from '@/lib/status-mapping'
 
@@ -793,6 +794,11 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                           label="Estado Civil"
                           value={metadata?.owner_marital_status || 'Não informado'}
                           icon={User}
+                        />
+                        <OwnerTypeSelector
+                          metadata={metadata}
+                          externalId={effectiveExternalId}
+                          onUpdated={handleMetadataUpdated}
                         />
                       </div>
                     </div>

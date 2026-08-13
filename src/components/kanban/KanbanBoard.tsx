@@ -7,11 +7,7 @@ import { useToast } from '@/hooks/use-toast'
 import pb from '@/lib/pocketbase/client'
 import { upsertLandMetadata } from '@/services/land-metadata'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
-import {
-  buildDocumentGroupMap,
-  countGroupTotals,
-  emptyDocumentProgress,
-} from '@/lib/document-groups'
+import { computeDocumentProgress, type OwnerType } from '@/lib/document-groups'
 
 interface KanbanBoardProps {
   columns: KanbanColumnType[]
@@ -33,7 +29,8 @@ export function KanbanBoard({
     Record<
       string,
       {
-        count: number
+        completedKeys: string[]
+        notApplicableKeys: string[]
         details: Array<{ documentKey: string; userName: string; createdAt: string }>
       }
     >
@@ -142,17 +139,27 @@ export function KanbanBoard({
 
   const fetchDocumentChecks = async () => {
     try {
-      // `document_url` entra no filtro porque o arquivo vive só no S3: um check
-      // marcado como completo mas sem URL não conta como enviado. É a mesma
-      // regra da aba Documentos — sem isso o card e o detalhe divergiam.
+      // Dois casos interessam: o documento entregue e o dispensado.
+      //
+      // `document_url` entra no filtro do entregue porque o arquivo vive só no
+      // S3 — um check marcado como completo mas sem URL não conta como enviado.
+      // É a mesma regra da aba Documentos; sem isso card e detalhe divergiam.
       const records = await pb.collection('document_checks').getFullList({
-        filter: 'is_completed = true && document_url != ""',
+        filter: '(is_completed = true && document_url != "") || not_applicable = true',
         expand: 'user',
       })
       const map = records.reduce(
         (acc, r) => {
-          if (!acc[r.land_id]) acc[r.land_id] = { count: 0, details: [] }
-          acc[r.land_id].count += 1
+          if (!acc[r.land_id]) {
+            acc[r.land_id] = { completedKeys: [], notApplicableKeys: [], details: [] }
+          }
+
+          if (r.not_applicable) {
+            acc[r.land_id].notApplicableKeys.push(r.document_key)
+            return acc
+          }
+
+          acc[r.land_id].completedKeys.push(r.document_key)
           const userName =
             r.expand?.user?.name || r.expand?.user?.email?.split('@')[0] || 'Desconhecido'
           acc[r.land_id].details.push({
@@ -165,7 +172,8 @@ export function KanbanBoard({
         {} as Record<
           string,
           {
-            count: number
+            completedKeys: string[]
+            notApplicableKeys: string[]
             details: Array<{ documentKey: string; userName: string; createdAt: string }>
           }
         >,
@@ -194,24 +202,22 @@ export function KanbanBoard({
     fetchDocumentChecks()
   })
 
-  const docGroupMap = useMemo(() => buildDocumentGroupMap(docTypes), [docTypes])
-  const docGroupTotals = useMemo(() => countGroupTotals(docTypes), [docTypes])
-
   const enrichedCards = useMemo(() => {
     return cards.map((c) => {
       const meta = metadataMap[c.id] || metadataMap[c.clusterSerial || '']
       const checks = docChecksMap[c.id] ||
-        docChecksMap[c.clusterSerial || ''] || { count: 0, details: [] }
+        docChecksMap[c.clusterSerial || ''] || {
+          completedKeys: [],
+          notApplicableKeys: [],
+          details: [],
+        }
 
-      const docProgress = emptyDocumentProgress()
-      docProgress.basicos.total = docGroupTotals.basicos
-      docProgress.certidoes.total = docGroupTotals.certidoes
-      for (const detail of checks.details) {
-        // Chave que não é mais um tipo conhecido fica de fora — ela também não
-        // entra no denominador, então contá-la estouraria o progresso.
-        const group = docGroupMap[detail.documentKey]
-        if (group) docProgress[group].completed++
-      }
+      const docProgress = computeDocumentProgress(
+        docTypes,
+        (meta?.owner_type || '') as OwnerType,
+        new Set(checks.completedKeys),
+        new Set(checks.notApplicableKeys),
+      )
 
       return {
         ...c,
@@ -231,7 +237,7 @@ export function KanbanBoard({
         updatedAt: meta?.updated || new Date().toISOString(),
       }
     })
-  }, [cards, metadataMap, docChecksMap, savingCards, docGroupMap, docGroupTotals])
+  }, [cards, metadataMap, docChecksMap, savingCards, docTypes])
 
   const validStatuses = useMemo(() => columns.map((c) => c.id), [columns])
 
