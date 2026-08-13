@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Leaf,
   Scale,
+  Award,
 } from 'lucide-react'
 import { KanbanCardType } from '@/types/kanban'
 import { cn } from '@/lib/utils'
