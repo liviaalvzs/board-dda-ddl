@@ -224,7 +224,7 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
         )}
         {docProgress.certidoes.total > 0 && (
           <DocProgressRow
-            icon={Stamp}
+            icon={Award}
             label={DOCUMENT_GROUP_SHORT_LABEL.certidoes}
             progress={docProgress.certidoes}
           />
