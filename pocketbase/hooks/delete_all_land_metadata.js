@@ -6,7 +6,16 @@ routerAdd(
 
     try {
       $app.runInTransaction((txApp) => {
-        const collections = ['comments', 'document_checks', 'history_logs', 'land_metadata']
+        // land_subjects entra junto: sem isso os proprietários e matrículas
+        // ficariam órfãos e voltariam a valer se a terra fosse recriada com o
+        // mesmo external_id.
+        const collections = [
+          'comments',
+          'document_checks',
+          'history_logs',
+          'land_subjects',
+          'land_metadata',
+        ]
 
         for (const colName of collections) {
           try {
@@ -36,6 +45,8 @@ routerAdd(
           counts.document_checks || 0,
           'history_logs',
           counts.history_logs || 0,
+          'land_subjects',
+          counts.land_subjects || 0,
           'land_metadata',
           counts.land_metadata || 0,
         )

@@ -2,7 +2,16 @@ routerAdd(
   'POST',
   '/backend/v1/reset-all-lands',
   (e) => {
-    const collections = ['comments', 'document_checks', 'history_logs', 'land_metadata']
+    // land_subjects entra junto: deixá-la para trás faria os proprietários e
+    // matrículas antigos ressuscitarem quando a terra fosse reimportada com o
+    // mesmo external_id, multiplicando documentos que ninguém cadastrou.
+    const collections = [
+      'comments',
+      'document_checks',
+      'history_logs',
+      'land_subjects',
+      'land_metadata',
+    ]
     const counts = {}
 
     try {
@@ -33,6 +42,8 @@ routerAdd(
           counts.document_checks || 0,
           'history_logs',
           counts.history_logs || 0,
+          'land_subjects',
+          counts.land_subjects || 0,
           'land_metadata',
           counts.land_metadata || 0,
         )
