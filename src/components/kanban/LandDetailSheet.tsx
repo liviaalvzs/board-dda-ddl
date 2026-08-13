@@ -43,7 +43,6 @@ import { ChangeHistoryCard } from '@/components/kanban/ChangeHistoryCard'
 import { DdaSection } from '@/components/kanban/DdaSection'
 import { DdlSection } from '@/components/kanban/DdlSection'
 import { OwnerTypeSelector } from '@/components/kanban/OwnerTypeSelector'
-import { LandSubjectsSection } from '@/components/kanban/LandSubjectsSection'
 import { StageDatesSection } from '@/components/kanban/StageDatesSection'
 import { getStatusLabel } from '@/lib/status-mapping'
 
@@ -803,12 +802,6 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                         />
                       </div>
                     </div>
-
-                    <LandSubjectsSection
-                      externalId={effectiveExternalId}
-                      fallbackOwnerType={metadata?.owner_type || ''}
-                      onChanged={fetchData}
-                    />
 
                     {/* Área */}
                     <div className="bg-white p-5 rounded-xl border border-brand-primary/10 shadow-sm space-y-4">

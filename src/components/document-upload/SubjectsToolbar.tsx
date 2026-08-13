@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,11 +12,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, X, User, FileStack, Loader2 } from 'lucide-react'
+import { Plus, User, FileStack, Loader2, Trash2, ChevronDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
-import { createLandSubject, deleteLandSubject, countSubjectUploads } from '@/services/land-subjects'
 import {
+  createLandSubject,
+  deleteLandSubject,
+  updateLandSubject,
+  countSubjectUploads,
+} from '@/services/land-subjects'
+import {
+  OWNER_TYPE_LABEL,
   subjectsOfKind,
   type LandSubject,
   type OwnerType,
@@ -34,11 +42,12 @@ const KIND_META: Record<SubjectKind, { title: string; add: string; icon: typeof 
 }
 
 /**
- * Adicionar e remover proprietários e matrículas sem sair da tela de
- * documentos — é ali que a falta de um é percebida.
+ * Proprietários e matrículas, gerenciados de dentro da tela de documentos — é
+ * ali que a falta de um é percebida.
  *
- * O nome sai automático em sequência; renomear é opcional e fica na aba
- * Informações, junto com a marcação de PF/PJ.
+ * O nome sai automático em sequência; clicar no chip abre renomear, marcar
+ * PF/PJ (proprietários) e remover. Nunca é possível remover o último do tipo:
+ * toda terra tem pelo menos um de cada.
  */
 export function SubjectsToolbar({
   landId,
@@ -48,6 +57,9 @@ export function SubjectsToolbar({
 }: SubjectsToolbarProps) {
   const { toast } = useToast()
   const [busyKind, setBusyKind] = useState<SubjectKind | null>(null)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [openChip, setOpenChip] = useState<string | null>(null)
+  const [draftLabel, setDraftLabel] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<{
     subject: LandSubject
@@ -70,7 +82,46 @@ export function SubjectsToolbar({
     }
   }
 
+  const handleRename = async (subject: LandSubject) => {
+    const label = draftLabel.trim()
+    if (!label || label === subject.label) {
+      setOpenChip(null)
+      return
+    }
+    setSavingId(subject.id)
+    try {
+      await updateLandSubject(subject.id, { label })
+      setOpenChip(null)
+      onChanged()
+    } catch (err) {
+      toast({
+        title: 'Erro ao renomear',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const handleOwnerType = async (subject: LandSubject, ownerType: OwnerType) => {
+    setSavingId(subject.id)
+    try {
+      await updateLandSubject(subject.id, { ownerType })
+      onChanged()
+    } catch (err) {
+      toast({
+        title: 'Erro ao alterar o tipo',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   const askDelete = async (subject: LandSubject) => {
+    setOpenChip(null)
     try {
       setPendingDelete({ subject, uploads: await countSubjectUploads(landId, subject.id) })
     } catch {
@@ -100,9 +151,10 @@ export function SubjectsToolbar({
     const meta = KIND_META[kind]
     const Icon = meta.icon
     const real = subjects.filter((s) => s.kind === kind)
-    // Sem nenhum cadastrado, a terra se comporta como tendo um implícito. Ele
-    // aparece esmaecido e sem "×": não existe registro para remover.
+    // Rede de segurança: sem permissão de escrita não há como criar o mínimo,
+    // então a terra segue com o sujeito implícito, que não é editável.
     const shown = real.length > 0 ? real : subjectsOfKind(subjects, kind, fallbackOwnerType)
+    const isLastOfKind = real.length <= 1
 
     return (
       <div className="flex flex-wrap items-center gap-1.5">
@@ -111,28 +163,116 @@ export function SubjectsToolbar({
           {meta.title}
         </span>
 
-        {shown.map((subject) => (
-          <span
-            key={subject.id || `implicit-${kind}`}
-            className={
-              subject.id
-                ? 'inline-flex items-center gap-1 rounded-full border border-brand-primary/15 bg-white py-0.5 pl-2.5 pr-1 text-xs font-medium text-brand-primary'
-                : 'inline-flex items-center rounded-full border border-dashed border-brand-primary/15 bg-white px-2.5 py-0.5 text-xs font-medium text-brand-primary/40'
-            }
-          >
-            {subject.label}
-            {subject.id && (
-              <button
-                type="button"
-                onClick={() => askDelete(subject)}
-                className="rounded-full p-0.5 text-brand-primary/35 transition-colors hover:bg-brand-critical/10 hover:text-brand-critical"
-                aria-label={`Remover ${subject.label}`}
+        {shown.map((subject) => {
+          if (!subject.id) {
+            return (
+              <span
+                key={`implicit-${kind}`}
+                className="inline-flex items-center rounded-full border border-dashed border-brand-primary/15 bg-white px-2.5 py-1 text-xs font-medium text-brand-primary/40"
               >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </span>
-        ))}
+                {subject.label}
+              </span>
+            )
+          }
+
+          const ownerType = (subject.owner_type || fallbackOwnerType) as OwnerType
+
+          return (
+            <Popover
+              key={subject.id}
+              open={openChip === subject.id}
+              onOpenChange={(open) => {
+                setOpenChip(open ? subject.id : null)
+                if (open) setDraftLabel(subject.label)
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border border-brand-primary/15 bg-white px-2.5 py-1 text-xs font-medium text-brand-primary transition-colors hover:border-brand-secondary/50"
+                >
+                  {subject.label}
+                  {kind === 'owner' && ownerType && (
+                    <span className="rounded bg-brand-primary/5 px-1 text-[10px] font-bold uppercase text-brand-primary/50">
+                      {ownerType}
+                    </span>
+                  )}
+                  {savingId === subject.id ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-brand-primary/40" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3 text-brand-primary/35" />
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 space-y-3 p-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-brand-primary/50">
+                    Nome
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={draftLabel}
+                      onChange={(e) => setDraftLabel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRename(subject)
+                        if (e.key === 'Escape') setOpenChip(null)
+                      }}
+                      className="h-8 text-sm"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 shrink-0 bg-brand-primary text-white hover:bg-brand-primary/90"
+                      disabled={savingId === subject.id}
+                      onClick={() => handleRename(subject)}
+                    >
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+
+                {kind === 'owner' && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-brand-primary/50">
+                      Tipo
+                    </label>
+                    <select
+                      value={ownerType}
+                      disabled={savingId === subject.id}
+                      onChange={(e) => handleOwnerType(subject, e.target.value as OwnerType)}
+                      className="h-8 w-full rounded-lg border border-brand-primary/15 bg-white px-2 text-sm font-medium text-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-secondary"
+                    >
+                      <option value="">Não informado</option>
+                      <option value="pf">{OWNER_TYPE_LABEL.pf}</option>
+                      <option value="pj">{OWNER_TYPE_LABEL.pj}</option>
+                    </select>
+                    <p className="text-[11px] leading-relaxed text-brand-primary/45">
+                      Define qual lista de documentos pessoais é exigida.
+                    </p>
+                  </div>
+                )}
+
+                <div className="border-t border-brand-primary/10 pt-2">
+                  {isLastOfKind ? (
+                    <p className="text-[11px] leading-relaxed text-brand-primary/45">
+                      Não pode ser removido: a terra precisa de pelo menos{' '}
+                      {kind === 'owner' ? 'um proprietário' : 'uma matrícula'}.
+                    </p>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-full justify-start text-xs font-semibold text-brand-critical hover:bg-brand-critical/10"
+                      onClick={() => askDelete(subject)}
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Remover
+                    </Button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )
+        })}
 
         <Button
           variant="ghost"

@@ -11,7 +11,7 @@ import { BulkUploadModal } from '@/components/document-upload/BulkUploadModal'
 import { DocumentHistory } from '@/components/document-upload/DocumentHistory'
 import { SubjectsToolbar } from '@/components/document-upload/SubjectsToolbar'
 import { getDocumentChecksForLand } from '@/services/document-upload'
-import { getLandSubjects } from '@/services/land-subjects'
+import { ensureMinimumSubjects } from '@/services/land-subjects'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { useRealtime } from '@/hooks/use-realtime'
 import {
@@ -64,10 +64,16 @@ export default function DocumentUpload() {
     }
   }
 
+  // Garante o mínimo de um proprietário e uma matrícula ao selecionar a terra.
   const fetchSubjects = async () => {
     if (!selectedLand) return
     try {
-      setSubjects(await getLandSubjects(selectedLand.external_id))
+      setSubjects(
+        await ensureMinimumSubjects(
+          selectedLand.external_id,
+          (selectedLand.owner_type || '') as OwnerType,
+        ),
+      )
     } catch {
       setSubjects([])
     }

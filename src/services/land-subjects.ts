@@ -82,6 +82,39 @@ export async function createLandSubject(
   return record as unknown as LandSubject
 }
 
+/**
+ * Garante o mínimo de um proprietário e uma matrícula.
+ *
+ * Cria o que faltar e devolve a lista final. Chamado ao abrir as telas de
+ * documentos, para toda terra ter sujeitos reais em vez de depender do
+ * implícito — que fica só como rede de segurança para quem não tem permissão
+ * de escrita.
+ */
+export async function ensureMinimumSubjects(
+  landId: string,
+  fallbackOwnerType: OwnerType = '',
+): Promise<LandSubject[]> {
+  let subjects = await getLandSubjects(landId)
+
+  const missing: SubjectKind[] = []
+  if (!subjects.some((s) => s.kind === 'owner')) missing.push('owner')
+  if (!subjects.some((s) => s.kind === 'matricula')) missing.push('matricula')
+  if (missing.length === 0) return subjects
+
+  try {
+    for (const kind of missing) {
+      await createLandSubject(landId, kind, kind === 'owner' ? fallbackOwnerType : '')
+    }
+    subjects = await getLandSubjects(landId)
+  } catch (err) {
+    // Sem permissão de escrita (perfil não-admin), segue com o que existe: as
+    // telas caem no sujeito implícito e nada quebra.
+    console.warn('[land-subjects] não foi possível criar o mínimo obrigatório', err)
+  }
+
+  return subjects
+}
+
 export async function updateLandSubject(
   subjectId: string,
   data: { label?: string; ownerType?: OwnerType },
@@ -119,11 +152,27 @@ export async function updateLandSubject(
 /**
  * Remove o sujeito e os registros de documento dele.
  *
+ * Nunca remove o último do seu tipo: toda terra tem pelo menos um proprietário
+ * e uma matrícula, então zerar deixaria a lista de documentos daquele escopo
+ * sem dono e o progresso sem denominador.
+ *
  * Os arquivos já enviados permanecem no S3: o bucket não dá permissão de
  * exclusão (ver o hook proxy-upload). Some da contagem, fica no data lake — a
  * tela avisa isso antes de confirmar.
  */
 export async function deleteLandSubject(landId: string, subjectId: string): Promise<void> {
+  const all = await getLandSubjects(landId)
+  const target = all.find((s) => s.id === subjectId)
+  if (!target) throw new Error('Item não encontrado.')
+
+  if (all.filter((s) => s.kind === target.kind).length <= 1) {
+    throw new Error(
+      target.kind === 'owner'
+        ? 'A terra precisa de pelo menos um proprietário.'
+        : 'A terra precisa de pelo menos uma matrícula.',
+    )
+  }
+
   const checks = await pb.collection('document_checks').getFullList({
     filter: `land_id = "${landId}" && subject_id = "${subjectId}"`,
   })

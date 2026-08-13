@@ -21,7 +21,7 @@ import { format } from 'date-fns'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { uploadDocumentToS3 } from '@/services/s3-upload'
 import { setDocumentNotApplicable } from '@/services/documents'
-import { getLandSubjects } from '@/services/land-subjects'
+import { ensureMinimumSubjects } from '@/services/land-subjects'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 import { SubjectsToolbar } from '@/components/document-upload/SubjectsToolbar'
@@ -73,9 +73,12 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     }
   }
 
+  // Garante o mínimo de um proprietário e uma matrícula ao abrir: toda terra
+  // tem os dois, então eles passam a existir de fato em vez de ficarem no
+  // implícito.
   const fetchSubjects = async () => {
     try {
-      setSubjects(await getLandSubjects(landId))
+      setSubjects(await ensureMinimumSubjects(landId, (metadata?.owner_type || '') as OwnerType))
     } catch {
       setSubjects([])
     }
