@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { DEFAULT_OWNER_TYPE } from '@/lib/document-groups'
 import type { LandSubject, OwnerType, SubjectKind } from '@/lib/document-groups'
 
 const AUTO_LABEL_PREFIX: Record<SubjectKind, string> = {
@@ -65,7 +66,7 @@ export async function getAllLandSubjects(): Promise<Record<string, LandSubject[]
 export async function createLandSubject(
   landId: string,
   kind: SubjectKind,
-  ownerType: OwnerType = '',
+  ownerType: OwnerType = DEFAULT_OWNER_TYPE,
 ): Promise<LandSubject> {
   const existing = await getLandSubjects(landId)
   // sort_order salta de 10 em 10 para caber uma reordenação entre dois itens
@@ -90,10 +91,7 @@ export async function createLandSubject(
  * implícito — que fica só como rede de segurança para quem não tem permissão
  * de escrita.
  */
-export async function ensureMinimumSubjects(
-  landId: string,
-  fallbackOwnerType: OwnerType = '',
-): Promise<LandSubject[]> {
+export async function ensureMinimumSubjects(landId: string): Promise<LandSubject[]> {
   let subjects = await getLandSubjects(landId)
 
   const missing: SubjectKind[] = []
@@ -103,7 +101,7 @@ export async function ensureMinimumSubjects(
 
   try {
     for (const kind of missing) {
-      await createLandSubject(landId, kind, kind === 'owner' ? fallbackOwnerType : '')
+      await createLandSubject(landId, kind)
     }
     subjects = await getLandSubjects(landId)
   } catch (err) {

@@ -8,12 +8,7 @@ import pb from '@/lib/pocketbase/client'
 import { upsertLandMetadata } from '@/services/land-metadata'
 import { getDocumentTypes, type DocumentType } from '@/services/app-settings'
 import { getAllLandSubjects } from '@/services/land-subjects'
-import {
-  computeDocumentProgress,
-  instanceKey,
-  type LandSubject,
-  type OwnerType,
-} from '@/lib/document-groups'
+import { computeDocumentProgress, instanceKey, type LandSubject } from '@/lib/document-groups'
 
 interface KanbanBoardProps {
   columns: KanbanColumnType[]
@@ -240,7 +235,6 @@ export function KanbanBoard({
       const docProgress = computeDocumentProgress(
         docTypes,
         subjects,
-        (meta?.owner_type || '') as OwnerType,
         new Set(checks.completedKeys),
         new Set(checks.notApplicableKeys),
       )

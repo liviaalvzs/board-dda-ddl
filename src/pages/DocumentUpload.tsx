@@ -19,9 +19,9 @@ import {
   getExclusionReason,
   getSubjectKindForCategory,
   instanceKey,
+  ownerTypeOf,
   subjectsOfKind,
   type LandSubject,
-  type OwnerType,
 } from '@/lib/document-groups'
 
 export default function DocumentUpload() {
@@ -68,12 +68,7 @@ export default function DocumentUpload() {
   const fetchSubjects = async () => {
     if (!selectedLand) return
     try {
-      setSubjects(
-        await ensureMinimumSubjects(
-          selectedLand.external_id,
-          (selectedLand.owner_type || '') as OwnerType,
-        ),
-      )
+      setSubjects(await ensureMinimumSubjects(selectedLand.external_id))
     } catch {
       setSubjects([])
     }
@@ -97,10 +92,6 @@ export default function DocumentUpload() {
     if (selectedLand && e.record.land_id === selectedLand.external_id) fetchSubjects()
   })
 
-  // A terra selecionada é o registro de land_metadata, então o tipo de
-  // proprietário vem junto e serve de padrão para quem não tem marcação própria.
-  const fallbackOwnerType = (selectedLand?.owner_type || '') as OwnerType
-
   /** Uma entrada por tipo de documento × sujeito do escopo daquele tipo. */
   const instances = useMemo(() => {
     const result: {
@@ -113,18 +104,21 @@ export default function DocumentUpload() {
 
     for (const doc of documentTypes) {
       const kind = getSubjectKindForCategory(doc.category)
-      for (const subject of subjectsOfKind(subjects, kind, fallbackOwnerType)) {
+      for (const subject of subjectsOfKind(subjects, kind)) {
         const check = checks[instanceKey(doc.key, subject.id)]
         // Os arquivos vivem só no S3: a presença de document_url é o que define
         // um documento como enviado.
         const isCompleted = !!(check?.is_completed && check?.document_url)
-        const ownerType = (subject.owner_type || fallbackOwnerType) as OwnerType
-        const exclusion = getExclusionReason(doc.category, ownerType, !!check?.not_applicable)
+        const exclusion = getExclusionReason(
+          doc.category,
+          ownerTypeOf(subject),
+          !!check?.not_applicable,
+        )
         result.push({ doc, subject, check, isCompleted, exclusion })
       }
     }
     return result
-  }, [documentTypes, subjects, checks, fallbackOwnerType])
+  }, [documentTypes, subjects, checks])
 
   const searchLower = searchQuery.toLowerCase()
 
@@ -239,10 +233,7 @@ export default function DocumentUpload() {
               clusterSerial={selectedLand.cluster_serial || ''}
               subjectId={subject.id}
               subjectLabel={subject.label}
-              exclusionLabel={getExclusionLabel(
-                exclusion,
-                (subject.owner_type || fallbackOwnerType) as OwnerType,
-              )}
+              exclusionLabel={getExclusionLabel(exclusion, ownerTypeOf(subject))}
             />
           ))}
         </div>
@@ -285,7 +276,6 @@ export default function DocumentUpload() {
               <SubjectsToolbar
                 landId={selectedLand.external_id}
                 subjects={subjects}
-                fallbackOwnerType={fallbackOwnerType}
                 onChanged={fetchSubjects}
               />
 

@@ -23,6 +23,7 @@ import {
 } from '@/services/land-subjects'
 import {
   OWNER_TYPE_LABEL,
+  ownerTypeOf,
   subjectsOfKind,
   type LandSubject,
   type OwnerType,
@@ -32,7 +33,6 @@ import {
 interface SubjectsToolbarProps {
   landId: string
   subjects: LandSubject[]
-  fallbackOwnerType: OwnerType
   onChanged: () => void
 }
 
@@ -49,12 +49,7 @@ const KIND_META: Record<SubjectKind, { title: string; add: string; icon: typeof 
  * PF/PJ (proprietários) e remover. Nunca é possível remover o último do tipo:
  * toda terra tem pelo menos um de cada.
  */
-export function SubjectsToolbar({
-  landId,
-  subjects,
-  fallbackOwnerType,
-  onChanged,
-}: SubjectsToolbarProps) {
+export function SubjectsToolbar({ landId, subjects, onChanged }: SubjectsToolbarProps) {
   const { toast } = useToast()
   const [busyKind, setBusyKind] = useState<SubjectKind | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -69,7 +64,7 @@ export function SubjectsToolbar({
   const handleAdd = async (kind: SubjectKind) => {
     setBusyKind(kind)
     try {
-      await createLandSubject(landId, kind, kind === 'owner' ? fallbackOwnerType : '')
+      await createLandSubject(landId, kind)
       onChanged()
     } catch (err) {
       toast({
@@ -153,7 +148,7 @@ export function SubjectsToolbar({
     const real = subjects.filter((s) => s.kind === kind)
     // Rede de segurança: sem permissão de escrita não há como criar o mínimo,
     // então a terra segue com o sujeito implícito, que não é editável.
-    const shown = real.length > 0 ? real : subjectsOfKind(subjects, kind, fallbackOwnerType)
+    const shown = real.length > 0 ? real : subjectsOfKind(subjects, kind)
     const isLastOfKind = real.length <= 1
 
     return (
@@ -175,7 +170,7 @@ export function SubjectsToolbar({
             )
           }
 
-          const ownerType = (subject.owner_type || fallbackOwnerType) as OwnerType
+          const ownerType = ownerTypeOf(subject)
 
           return (
             <Popover

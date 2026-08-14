@@ -29,6 +29,17 @@ export const OWNER_TYPE_LABEL: Record<'pf' | 'pj', string> = {
   pj: 'Pessoa Jurídica',
 }
 
+/**
+ * Todo proprietário nasce Pessoa Física. É o caso de longe mais comum, e a
+ * marcação é trocada no próprio chip do proprietário quando for empresa.
+ */
+export const DEFAULT_OWNER_TYPE: OwnerType = 'pf'
+
+/** Tipo efetivo de um proprietário: o dele, ou o padrão. */
+export function ownerTypeOf(subject: Pick<LandSubject, 'owner_type'>): OwnerType {
+  return (subject.owner_type || DEFAULT_OWNER_TYPE) as OwnerType
+}
+
 // ── Sujeitos ────────────────────────────────────────────────────────────────
 
 /**
@@ -66,11 +77,7 @@ export function getSubjectKindForCategory(category: string | undefined): Subject
  * sujeito implícito de id vazio, que reproduz exatamente o comportamento
  * anterior à multiplicação — sem isso todo card do board zeraria no deploy.
  */
-export function subjectsOfKind(
-  subjects: LandSubject[],
-  kind: SubjectKind,
-  fallbackOwnerType: OwnerType = '',
-): LandSubject[] {
+export function subjectsOfKind(subjects: LandSubject[], kind: SubjectKind): LandSubject[] {
   const matching = subjects
     .filter((s) => s.kind === kind)
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.label.localeCompare(b.label))
@@ -83,7 +90,7 @@ export function subjectsOfKind(
       land_id: '',
       kind,
       label: kind === 'owner' ? 'Proprietário' : 'Matrícula',
-      owner_type: kind === 'owner' ? fallbackOwnerType : '',
+      owner_type: kind === 'owner' ? DEFAULT_OWNER_TYPE : '',
     },
   ]
 }
@@ -177,7 +184,6 @@ export function emptyDocumentProgress(): DocumentProgress {
 export function computeDocumentProgress(
   docTypes: DocumentType[],
   subjects: LandSubject[],
-  fallbackOwnerType: OwnerType,
   completedKeys: ReadonlySet<string>,
   notApplicableKeys: ReadonlySet<string>,
 ): DocumentProgress {
@@ -185,10 +191,10 @@ export function computeDocumentProgress(
 
   for (const type of docTypes) {
     const kind = getSubjectKindForCategory(type.category)
-    for (const subject of subjectsOfKind(subjects, kind, fallbackOwnerType)) {
+    for (const subject of subjectsOfKind(subjects, kind)) {
       const key = instanceKey(type.key, subject.id)
-      const ownerType = (subject.owner_type || fallbackOwnerType) as OwnerType
-      if (getExclusionReason(type.category, ownerType, notApplicableKeys.has(key))) continue
+      if (getExclusionReason(type.category, ownerTypeOf(subject), notApplicableKeys.has(key)))
+        continue
 
       const group = getDocumentGroup(type.category)
       progress[group].total++

@@ -33,10 +33,10 @@ import {
   getExclusionReason,
   getSubjectKindForCategory,
   instanceKey,
+  ownerTypeOf,
   progressPercent,
   subjectsOfKind,
   type LandSubject,
-  type OwnerType,
 } from '@/lib/document-groups'
 
 const MAX_SIZE = 10 * 1024 * 1024
@@ -78,7 +78,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   // implícito.
   const fetchSubjects = async () => {
     try {
-      setSubjects(await ensureMinimumSubjects(landId, (metadata?.owner_type || '') as OwnerType))
+      setSubjects(await ensureMinimumSubjects(landId))
     } catch {
       setSubjects([])
     }
@@ -103,8 +103,6 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   useRealtime('land_subjects', (e) => {
     if (e.record.land_id === landId) fetchSubjects()
   })
-
-  const fallbackOwnerType = (metadata?.owner_type || '') as OwnerType
 
   const handleFileUpload = async (key: string, subjectId: string, file: File) => {
     const uiKey = instanceKey(key, subjectId)
@@ -182,12 +180,15 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
       const category = doc.category || 'Outros documentos'
       const kind = getSubjectKindForCategory(doc.category)
 
-      for (const subject of subjectsOfKind(subjects, kind, fallbackOwnerType)) {
+      for (const subject of subjectsOfKind(subjects, kind)) {
         const key = instanceKey(doc.key, subject.id)
         const check = checks[key]
         const isCompleted = !!(check?.is_completed && check?.document_url)
-        const ownerType = (subject.owner_type || fallbackOwnerType) as OwnerType
-        const exclusion = getExclusionReason(doc.category, ownerType, !!check?.not_applicable)
+        const exclusion = getExclusionReason(
+          doc.category,
+          ownerTypeOf(subject),
+          !!check?.not_applicable,
+        )
 
         const blockId = `${category}::${subject.id}`
         let block = result.find((b) => b.id === blockId)
@@ -208,7 +209,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     }
     const isFullyExcluded = (b: (typeof result)[number]) => b.docs.every((d) => !!d.exclusion)
     return [...result.filter((b) => !isFullyExcluded(b)), ...result.filter(isFullyExcluded)]
-  }, [docTypes, subjects, checks, fallbackOwnerType])
+  }, [docTypes, subjects, checks])
 
   // Básicos e certidões andam separados: um depende do proprietário entregar,
   // o outro de órgão emitir. Um número só não dizia qual dos dois estava preso.
@@ -221,14 +222,8 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
       if (check?.is_completed && check?.document_url) completedKeys.add(key)
       if (check?.not_applicable) notApplicableKeys.add(key)
     }
-    return computeDocumentProgress(
-      docTypes,
-      subjects,
-      fallbackOwnerType,
-      completedKeys,
-      notApplicableKeys,
-    )
-  }, [checks, docTypes, subjects, fallbackOwnerType])
+    return computeDocumentProgress(docTypes, subjects, completedKeys, notApplicableKeys)
+  }, [checks, docTypes, subjects])
 
   if (loading) return null
 
@@ -245,12 +240,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
 
   return (
     <div className="space-y-6">
-      <SubjectsToolbar
-        landId={landId}
-        subjects={subjects}
-        fallbackOwnerType={fallbackOwnerType}
-        onChanged={fetchSubjects}
-      />
+      <SubjectsToolbar landId={landId} subjects={subjects} onChanged={fetchSubjects} />
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-brand-primary/10">
         <h3 className="text-xl font-display text-brand-primary flex items-center gap-2">
@@ -313,7 +303,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                 const uiKey = instanceKey(doc.key, block.subject.id)
                 const userName = check?.expand?.user?.name || check?.expand?.user?.email
                 const isToggling = togglingKey === uiKey
-                const ownerType = (block.subject.owner_type || fallbackOwnerType) as OwnerType
+                const ownerType = ownerTypeOf(block.subject)
 
                 // Dispensar só vale para campo vazio: com arquivo enviado, a
                 // saída é remover o documento, não escondê-lo da conta. A opção
