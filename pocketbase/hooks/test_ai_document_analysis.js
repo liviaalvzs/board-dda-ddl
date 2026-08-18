@@ -318,59 +318,94 @@ routerAdd(
       'dígitos), 3) legibilidade/qualidade do arquivo, 4) qualquer problema ou ' +
       'inconsistência aparente.'
 
-    try {
-      var reply = $ai.chat({
-        model: 'fast',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Você é um assistente que audita documentos de due diligence imobiliária/fundiária. Seja objetivo e não invente dados que não estejam visíveis.',
-          },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: dataUri } },
-            ],
-          },
-        ],
-      })
+    // TESTE: usando OpenRouter (fora do $ai.chat do Skip) porque o gateway
+    // padrão do Skip rejeitou o content-part image_url em ambos PDF e JPEG —
+    // indício de que vision não é suportado nos aliases fast/reasoning hoje.
+    // A pedido explícito, com um modelo gratuito da OpenRouter que tem visão.
+    // A chave fica em $secrets (OPENROUTER_API_KEY), nunca no código.
+    var openRouterKey = $secrets.get('OPENROUTER_API_KEY')
+    if (!openRouterKey) {
+      return e.internalServerError('OPENROUTER_API_KEY não configurada')
+    }
 
-      return e.json(200, {
-        check_id: checkId,
-        land_id: landId,
-        document_key: docKey,
-        document_type: docTypeName,
-        file_ext: fileExt,
-        mime_type: mimeType,
-        analysis: reply.choices[0].message.content,
+    var openRouterModel = 'qwen/qwen2.5-vl-72b-instruct:free'
+
+    var aiRes
+    try {
+      aiRes = $http.send({
+        url: 'https://openrouter.ai/api/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + openRouterKey,
+        },
+        body: JSON.stringify({
+          model: openRouterModel,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Você é um assistente que audita documentos de due diligence imobiliária/fundiária. Seja objetivo e não invente dados que não estejam visíveis.',
+            },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image_url', image_url: { url: dataUri } },
+              ],
+            },
+          ],
+        }),
+        timeout: 90,
       })
     } catch (err) {
-      if (err instanceof SkipAiConfigError) {
-        return e.json(503, { error: 'IA temporariamente indisponível' })
-      }
-      if (err instanceof SkipAiError) {
-        var status = err.status || 502
-        $app
-          .logger()
-          .error(
-            'test/analyze-document: $ai.chat falhou',
-            'status',
-            status,
-            'message',
-            err.message,
-            'mime_type',
-            mimeType,
-            'file_ext',
-            fileExt,
-          )
-        return e.json(status, {
-          error: status >= 500 ? 'IA temporariamente indisponível' : err.message,
-        })
-      }
-      throw err
+      $app
+        .logger()
+        .error('test/analyze-document: OpenRouter falhou (transporte)', 'error', String(err))
+      return e.internalServerError('Falha ao chamar a OpenRouter.')
     }
+
+    if (aiRes.statusCode < 200 || aiRes.statusCode >= 300) {
+      var errBody = ''
+      try {
+        errBody = aiRes.json ? JSON.stringify(aiRes.json) : new TextDecoder().decode(aiRes.body)
+      } catch (_) {
+        errBody = ''
+      }
+      $app
+        .logger()
+        .error(
+          'test/analyze-document: OpenRouter respondeu erro',
+          'status',
+          aiRes.statusCode,
+          'body',
+          errBody,
+          'model',
+          openRouterModel,
+        )
+      return e.json(aiRes.statusCode, {
+        error: 'OpenRouter (' + openRouterModel + '): ' + errBody.substring(0, 500),
+      })
+    }
+
+    var content = ''
+    try {
+      content = aiRes.json.choices[0].message.content
+    } catch (_) {
+      $app.logger().error('test/analyze-document: resposta OpenRouter inesperada')
+      return e.internalServerError('Resposta inesperada da OpenRouter.')
+    }
+
+    return e.json(200, {
+      check_id: checkId,
+      land_id: landId,
+      document_key: docKey,
+      document_type: docTypeName,
+      file_ext: fileExt,
+      mime_type: mimeType,
+      provider: 'openrouter:' + openRouterModel,
+      analysis: content,
+    })
   },
   $apis.requireAuth(),
 )
