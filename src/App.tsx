@@ -12,6 +12,7 @@ import SettingsPage from './pages/Settings'
 import DocumentUpload from './pages/DocumentUpload'
 import Mapa from './pages/Mapa'
 import Dashboard from './pages/Dashboard'
+import TestAiDocumentAnalysis from './pages/TestAiDocumentAnalysis'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -38,6 +39,14 @@ const App = () => (
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Navigate to="/login" replace />} />
+          <Route
+            path="/test/analyze-document"
+            element={
+              <ProtectedRoute>
+                <TestAiDocumentAnalysis />
+              </ProtectedRoute>
+            }
+          />
           <Route
             element={
               <ProtectedRoute>
