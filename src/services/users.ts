@@ -15,3 +15,5 @@ export const preRegisterUser = (email: string, name?: string, role?: string) =>
   })
 
 export const getUsers = () => pb.send('/backend/v1/users', { method: 'GET' })
+
+export const deleteUser = (id: string) => pb.send(`/backend/v1/users/${id}`, { method: 'DELETE' })

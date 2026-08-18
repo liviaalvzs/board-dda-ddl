@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Users, Loader2, UserCog } from 'lucide-react'
+import { useAuth } from '@/hooks/use-auth'
+import { Plus, Users, Loader2, UserCog, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -29,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { preRegisterUser } from '@/services/users'
+import { preRegisterUser, deleteUser } from '@/services/users'
 
 export function UsersSection() {
   const [users, setUsers] = useState<any[]>([])
@@ -39,7 +41,10 @@ export function UsersSection() {
   const [name, setName] = useState('')
   const [role, setRole] = useState<'admin' | 'negociador'>('negociador')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const fetchUsers = async () => {
     try {
@@ -71,6 +76,22 @@ export function UsersSection() {
       toast({ title: error?.response?.error || 'Erro ao cadastrar', variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      await deleteUser(deleteTarget.id)
+      toast({ title: 'Usuário excluído com sucesso' })
+      setDeleteTarget(null)
+      fetchUsers()
+    } catch (error: any) {
+      const msg = error?.response?.error || error?.response?.message || 'Erro ao excluir usuário'
+      toast({ title: msg, variant: 'destructive' })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -109,36 +130,58 @@ export function UsersSection() {
                   <TableHead className="font-semibold text-brand-primary">Nome</TableHead>
                   <TableHead className="font-semibold text-brand-primary">Email</TableHead>
                   <TableHead className="font-semibold text-brand-primary">Função</TableHead>
+                  <TableHead className="font-semibold text-brand-primary text-right">
+                    Ações
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-brand-primary/50">
+                    <TableCell colSpan={4} className="text-center py-8 text-brand-primary/50">
                       Nenhum usuário cadastrado
                     </TableCell>
                   </TableRow>
                 ) : (
-                  users.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium text-brand-primary">
-                        {u.name || '—'}
-                      </TableCell>
-                      <TableCell className="text-brand-primary/60 text-sm">{u.email}</TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            u.role === 'admin'
-                              ? 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10'
-                              : 'bg-blue-50 text-blue-700 hover:bg-blue-50'
-                          }
-                        >
-                          <UserCog className="w-3 h-3 mr-1" />
-                          {u.role === 'admin' ? 'Administrador' : 'Negociador'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  users.map((u) => {
+                    const isSelf = user?.id === u.id
+                    return (
+                      <TableRow key={u.id}>
+                        <TableCell className="font-medium text-brand-primary">
+                          {u.name || '—'}
+                        </TableCell>
+                        <TableCell className="text-brand-primary/60 text-sm">{u.email}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              u.role === 'admin'
+                                ? 'bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10'
+                                : 'bg-blue-50 text-blue-700 hover:bg-blue-50'
+                            }
+                          >
+                            <UserCog className="w-3 h-3 mr-1" />
+                            {u.role === 'admin' ? 'Administrador' : 'Negociador'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={isSelf}
+                            onClick={() => setDeleteTarget(u)}
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                            title={
+                              isSelf
+                                ? 'Você não pode excluir o seu próprio usuário'
+                                : 'Excluir usuário'
+                            }
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -195,6 +238,44 @@ export function UsersSection() {
             </Button>
             <Button onClick={handlePreRegister} disabled={!email.trim() || isSubmitting}>
               {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="w-5 h-5" />
+              Excluir Usuário
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTarget && (
+            <div className="rounded-lg border border-brand-primary/10 bg-brand-primary/5 p-3 text-sm">
+              <p className="font-medium text-brand-primary">{deleteTarget.name || 'Usuário'}</p>
+              <p className="text-brand-primary/60">{deleteTarget.email}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Excluir
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
