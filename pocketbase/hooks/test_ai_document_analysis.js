@@ -286,6 +286,16 @@ routerAdd(
     }
     var mimeType = mimeByExt[fileExt] || 'application/octet-stream'
 
+    // O gateway de IA (vision) só aceita imagem de verdade no content-part
+    // image_url — PDF nesse campo é rejeitado pelo modelo com um 400 opaco.
+    if (mimeType !== 'image/jpeg' && mimeType !== 'image/png') {
+      return e.badRequestError(
+        'Este teste só analisa JPG/PNG direto. PDF (' +
+          fileExt +
+          ') precisa ser convertido em imagem ou ter o texto extraído antes — ainda não implementado nesta rota de teste.',
+      )
+    }
+
     var b64 = base64Encode(fileBytes)
     var dataUri = 'data:' + mimeType + ';base64,' + b64
 
@@ -342,6 +352,19 @@ routerAdd(
       }
       if (err instanceof SkipAiError) {
         var status = err.status || 502
+        $app
+          .logger()
+          .error(
+            'test/analyze-document: $ai.chat falhou',
+            'status',
+            status,
+            'message',
+            err.message,
+            'mime_type',
+            mimeType,
+            'file_ext',
+            fileExt,
+          )
         return e.json(status, {
           error: status >= 500 ? 'IA temporariamente indisponível' : err.message,
         })
