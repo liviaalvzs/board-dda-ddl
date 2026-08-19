@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bot, Loader2, MessageSquare, Plus, Send, X, Minus } from 'lucide-react'
+import { Bot, Loader2, MessageSquare, Plus, Send, X, Minus, Search } from 'lucide-react'
 import { streamAgentChat, displayableMessages, type DisplayMessage } from '@/lib/skipAi'
 import pb from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,29 @@ interface Conversation {
   updated: string
 }
 
+type ThinkingPhase = 'thinking' | 'searching' | null
+
+function ThinkingIndicator({ phase }: { phase: ThinkingPhase }) {
+  if (!phase) return null
+
+  const label = phase === 'searching' ? 'Consultando dados' : 'Pensando'
+  const Icon = phase === 'searching' ? Search : Bot
+
+  return (
+    <div className="flex justify-start">
+      <div className="rounded-2xl rounded-bl-md px-3 py-2.5 bg-gray-100 flex items-center gap-2">
+        <Icon className="w-3.5 h-3.5 text-brand-secondary animate-pulse" />
+        <span className="text-[12px] text-brand-primary/50">{label}</span>
+        <span className="flex gap-0.5">
+          <span className="w-1 h-1 rounded-full bg-brand-secondary/50 animate-bounce [animation-delay:0ms]" />
+          <span className="w-1 h-1 rounded-full bg-brand-secondary/50 animate-bounce [animation-delay:150ms]" />
+          <span className="w-1 h-1 rounded-full bg-brand-secondary/50 animate-bounce [animation-delay:300ms]" />
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -25,6 +48,7 @@ export default function ChatWidget() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamText, setStreamText] = useState('')
+  const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
@@ -35,7 +59,7 @@ export default function ChatWidget() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages, streamText, scrollToBottom])
+  }, [messages, streamText, thinkingPhase, scrollToBottom])
 
   const loadConversations = useCallback(async () => {
     try {
@@ -101,6 +125,7 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, userMsg])
     setStreaming(true)
     setStreamText('')
+    setThinkingPhase('thinking')
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -120,7 +145,16 @@ export default function ChatWidget() {
       if (convId && !activeConvId) setActiveConvId(convId)
 
       const result = await streamAgentChat(res, {
-        onChunk: (_delta, full) => setStreamText(full),
+        onChunk: (_delta, full) => {
+          setThinkingPhase(null)
+          setStreamText(full)
+        },
+        onToolCallStart: () => {
+          setThinkingPhase('searching')
+        },
+        onToolCallDone: () => {
+          setThinkingPhase('thinking')
+        },
         signal: controller.signal,
       })
 
@@ -133,12 +167,14 @@ export default function ChatWidget() {
       }
       setMessages((prev) => [...prev, assistantMsg])
       setStreamText('')
+      setThinkingPhase(null)
       loadConversations()
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       toast({ title: getErrorMessage(err), variant: 'destructive' })
     } finally {
       setStreaming(false)
+      setThinkingPhase(null)
       abortRef.current = null
     }
   }, [input, streaming, activeConvId, toast, loadConversations])
@@ -269,13 +305,7 @@ export default function ChatWidget() {
               </div>
             )}
 
-            {streaming && !streamText && (
-              <div className="flex justify-start">
-                <div className="rounded-2xl rounded-bl-md px-3 py-2 bg-gray-100">
-                  <Loader2 className="w-4 h-4 animate-spin text-brand-secondary" />
-                </div>
-              </div>
-            )}
+            {streaming && !streamText && <ThinkingIndicator phase={thinkingPhase} />}
 
             <div ref={bottomRef} />
           </div>
