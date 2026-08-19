@@ -32,7 +32,7 @@ migrate(
         '- Resolva relações (escritório → nome, usuário → nome, tipo de doc → nome legível) antes de responder.',
         '',
         '## Dados que você pode consultar',
-        '- Terras: nome, cluster, status, nível de risco, área em hectares (area_ha), datas de DD/DDA/DDL, responsável, escritório externo, tipo e estado civil do proprietário.',
+        '- Terras: nome da propriedade, cluster, município (city), estado (state), status, nível de risco, área em hectares (area_ha), datas de DD/DDA/DDL, responsável, escritório externo, tipo e estado civil do proprietário.',
         '- Documentos: checklist por terra, status (completo/pendente/não se aplica), tipo de documento.',
         '- Histórico: mudanças feitas nas terras, quem fez e quando.',
         '- Escritórios externos: nome e dados.',

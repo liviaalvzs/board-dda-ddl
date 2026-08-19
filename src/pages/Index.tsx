@@ -203,6 +203,12 @@ export default function Index() {
           if (!meta.cluster_serial && apiClusterSerial) patches.cluster_serial = apiClusterSerial
           const apiArea = typeof item.area === 'number' ? item.area : 0
           if (apiArea && meta.area_ha !== apiArea) patches.area_ha = apiArea
+          const apiName = item.name || ''
+          if (apiName && meta.name !== apiName) patches.name = apiName
+          const apiCity = item.city || item.geomCityName || ''
+          if (apiCity && meta.city !== apiCity) patches.city = apiCity
+          const apiState = item.geomAcronymState || item.state || ''
+          if (apiState && meta.state !== apiState) patches.state = apiState
           if (Object.keys(patches).length > 0) {
             newMetadataPromises.push(
               pb
@@ -235,6 +241,9 @@ export default function Index() {
                 status: stageId,
                 cluster_serial: apiClusterSerial,
                 area_ha: typeof item.area === 'number' ? item.area : 0,
+                name: item.name || '',
+                city: item.city || item.geomCityName || '',
+                state: item.geomAcronymState || item.state || '',
                 stage_dates: entry ? { [FIRST_STAGE_ID]: entry } : {},
               })
             })().catch((e) => console.error('Failed to init land_metadata', e)),
