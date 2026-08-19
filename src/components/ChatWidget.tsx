@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { cn } from '@/lib/utils'
+import ChatMarkdown from './ChatMarkdown'
 
 const BACKEND = import.meta.env.VITE_POCKETBASE_URL
 
@@ -149,6 +150,11 @@ export default function ChatWidget() {
     }
   }
 
+  const renderContent = (content: string, role: 'user' | 'assistant') => {
+    if (role === 'user') return content
+    return <ChatMarkdown text={content} />
+  }
+
   return (
     <>
       {/* Floating button */}
@@ -244,21 +250,21 @@ export default function ChatWidget() {
               >
                 <div
                   className={cn(
-                    'max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap',
+                    'max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed',
                     m.role === 'user'
-                      ? 'bg-brand-secondary text-white rounded-br-md'
+                      ? 'bg-brand-secondary text-white rounded-br-md whitespace-pre-wrap'
                       : 'bg-gray-100 text-brand-primary rounded-bl-md',
                   )}
                 >
-                  {m.content}
+                  {renderContent(m.content, m.role)}
                 </div>
               </div>
             ))}
 
             {streaming && streamText && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl rounded-bl-md px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap bg-gray-100 text-brand-primary">
-                  {streamText}
+                <div className="max-w-[85%] rounded-2xl rounded-bl-md px-3 py-2 text-[13px] leading-relaxed bg-gray-100 text-brand-primary">
+                  <ChatMarkdown text={streamText} />
                 </div>
               </div>
             )}
