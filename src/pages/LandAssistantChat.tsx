@@ -43,7 +43,9 @@ export default function LandAssistantChat() {
         const data = await res.json()
         setConversations(data.conversations ?? data ?? [])
       }
-    } catch {}
+    } catch {
+      // network error — silently ignore, sidebar stays empty
+    }
   }, [])
 
   useEffect(() => {
@@ -61,7 +63,9 @@ export default function LandAssistantChat() {
         const raw = data.messages ?? data ?? []
         setMessages(displayableMessages(raw))
       }
-    } catch {}
+    } catch {
+      // network error — keep current messages
+    }
   }, [])
 
   const selectConversation = useCallback(
