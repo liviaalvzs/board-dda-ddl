@@ -13,7 +13,6 @@ import DocumentUpload from './pages/DocumentUpload'
 import Mapa from './pages/Mapa'
 import Dashboard from './pages/Dashboard'
 import TestAiDocumentAnalysis from './pages/TestAiDocumentAnalysis'
-import LandAssistantChat from './pages/LandAssistantChat'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -45,14 +44,6 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <TestAiDocumentAnalysis />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <LandAssistantChat />
               </ProtectedRoute>
             }
           />

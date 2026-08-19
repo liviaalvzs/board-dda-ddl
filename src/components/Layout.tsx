@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import ChatWidget from './ChatWidget'
 
 export default function Layout() {
   const { signOut, user, role } = useAuth()
@@ -129,6 +130,8 @@ export default function Layout() {
       <main className="flex-1 flex flex-col min-h-0 relative">
         <Outlet />
       </main>
+
+      <ChatWidget />
     </div>
   )
 }
