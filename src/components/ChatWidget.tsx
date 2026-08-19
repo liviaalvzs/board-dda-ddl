@@ -49,6 +49,7 @@ export default function ChatWidget() {
   const [streaming, setStreaming] = useState(false)
   const [streamText, setStreamText] = useState('')
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>(null)
+  const [hasToolCalls, setHasToolCalls] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
@@ -126,6 +127,7 @@ export default function ChatWidget() {
     setStreaming(true)
     setStreamText('')
     setThinkingPhase('thinking')
+    setHasToolCalls(false)
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -144,13 +146,20 @@ export default function ChatWidget() {
       const convId = res.headers.get('X-Conversation-Id')
       if (convId && !activeConvId) setActiveConvId(convId)
 
+      let finalText = ''
+
       const result = await streamAgentChat(res, {
         onChunk: (_delta, full) => {
-          setThinkingPhase(null)
+          finalText = full
           setStreamText(full)
+          setThinkingPhase(null)
         },
         onToolCallStart: () => {
+          setHasToolCalls(true)
           setThinkingPhase('searching')
+          // Clear intermediate text the model may have emitted between tool calls
+          setStreamText('')
+          finalText = ''
         },
         onToolCallDone: () => {
           setThinkingPhase('thinking')
@@ -158,10 +167,12 @@ export default function ChatWidget() {
         signal: controller.signal,
       })
 
+      const content = result.content || finalText
+
       const assistantMsg: DisplayMessage = {
         id: result.message_id || `ai-${Date.now()}`,
         role: 'assistant',
-        content: result.content,
+        content,
         citations: result.citations,
         created: new Date().toISOString(),
       }
@@ -175,6 +186,7 @@ export default function ChatWidget() {
     } finally {
       setStreaming(false)
       setThinkingPhase(null)
+      setHasToolCalls(false)
       abortRef.current = null
     }
   }, [input, streaming, activeConvId, toast, loadConversations])
@@ -190,6 +202,9 @@ export default function ChatWidget() {
     if (role === 'user') return content
     return <ChatMarkdown text={content} />
   }
+
+  // Show thinking indicator when: streaming, no final text yet, and we have a phase
+  const showThinking = streaming && !streamText && thinkingPhase
 
   return (
     <>
@@ -305,7 +320,7 @@ export default function ChatWidget() {
               </div>
             )}
 
-            {streaming && !streamText && <ThinkingIndicator phase={thinkingPhase} />}
+            {showThinking && <ThinkingIndicator phase={thinkingPhase} />}
 
             <div ref={bottomRef} />
           </div>
