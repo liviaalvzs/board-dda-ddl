@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-19T13:45:09.986Z",
+  "generatedAt": "2026-08-19T13:50:35.886Z",
   "collections": [
     {
       "name": "users",
@@ -208,6 +208,12 @@
             "pf",
             "pj"
           ]
+        },
+        {
+          "name": "area_ha",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

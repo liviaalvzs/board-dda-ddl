@@ -50,6 +50,6 @@ migrate(
     })
   },
   (app) => {
-    // rollback: prompt anterior (migração 0069)
+    // rollback: prompt anterior (migração 0070)
   },
 )

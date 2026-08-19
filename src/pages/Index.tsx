@@ -199,12 +199,16 @@ export default function Index() {
 
         if (meta && meta.status) {
           stageId = meta.status
-          if (!meta.cluster_serial && apiClusterSerial) {
+          const patches: Record<string, any> = {}
+          if (!meta.cluster_serial && apiClusterSerial) patches.cluster_serial = apiClusterSerial
+          const apiArea = typeof item.area === 'number' ? item.area : 0
+          if (apiArea && meta.area_ha !== apiArea) patches.area_ha = apiArea
+          if (Object.keys(patches).length > 0) {
             newMetadataPromises.push(
               pb
                 .collection('land_metadata')
-                .update(meta.id, { cluster_serial: apiClusterSerial })
-                .catch((e) => console.error('Failed to update cluster_serial', e)),
+                .update(meta.id, patches)
+                .catch((e) => console.error('Failed to update land_metadata', e)),
             )
           }
           // Autocorreção: terra já no board mas sem a data da primeira etapa
@@ -230,6 +234,7 @@ export default function Index() {
                 external_id: item.id,
                 status: stageId,
                 cluster_serial: apiClusterSerial,
+                area_ha: typeof item.area === 'number' ? item.area : 0,
                 stage_dates: entry ? { [FIRST_STAGE_ID]: entry } : {},
               })
             })().catch((e) => console.error('Failed to init land_metadata', e)),
