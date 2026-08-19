@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bot, Loader2, MessageSquare, Plus, Send, X, Minus, Search } from 'lucide-react'
+import { Bot, Loader2, Plus, Send, X, Minus, Search } from 'lucide-react'
 import { streamAgentChat, displayableMessages, type DisplayMessage } from '@/lib/skipAi'
 import pb from '@/lib/pocketbase/client'
 import { Button } from '@/components/ui/button'
@@ -9,12 +9,6 @@ import { cn } from '@/lib/utils'
 import ChatMarkdown from './ChatMarkdown'
 
 const BACKEND = import.meta.env.VITE_POCKETBASE_URL
-
-interface Conversation {
-  id: string
-  title: string
-  updated: string
-}
 
 type ThinkingPhase = 'thinking' | 'searching' | null
 
@@ -41,8 +35,6 @@ function ThinkingIndicator({ phase }: { phase: ThinkingPhase }) {
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
-  const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [input, setInput] = useState('')
@@ -62,54 +54,10 @@ export default function ChatWidget() {
     scrollToBottom()
   }, [messages, streamText, thinkingPhase, scrollToBottom])
 
-  const loadConversations = useCallback(async () => {
-    try {
-      const res = await fetch(`${BACKEND}/backend/v1/land-assistant/conversations`, {
-        headers: { Authorization: pb.authStore.token },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setConversations(data.conversations ?? data ?? [])
-      }
-    } catch {
-      // network error
-    }
-  }, [])
-
-  useEffect(() => {
-    if (open) loadConversations()
-  }, [open, loadConversations])
-
-  const loadMessages = useCallback(async (convId: string) => {
-    try {
-      const res = await fetch(
-        `${BACKEND}/backend/v1/land-assistant/conversations/${convId}/messages`,
-        { headers: { Authorization: pb.authStore.token } },
-      )
-      if (res.ok) {
-        const data = await res.json()
-        const raw = data.messages ?? data ?? []
-        setMessages(displayableMessages(raw))
-      }
-    } catch {
-      // network error
-    }
-  }, [])
-
-  const selectConversation = useCallback(
-    (convId: string) => {
-      setActiveConvId(convId)
-      setShowHistory(false)
-      loadMessages(convId)
-    },
-    [loadMessages],
-  )
-
   const startNewChat = useCallback(() => {
     setActiveConvId(null)
     setMessages([])
     setStreamText('')
-    setShowHistory(false)
   }, [])
 
   const sendMessage = useCallback(async () => {
@@ -157,7 +105,6 @@ export default function ChatWidget() {
         onToolCallStart: () => {
           setHasToolCalls(true)
           setThinkingPhase('searching')
-          // Clear intermediate text the model may have emitted between tool calls
           setStreamText('')
           finalText = ''
         },
@@ -179,7 +126,6 @@ export default function ChatWidget() {
       setMessages((prev) => [...prev, assistantMsg])
       setStreamText('')
       setThinkingPhase(null)
-      loadConversations()
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       toast({ title: getErrorMessage(err), variant: 'destructive' })
@@ -189,7 +135,7 @@ export default function ChatWidget() {
       setHasToolCalls(false)
       abortRef.current = null
     }
-  }, [input, streaming, activeConvId, toast, loadConversations])
+  }, [input, streaming, activeConvId, toast])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -203,7 +149,6 @@ export default function ChatWidget() {
     return <ChatMarkdown text={content} />
   }
 
-  // Show thinking indicator when: streaming, no final text yet, and we have a phase
   const showThinking = streaming && !streamText && thinkingPhase
 
   return (
@@ -228,16 +173,9 @@ export default function ChatWidget() {
           <div className="flex items-center justify-between px-4 py-3 bg-brand-secondary text-white shrink-0">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5" />
-              <span className="text-sm font-semibold">Assistente de Terras</span>
+              <span className="text-sm font-semibold">Assistente re.green</span>
             </div>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setShowHistory((v) => !v)}
-                className="p-1 rounded hover:bg-white/20 transition-colors"
-                title="Conversas anteriores"
-              >
-                <MessageSquare className="w-4 h-4" />
-              </button>
               <button
                 onClick={startNewChat}
                 className="p-1 rounded hover:bg-white/20 transition-colors"
@@ -254,34 +192,6 @@ export default function ChatWidget() {
               </button>
             </div>
           </div>
-
-          {/* History dropdown */}
-          {showHistory && (
-            <div className="border-b border-brand-primary/10 bg-gray-50 max-h-48 overflow-y-auto">
-              {conversations.length === 0 ? (
-                <p className="text-xs text-brand-primary/40 text-center py-3">
-                  Nenhuma conversa ainda
-                </p>
-              ) : (
-                <div className="p-2 space-y-0.5">
-                  {conversations.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => selectConversation(c.id)}
-                      className={cn(
-                        'w-full text-left rounded-lg px-3 py-2 text-xs truncate transition-colors',
-                        activeConvId === c.id
-                          ? 'bg-brand-secondary/10 text-brand-secondary font-medium'
-                          : 'text-brand-primary/70 hover:bg-brand-primary/5',
-                      )}
-                    >
-                      {c.title || 'Conversa sem título'}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
