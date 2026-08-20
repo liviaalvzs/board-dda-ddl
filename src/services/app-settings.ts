@@ -18,6 +18,28 @@ export async function updateSetting(key: string, value: string): Promise<void> {
   }
 }
 
+export interface StageThreshold {
+  attention: number
+  delayed: number
+}
+
+export async function getStageThresholds(): Promise<Record<string, StageThreshold>> {
+  try {
+    const value = await getSetting('stage_thresholds')
+    if (!value) return {}
+    const parsed = JSON.parse(value)
+    return typeof parsed === 'object' && parsed !== null ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export async function updateStageThresholds(
+  thresholds: Record<string, StageThreshold>,
+): Promise<void> {
+  await updateSetting('stage_thresholds', JSON.stringify(thresholds))
+}
+
 export async function getDelayedThresholdDays(): Promise<number> {
   const value = await getSetting('delayed_threshold_days')
   const parsed = parseInt(value || '7', 10)

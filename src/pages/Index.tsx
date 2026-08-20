@@ -30,6 +30,9 @@ import { fetchFirstStageEntry, FIRST_STAGE_ID } from '@/services/land-stages'
 import { parseStageDates } from '@/lib/stage-dates-helpers'
 import { parseDateValue, isDdaRequested, isDdaOverdue } from '@/lib/process-dates-helpers'
 import { useAuth } from '@/hooks/use-auth'
+import { useDelayedThreshold } from '@/hooks/use-delayed-threshold'
+import { getCurrentStageEntry } from '@/lib/stage-dates-helpers'
+import { differenceInDays } from 'date-fns'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,6 +84,7 @@ export default function Index() {
   const [users, setUsers] = useState<any[]>([])
   const [metadata, setMetadata] = useState<Record<string, any>>({})
   const { isAdmin } = useAuth()
+  const { getThresholdForStage } = useDelayedThreshold()
   const [isResetting, setIsResetting] = useState(false)
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
   const [resetError, setResetError] = useState(false)
@@ -390,6 +394,26 @@ export default function Index() {
     (selectedState !== 'all' ? 1 : 0) +
     (selectedDda !== 'all' ? 1 : 0)
 
+  const { attentionCount, delayedCount } = useMemo(() => {
+    let attention = 0
+    let delayed = 0
+    for (const card of filteredCards) {
+      const meta =
+        metadata[card.id] ||
+        Object.values(metadata).find(
+          (m: any) => m.external_id === card.id || m.external_id === card.clusterSerial,
+        )
+      if (!meta?.status || !meta?.stage_dates) continue
+      const stageEntry = getCurrentStageEntry(meta.stage_dates, meta.status)
+      if (!stageEntry) continue
+      const days = differenceInDays(new Date(), stageEntry)
+      const t = getThresholdForStage(meta.status)
+      if (days > t.delayed) delayed++
+      else if (days > t.attention) attention++
+    }
+    return { attentionCount: attention, delayedCount: delayed }
+  }, [filteredCards, metadata, getThresholdForStage])
+
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-white relative">
       <div className="px-4 sm:px-6 py-4 bg-white border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 z-10">
@@ -677,6 +701,23 @@ export default function Index() {
           </div>
         </div>
       </div>
+
+      {(attentionCount > 0 || delayedCount > 0) && (
+        <div className="px-4 sm:px-6 py-2 bg-white border-b border-slate-200 flex items-center gap-4 shrink-0">
+          {attentionCount > 0 && (
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+              <AlertCircle className="w-4 h-4" />
+              {attentionCount} {attentionCount === 1 ? 'terra em atenção' : 'terras em atenção'}
+            </div>
+          )}
+          {delayedCount > 0 && (
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200">
+              <AlertCircle className="w-4 h-4" />
+              {delayedCount} {delayedCount === 1 ? 'terra atrasada' : 'terras atrasadas'}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 relative overflow-hidden flex flex-col">
         {hasError ? (

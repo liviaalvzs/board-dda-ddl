@@ -507,8 +507,10 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
 
   const [apiDaysInStage, setApiDaysInStage] = useState<number | null>(null)
   const [statusFetchError, setStatusFetchError] = useState(false)
-  const { threshold: delayedThreshold } = useDelayedThreshold()
-  const attentionThreshold = Math.max(1, Math.floor(delayedThreshold / 2))
+  const { getThresholdForStage } = useDelayedThreshold()
+  const currentStageId = metadata?.status || ''
+  const { attention: attentionThreshold, delayed: delayedThreshold } =
+    getThresholdForStage(currentStageId)
 
   useEffect(() => {
     let isMounted = true

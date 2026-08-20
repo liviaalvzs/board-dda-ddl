@@ -72,8 +72,10 @@ interface KanbanCardProps {
 
 export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
   const navigate = useNavigate()
-  const { threshold: delayedThreshold } = useDelayedThreshold()
-  const attentionThreshold = Math.max(1, Math.floor(delayedThreshold / 2))
+  const { getThresholdForStage } = useDelayedThreshold()
+  const { attention: attentionThreshold, delayed: delayedThreshold } = getThresholdForStage(
+    card.stageId,
+  )
 
   const createdDate = new Date(card.createdAt || new Date())
 
