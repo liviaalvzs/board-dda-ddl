@@ -398,6 +398,36 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
   const [metadata, setMetadata] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
+  const [sheetWidth, setSheetWidth] = useState(1200)
+  const isResizing = useRef(false)
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return
+      const newWidth = window.innerWidth - e.clientX
+      setSheetWidth(Math.max(400, Math.min(1200, newWidth)))
+    }
+    const handleMouseUp = () => {
+      if (isResizing.current) {
+        isResizing.current = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizing.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
 
   const handleMetadataUpdated = (updatedRecord: any) => {
     if (!updatedRecord) return
@@ -522,7 +552,10 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
   if (loading) {
     return (
       <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="sm:max-w-[1100px] w-full p-0 flex items-center justify-center bg-white">
+        <SheetContent
+          style={{ maxWidth: `${sheetWidth}px` }}
+          className="w-full p-0 flex items-center justify-center bg-white"
+        >
           <Loader2 className="w-10 h-10 animate-spin text-brand-secondary" />
         </SheetContent>
       </Sheet>
@@ -532,7 +565,10 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
   if (!land) {
     return (
       <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="sm:max-w-[1100px] w-full p-6 text-center text-brand-primary/60 flex items-center justify-center bg-white">
+        <SheetContent
+          style={{ maxWidth: `${sheetWidth}px` }}
+          className="w-full p-6 text-center text-brand-primary/60 flex items-center justify-center bg-white"
+        >
           Terra não encontrada.
         </SheetContent>
       </Sheet>
@@ -587,7 +623,14 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
 
   return (
     <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-[1100px] w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden border-l border-brand-primary/10">
+      <SheetContent
+        style={{ maxWidth: `${sheetWidth}px` }}
+        className="w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden border-l border-brand-primary/10 relative"
+      >
+        <div
+          onMouseDown={startResize}
+          className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-50 hover:bg-brand-secondary/20 active:bg-brand-secondary/30 transition-colors"
+        />
         <VisuallyHidden>
           <DialogTitle>Detalhes da Terra</DialogTitle>
         </VisuallyHidden>
