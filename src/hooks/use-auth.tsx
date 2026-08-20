@@ -11,6 +11,7 @@ interface AuthContextType {
   activateAccount: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signInWithMicrosoft: () => Promise<{ error: any }>
+  completeOAuth2: (code: string, state: string) => Promise<{ error: any }>
   startLogin: (email: string) => Promise<{ requiresPassword: boolean; error: any }>
   signOut: () => void
   loading: boolean
@@ -99,9 +100,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithMicrosoft = async () => {
     try {
-      await pb.collection('users').authWithOAuth2({ provider: 'oidc' })
+      const methods = await pb.collection('users').listAuthMethods()
+      const provider = methods.oauth2?.providers?.find((p: any) => p.name === 'oidc')
+      if (!provider) throw new Error('Provider Microsoft não configurado')
+      const redirectUrl = window.location.origin + '/login/callback'
+      localStorage.setItem(
+        'oauth_provider',
+        JSON.stringify({
+          name: provider.name,
+          state: provider.state,
+          codeVerifier: provider.codeVerifier,
+          redirectUrl,
+        }),
+      )
+      window.location.href = provider.authURL + encodeURIComponent(redirectUrl)
       return { error: null }
     } catch (error) {
+      return { error }
+    }
+  }
+
+  const completeOAuth2 = async (code: string, state: string) => {
+    try {
+      const raw = localStorage.getItem('oauth_provider')
+      if (!raw) throw new Error('OAuth state não encontrado')
+      const saved = JSON.parse(raw)
+      if (saved.state !== state) throw new Error('State inválido')
+      await pb
+        .collection('users')
+        .authWithOAuth2Code(saved.name, code, saved.codeVerifier, saved.redirectUrl)
+      localStorage.removeItem('oauth_provider')
+      return { error: null }
+    } catch (error) {
+      localStorage.removeItem('oauth_provider')
       return { error }
     }
   }
@@ -120,6 +151,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         activateAccount,
         signIn,
         signInWithMicrosoft,
+        completeOAuth2,
         startLogin,
         signOut,
         loading,

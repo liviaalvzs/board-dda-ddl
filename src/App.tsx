@@ -6,6 +6,7 @@ import Index from './pages/Index'
 import NotFound from './pages/NotFound'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import LoginCallback from './pages/LoginCallback'
 import LandDetail from './pages/LandDetail'
 import ExternalOffices from './pages/ExternalOffices'
 import SettingsPage from './pages/Settings'
@@ -38,6 +39,7 @@ const App = () => (
         <Sonner />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/login/callback" element={<LoginCallback />} />
           <Route path="/signup" element={<Navigate to="/login" replace />} />
           <Route
             path="/test/analyze-document"
