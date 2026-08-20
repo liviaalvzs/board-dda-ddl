@@ -126,9 +126,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!raw) throw new Error('OAuth state não encontrado')
       const saved = JSON.parse(raw)
       if (saved.state !== state) throw new Error('State inválido')
-      await pb
-        .collection('users')
-        .authWithOAuth2Code(saved.name, code, saved.codeVerifier, saved.redirectUrl)
+      const res: any = await pb.send('/backend/v1/auth/microsoft-callback', {
+        method: 'POST',
+        body: JSON.stringify({
+          code,
+          state,
+          codeVerifier: saved.codeVerifier,
+          redirectUrl: saved.redirectUrl,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res?.token && res?.record) {
+        pb.authStore.save(res.token, res.record)
+      }
       localStorage.removeItem('oauth_provider')
       return { error: null }
     } catch (error) {
