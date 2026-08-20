@@ -10,6 +10,7 @@ interface AuthContextType {
   role: UserRole
   activateAccount: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
+  signInWithMicrosoft: () => Promise<{ error: any }>
   startLogin: (email: string) => Promise<{ requiresPassword: boolean; error: any }>
   signOut: () => void
   loading: boolean
@@ -96,6 +97,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
+  const signInWithMicrosoft = async () => {
+    try {
+      await pb.collection('users').authWithOAuth2({ provider: 'oidc' })
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
+  }
+
   const signOut = () => {
     pb.authStore.clear()
   }
@@ -109,6 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         role,
         activateAccount,
         signIn,
+        signInWithMicrosoft,
         startLogin,
         signOut,
         loading,

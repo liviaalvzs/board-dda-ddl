@@ -16,7 +16,8 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { startLogin, signIn } = useAuth()
+  const [isMsLoading, setIsMsLoading] = useState(false)
+  const { startLogin, signIn, signInWithMicrosoft } = useAuth()
   const navigate = useNavigate()
   const passwordRef = useRef<HTMLInputElement>(null)
 
