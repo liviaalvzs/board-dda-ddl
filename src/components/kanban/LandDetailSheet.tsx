@@ -405,7 +405,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing.current) return
       const newWidth = window.innerWidth - e.clientX
-      setSheetWidth(Math.max(400, Math.min(1200, newWidth)))
+      setSheetWidth(Math.max(600, Math.min(1200, newWidth)))
     }
     const handleMouseUp = () => {
       if (isResizing.current) {
