@@ -123,11 +123,50 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full mt-6 bg-brand-primary hover:bg-brand-primary/90"
-              disabled={isLoading}
+              disabled={isLoading || isMsLoading}
             >
               {isLoading ? 'Entrando...' : step === 'email' ? 'Continuar' : 'Entrar'}
             </Button>
           </form>
+
+          {step === 'email' && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-brand-primary/10" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-white px-3 text-muted-foreground">ou</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2 border-brand-primary/15"
+                disabled={isLoading || isMsLoading}
+                onClick={async () => {
+                  setIsMsLoading(true)
+                  setError('')
+                  const { error: msError } = await signInWithMicrosoft()
+                  setIsMsLoading(false)
+                  if (msError) {
+                    setError(getErrorMessage(msError))
+                  } else {
+                    navigate('/')
+                  }
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                  <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                  <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                  <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                </svg>
+                {isMsLoading ? 'Entrando...' : 'Entrar com Microsoft'}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
