@@ -522,7 +522,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
   if (loading) {
     return (
       <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="sm:max-w-[850px] w-full p-0 flex items-center justify-center bg-white">
+        <SheetContent className="sm:max-w-[1100px] w-full p-0 flex items-center justify-center bg-white">
           <Loader2 className="w-10 h-10 animate-spin text-brand-secondary" />
         </SheetContent>
       </Sheet>
@@ -532,7 +532,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
   if (!land) {
     return (
       <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="sm:max-w-[850px] w-full p-6 text-center text-brand-primary/60 flex items-center justify-center bg-white">
+        <SheetContent className="sm:max-w-[1100px] w-full p-6 text-center text-brand-primary/60 flex items-center justify-center bg-white">
           Terra não encontrada.
         </SheetContent>
       </Sheet>
@@ -587,7 +587,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
 
   return (
     <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-[850px] w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden border-l border-brand-primary/10">
+      <SheetContent className="sm:max-w-[1100px] w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden border-l border-brand-primary/10">
         <VisuallyHidden>
           <DialogTitle>Detalhes da Terra</DialogTitle>
         </VisuallyHidden>
