@@ -625,7 +625,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
     <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         style={{ maxWidth: `${sheetWidth}px` }}
-        className="w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden border-l border-brand-primary/10 relative"
+        className="w-full p-0 flex flex-col h-full bg-white shadow-2xl overflow-hidden border-l border-brand-primary/10"
       >
         <div
           onMouseDown={startResize}
