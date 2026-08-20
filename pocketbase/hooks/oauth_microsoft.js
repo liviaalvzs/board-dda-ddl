@@ -1,7 +1,6 @@
 routerAdd('POST', '/backend/v1/auth/microsoft-callback', (e) => {
-  var body = $apis.requestInfo(e).body || {}
+  var body = e.requestInfo().body || {}
   var code = body.code || ''
-  var state = body.state || ''
   var codeVerifier = body.codeVerifier || ''
   var redirectUrl = body.redirectUrl || ''
 
@@ -9,66 +8,108 @@ routerAdd('POST', '/backend/v1/auth/microsoft-callback', (e) => {
     return e.json(400, { error: 'Parâmetros ausentes (code, codeVerifier, redirectUrl).' })
   }
 
+  var clientId = $secrets.get('MS_OAUTH_CLIENT_ID')
+  var clientSecret = $secrets.get('MS_OAUTH_CLIENT_SECRET')
+  var tenantId = $secrets.get('MS_OAUTH_TENANT_ID')
+
+  if (!clientId || !clientSecret || !tenantId) {
+    $app.logger().error('Microsoft OAuth secrets not configured')
+    return e.json(500, { error: 'OAuth não configurado no servidor.' })
+  }
+
+  var tokenUrl = 'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token'
+
+  var tokenBody = [
+    'grant_type=authorization_code',
+    'client_id=' + encodeURIComponent(clientId),
+    'client_secret=' + encodeURIComponent(clientSecret),
+    'code=' + encodeURIComponent(code),
+    'redirect_uri=' + encodeURIComponent(redirectUrl),
+    'code_verifier=' + encodeURIComponent(codeVerifier),
+  ].join('&')
+
   try {
-    var authResult = $app.findAuthRecordByOAuth2Code('oidc', code, codeVerifier, redirectUrl)
+    var tokenRes = $http.send({
+      url: tokenUrl,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenBody,
+      timeout: 15,
+    })
 
-    if (authResult.record) {
-      var token = authResult.record.newAuthToken()
-      return e.json(200, { token: token, record: authResult.record })
+    if (tokenRes.statusCode !== 200) {
+      $app
+        .logger()
+        .error(
+          'MS token exchange failed',
+          'status',
+          tokenRes.statusCode,
+          'body',
+          JSON.stringify(tokenRes.json || {}),
+        )
+      return e.json(400, { error: 'Falha ao trocar código com a Microsoft.' })
     }
 
-    // User not found — check if email already exists
-    var oauthUser = authResult.oAuth2User
-    if (!oauthUser || !oauthUser.email) {
-      return e.json(400, { error: 'Não foi possível obter o e-mail da conta Microsoft.' })
+    var tokens = tokenRes.json || {}
+    var accessToken = tokens.access_token || ''
+
+    if (!accessToken) {
+      return e.json(400, { error: 'Token de acesso não retornado pela Microsoft.' })
     }
 
-    var existing = null
+    // Get user info from Microsoft Graph
+    var userInfoRes = $http.send({
+      url: 'https://graph.microsoft.com/v1.0/me',
+      method: 'GET',
+      headers: { Authorization: 'Bearer ' + accessToken },
+      timeout: 10,
+    })
+
+    if (userInfoRes.statusCode !== 200) {
+      $app.logger().error('MS userinfo failed', 'status', userInfoRes.statusCode)
+      return e.json(400, { error: 'Falha ao obter dados do usuário Microsoft.' })
+    }
+
+    var msUser = userInfoRes.json || {}
+    var email = (msUser.mail || msUser.userPrincipalName || '').toLowerCase().trim()
+    var displayName = msUser.displayName || ''
+
+    if (!email) {
+      return e.json(400, { error: 'E-mail não encontrado na conta Microsoft.' })
+    }
+
+    $app.logger().info('MS OAuth user', 'email', email, 'name', displayName)
+
+    // Find existing user by email
+    var record = null
     try {
-      existing = $app.findAuthRecordByEmail('users', oauthUser.email)
+      record = $app.findAuthRecordByEmail('users', email)
     } catch (_) {
       // not found
     }
 
-    if (existing) {
-      // Link OAuth to existing user
-      var externalAuth = new ExternalAuth({
-        collectionRef: 'users',
-        recordRef: existing.id,
-        provider: 'oidc',
-        providerId: oauthUser.id,
-      })
-      $app.save(externalAuth)
-
-      if (!existing.get('name') && oauthUser.name) {
-        existing.set('name', oauthUser.name)
-        $app.save(existing)
+    if (record) {
+      // Update name if empty
+      if (!record.getString('name') && displayName) {
+        record.set('name', displayName)
+        $app.save(record)
       }
-
-      var token2 = existing.newAuthToken()
-      return e.json(200, { token: token2, record: existing })
+      return $apis.recordAuthResponse(e, record)
     }
 
-    // Create new user with default role
+    // Create new user
     var collection = $app.findCollectionByNameOrId('users')
     var newUser = new Record(collection)
-    newUser.set('email', oauthUser.email)
-    newUser.set('name', oauthUser.name || '')
-    newUser.set('role', 'admin')
-    newUser.set('verified', true)
+    newUser.setEmail(email)
     newUser.setPassword($security.randomString(30))
+    newUser.setVerified(true)
+    newUser.set('name', displayName)
+    newUser.set('role', 'admin')
     $app.save(newUser)
 
-    var ea = new ExternalAuth({
-      collectionRef: 'users',
-      recordRef: newUser.id,
-      provider: 'oidc',
-      providerId: oauthUser.id,
-    })
-    $app.save(ea)
+    $app.logger().info('MS OAuth new user created', 'email', email, 'id', newUser.id)
 
-    var token3 = newUser.newAuthToken()
-    return e.json(200, { token: token3, record: newUser })
+    return $apis.recordAuthResponse(e, newUser)
   } catch (err) {
     $app.logger().error('Microsoft OAuth error', 'error', String(err))
     return e.json(500, { error: 'Falha na autenticação: ' + String(err) })
