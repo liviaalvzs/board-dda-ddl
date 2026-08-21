@@ -80,6 +80,11 @@ routerAdd('POST', '/backend/v1/auth/microsoft-callback', (e) => {
 
     $app.logger().info('MS OAuth user', 'email', email, 'name', displayName)
 
+    // Admins by email
+    var adminEmails = ['maria.palma@re.green', 'lucas.lamare@re.green', 'livia.santana@re.green']
+    var isAdmin = adminEmails.indexOf(email) !== -1
+    var userRole = isAdmin ? 'admin' : 'negociador'
+
     // Find existing user by email
     var record = null
     try {
@@ -89,11 +94,17 @@ routerAdd('POST', '/backend/v1/auth/microsoft-callback', (e) => {
     }
 
     if (record) {
-      // Update name if empty
+      var changed = false
       if (!record.getString('name') && displayName) {
         record.set('name', displayName)
-        $app.save(record)
+        changed = true
       }
+      // Sync role on every login
+      if (record.getString('role') !== userRole) {
+        record.set('role', userRole)
+        changed = true
+      }
+      if (changed) $app.save(record)
       return $apis.recordAuthResponse(e, record)
     }
 
@@ -104,7 +115,7 @@ routerAdd('POST', '/backend/v1/auth/microsoft-callback', (e) => {
     newUser.setPassword($security.randomString(30))
     newUser.setVerified(true)
     newUser.set('name', displayName)
-    newUser.set('role', 'admin')
+    newUser.set('role', userRole)
     $app.save(newUser)
 
     $app.logger().info('MS OAuth new user created', 'email', email, 'id', newUser.id)

@@ -15,7 +15,6 @@ import {
 import { invalidateThresholdCache } from '@/hooks/use-delayed-threshold'
 import { KANBAN_COLUMNS } from '@/lib/kanban-columns'
 import { useAuth } from '@/hooks/use-auth'
-import { UsersSection } from '@/components/settings/UsersSection'
 
 export default function Settings() {
   const [threshold, setThreshold] = useState('')
@@ -227,8 +226,6 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
-
-        <UsersSection />
       </div>
     </div>
   )
