@@ -1,58 +1,32 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Save, Loader2, Clock, AlertTriangle } from 'lucide-react'
+import { Settings as SettingsIcon, Save, Loader2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import {
-  getDelayedThresholdDays,
-  updateSetting,
   getStageThresholds,
   updateStageThresholds,
   type StageThreshold,
 } from '@/services/app-settings'
 import { invalidateThresholdCache } from '@/hooks/use-delayed-threshold'
 import { KANBAN_COLUMNS } from '@/lib/kanban-columns'
-import { useAuth } from '@/hooks/use-auth'
 
 export default function Settings() {
-  const [threshold, setThreshold] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
   const { toast } = useToast()
 
   const [stageThresholds, setStageThresholds] = useState<Record<string, StageThreshold>>({})
   const [savingStages, setSavingStages] = useState(false)
   useEffect(() => {
-    Promise.all([getDelayedThresholdDays(), getStageThresholds()])
-      .then(([days, stages]) => {
-        setThreshold(String(days))
+    getStageThresholds()
+      .then((stages) => {
         setStageThresholds(stages)
         setLoading(false)
       })
       .catch(() => setLoading(false))
   }, [])
-
-  const handleSave = async () => {
-    const num = Number(threshold)
-    if (isNaN(num) || num <= 0 || !Number.isInteger(num)) {
-      setError('O valor deve ser um número inteiro positivo.')
-      return
-    }
-    setError('')
-    setSaving(true)
-    try {
-      await updateSetting('delayed_threshold_days', String(num))
-      invalidateThresholdCache()
-      toast({ title: 'Configuração salva com sucesso!' })
-    } catch {
-      toast({ title: 'Erro ao salvar configuração', variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const getStageValue = (stageId: string, field: 'attention' | 'delayed'): string => {
     const t = stageThresholds[stageId]
@@ -117,55 +91,6 @@ export default function Settings() {
           <CardHeader>
             <CardTitle className="text-brand-primary flex items-center gap-2">
               <Clock className="w-5 h-5 text-brand-secondary" />
-              Limite Padrão de Atraso
-            </CardTitle>
-            <CardDescription>
-              Dias padrão para etapas sem configuração individual abaixo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="space-y-1 flex-1">
-                <Label htmlFor="threshold">Dias para &quot;atrasada&quot; (padrão)</Label>
-                <Input
-                  id="threshold"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="7"
-                  value={threshold}
-                  onChange={(e) => {
-                    setThreshold(e.target.value)
-                    setError('')
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                  className={error ? 'border-rose-500 focus-visible:ring-rose-500' : ''}
-                />
-                {error && (
-                  <p className="text-sm text-rose-500 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" /> {error}
-                  </p>
-                )}
-              </div>
-              <Button
-                onClick={handleSave}
-                disabled={saving || !threshold}
-                className="bg-brand-secondary hover:bg-brand-secondary/90 mt-5"
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-brand-primary/10 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-brand-primary flex items-center gap-2">
-              <Clock className="w-5 h-5 text-brand-secondary" />
               Limites por Etapa
             </CardTitle>
             <CardDescription>
@@ -191,7 +116,7 @@ export default function Settings() {
                   type="number"
                   min="0"
                   step="1"
-                  placeholder={String(Math.max(1, Math.floor(Number(threshold || 7) / 2)))}
+                  placeholder="3"
                   value={getStageValue(col.id, 'attention')}
                   onChange={(e) => setStageValue(col.id, 'attention', e.target.value)}
                   className="h-8 text-center text-sm"
@@ -200,7 +125,7 @@ export default function Settings() {
                   type="number"
                   min="0"
                   step="1"
-                  placeholder={threshold || '7'}
+                  placeholder="7"
                   value={getStageValue(col.id, 'delayed')}
                   onChange={(e) => setStageValue(col.id, 'delayed', e.target.value)}
                   className="h-8 text-center text-sm"
