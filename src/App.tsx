@@ -14,6 +14,7 @@ import DocumentUpload from './pages/DocumentUpload'
 import Mapa from './pages/Mapa'
 import Dashboard from './pages/Dashboard'
 import TestAiDocumentAnalysis from './pages/TestAiDocumentAnalysis'
+import AddLands from './pages/AddLands'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -94,6 +95,14 @@ const App = () => (
               element={
                 <AdminRoute>
                   <SettingsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/adicionar-terras"
+              element={
+                <AdminRoute>
+                  <AddLands />
                 </AdminRoute>
               }
             />
