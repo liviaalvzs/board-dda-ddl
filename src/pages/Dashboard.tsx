@@ -96,27 +96,20 @@ export default function Dashboard() {
   const statusDist = useMemo(() => calculateStatusDistribution(lands), [lands])
   const stageTimes = useMemo(() => calculateStageAverageTime(lands), [lands])
 
-  // Mesma regra de urgência do card do board (badges ATRASADO/ATENÇÃO), só que
-  // somada — para responder "quantas terras precisam de atenção agora" sem
-  // abrir o board e contar card por card.
-  const { threshold: delayedThreshold } = useDelayedThreshold()
-  const attentionThreshold = Math.max(1, Math.floor(delayedThreshold / 2))
-  const urgency = useMemo(() => {
-    const now = new Date()
-    let delayed = 0
-    let attention = 0
-    for (const land of lands) {
-      const status = (land.status || '').trim()
-      if (!status) continue
-      const entry = getCurrentStageEntry(land.stage_dates, status)
-      if (!entry) continue
-      const days = differenceInDays(now, entry)
-      if (days < 0) continue
-      if (days > delayedThreshold) delayed++
-      else if (days > attentionThreshold) attention++
-    }
-    return { delayed, attention }
-  }, [lands, delayedThreshold, attentionThreshold])
+  const ddStageIds = new Set([
+    'triagem-documentos-basicos',
+    'aguardando-documentos-basicos',
+    'emissao-certidoes',
+    'auditoria-escritorio-externo',
+    'recebimento-ddl-preliminar',
+    'levantamento-documentos-complementares',
+    'auditoria-escritorio-externo-conclusiva',
+    'recebimento-ddl-conclusiva',
+  ])
+
+  const landsInDD = useMemo(() => {
+    return lands.filter((l) => ddStageIds.has((l.status || '').trim())).length
+  }, [lands])
 
   const kpis = useMemo(() => {
     const inProgress = lands.filter((l) => (l.status || '').trim()).length
@@ -174,11 +167,10 @@ export default function Dashboard() {
               icon={Layers}
             />
             <KpiCard
-              title="Terras atrasadas"
-              value={urgency.delayed}
-              hint={`${urgency.attention} em atenção · limite ${delayedThreshold}d na etapa`}
-              icon={AlertOctagon}
-              valueColor={urgency.delayed > 0 ? CHART_NEGATIVE : CHART_POSITIVE}
+              title="Terras em DD"
+              value={landsInDD}
+              hint="Etapas 1 a 7 (diligência em andamento)"
+              icon={Search}
             />
             <KpiCard
               title="Tempo médio por etapa"
