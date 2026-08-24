@@ -103,7 +103,6 @@ export default function Dashboard() {
     'auditoria-escritorio-externo',
     'recebimento-ddl-preliminar',
     'levantamento-documentos-complementares',
-    'auditoria-escritorio-externo-conclusiva',
     'recebimento-ddl-conclusiva',
   ])
 

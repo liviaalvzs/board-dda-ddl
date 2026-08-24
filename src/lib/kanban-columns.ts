@@ -52,12 +52,7 @@ export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
     color: '#d946ef',
     dotClass: 'bg-fuchsia-500',
   },
-  {
-    id: 'auditoria-escritorio-externo-conclusiva',
-    title: '6.1 Em auditoria / Escritório externo conclusiva',
-    color: '#ec4899',
-    dotClass: 'bg-pink-500',
-  },
+
   {
     id: 'recebimento-ddl-conclusiva',
     title: '7. Recebimento DDL conclusiva / Análise interna',

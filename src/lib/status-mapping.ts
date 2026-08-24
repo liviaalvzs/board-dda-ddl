@@ -40,6 +40,7 @@ const LEGACY_STATUS_LABELS: Record<string, string> = {
   inicial: 'Inicial',
   'preparar-comite': 'Preparar comitê / Espelho na matriz',
   'alinhamento-juridico-terras': 'Alinhamento jurídico / Terras',
+  'auditoria-escritorio-externo-conclusiva': 'Em auditoria / Escritório externo conclusiva',
 }
 
 /**
