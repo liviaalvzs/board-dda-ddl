@@ -18,7 +18,7 @@ import {
   calculateStageAverageTime,
   calculateStatusDistribution,
 } from '@/lib/dash-utils'
-import { AlertTriangle, AlertOctagon, CheckCircle2, Layers, Timer } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Layers, Search, Timer } from 'lucide-react'
 import { StageTimeChart } from '@/components/dash/StageTimeChart'
 import { PlannedVsActualCard } from '@/components/dash/PlannedVsActualCard'
 import { StageRankingTable } from '@/components/dash/StageRankingTable'
