@@ -65,26 +65,14 @@ export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
     dotClass: 'bg-teal-500',
   },
   {
-    id: 'preparar-comite',
-    title: '8. Preparar comitê / Espelho na matriz',
-    color: '#10b981',
-    dotClass: 'bg-emerald-500',
-  },
-  {
-    id: 'alinhamento-juridico-terras',
-    title: '8.1 Alinhamento jurídico / Terras',
-    color: '#84cc16',
-    dotClass: 'bg-lime-500',
-  },
-  {
     id: 'elaboracao-contrato',
-    title: '9. Em elaboração de contrato',
+    title: '8. Em elaboração de contrato',
     color: '#eab308',
     dotClass: 'bg-yellow-500',
   },
   {
     id: 'assinado-acompanhamento-cp',
-    title: '10. Assinado / Acompanhamento das CP',
+    title: '9. Assinado / Acompanhamento das CP',
     color: '#16a34a',
     dotClass: 'bg-green-600',
   },
