@@ -236,10 +236,14 @@ routerAdd(
       '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
       '7. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade do documento'
 
+    var ext = (fileExt || '').replace(/^\./, '').toLowerCase()
     var contentParts = [{ type: 'text', text: prompt }]
     contentParts.push({
-      type: 'image_url',
-      image_url: { url: presignedUrl },
+      type: 'file',
+      file: {
+        url: presignedUrl,
+        filename: 'document.' + (ext || 'jpg'),
+      },
     })
 
     var aiResponse
