@@ -201,6 +201,23 @@ routerAdd(
       )
     }
 
+    // ── Helpers ─────────────────────────────────────────────────────────
+    function uint8ToBase64(bytes) {
+      var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+      var result = ''
+      var len = bytes.length
+      for (var i = 0; i < len; i += 3) {
+        var a = bytes[i]
+        var b = i + 1 < len ? bytes[i + 1] : 0
+        var c = i + 2 < len ? bytes[i + 2] : 0
+        result += chars[a >> 2]
+        result += chars[((a & 3) << 4) | (b >> 4)]
+        result += i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '='
+        result += i + 2 < len ? chars[c & 63] : '='
+      }
+      return result
+    }
+
     // ── Lógica principal ────────────────────────────────────────────────
     var body = e.requestInfo().body || {}
     var checkId = String(body.check_id || '').trim()
@@ -220,8 +237,38 @@ routerAdd(
     var openrouterKey = $secrets.get('OPENROUTER_API_KEY')
     if (!openrouterKey) return e.internalServerError('OPENROUTER_API_KEY não configurada')
 
-    var fileBase64 = String(body.file_base64 || '').trim()
-    if (!fileBase64) return e.badRequestError('file_base64 é obrigatório (data URL do documento)')
+    var fileExt = (record.getString('file_ext') || '').toLowerCase()
+    var presignedUrl = generatePresignedUrl(documentUrl, fileExt)
+
+    // Baixa o arquivo do S3 no backend (sem CORS)
+    var s3Response
+    try {
+      s3Response = $http.send({ url: presignedUrl, method: 'GET', timeout: 60 })
+    } catch (err) {
+      $app.logger().error('analyze-document: S3 download failed', 'error', String(err))
+      return e.internalServerError('Erro ao baixar o arquivo do S3.')
+    }
+
+    if (s3Response.statusCode !== 200) {
+      $app.logger().error('analyze-document: S3 returned error', 'status', s3Response.statusCode)
+      return e.internalServerError(
+        'Erro ao baixar o arquivo do S3 (status ' + s3Response.statusCode + ')',
+      )
+    }
+
+    // Converte bytes para base64 data URL
+    var ext = (fileExt || '').replace(/^\./, '').toLowerCase()
+    var mimeMap = {
+      pdf: 'application/pdf',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+    }
+    var mimeType = mimeMap[ext] || 'application/octet-stream'
+    var fileB64 = uint8ToBase64(s3Response.body)
+    var dataUrl = 'data:' + mimeType + ';base64,' + fileB64
 
     var prompt =
       'Analise a imagem de documento de identidade brasileiro (RG) e extraia:\n\n' +
@@ -239,7 +286,7 @@ routerAdd(
     var contentParts = [{ type: 'text', text: prompt }]
     contentParts.push({
       type: 'image_url',
-      image_url: { url: fileBase64 },
+      image_url: { url: dataUrl },
     })
 
     var aiResponse
@@ -270,7 +317,7 @@ routerAdd(
     if (aiResponse.statusCode !== 200) {
       var errBody = ''
       try {
-        errBody = aiResponse.raw
+        errBody = new TextDecoder().decode(aiResponse.body)
       } catch (_) {
         errBody = '(unable to read body)'
       }
@@ -303,7 +350,6 @@ routerAdd(
       return e.internalServerError('Resposta da IA sem conteúdo')
     }
 
-    // Remove possíveis blocos de código markdown
     content = content
       .replace(/```json\s*/gi, '')
       .replace(/```\s*/g, '')
