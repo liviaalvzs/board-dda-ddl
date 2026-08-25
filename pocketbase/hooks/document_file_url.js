@@ -198,6 +198,14 @@ routerAdd(
         ? 'attachment; filename="' + filename.replace(/"/g, '') + '"'
         : 'inline'
 
+    var mimeTypes = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+    }
+    var contentType = mimeTypes[fileExt.toLowerCase()] || 'application/octet-stream'
+
     // URL pré-assinada de curta duração (SigV4 na query string). O bucket
     // continua privado: o link concede leitura de um único objeto e expira.
     var expires = 300
@@ -218,6 +226,7 @@ routerAdd(
       ['X-Amz-Expires', String(expires)],
       ['X-Amz-SignedHeaders', 'host'],
       ['response-content-disposition', contentDisposition],
+      ['response-content-type', contentType],
     ]
 
     var canonicalQuery = params
