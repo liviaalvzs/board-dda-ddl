@@ -224,20 +224,11 @@ routerAdd(
       '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
       '7. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade do documento'
 
-    var fileExt = (record.getString('file_ext') || '').toLowerCase()
     var contentParts = [{ type: 'text', text: prompt }]
-
-    if (fileExt === '.pdf') {
-      contentParts.push({
-        type: 'file',
-        file: { url: presignedUrl },
-      })
-    } else {
-      contentParts.push({
-        type: 'image_url',
-        image_url: { url: presignedUrl },
-      })
-    }
+    contentParts.push({
+      type: 'image_url',
+      image_url: { url: presignedUrl },
+    })
 
     var aiResponse
     try {
@@ -265,6 +256,12 @@ routerAdd(
     }
 
     if (aiResponse.statusCode !== 200) {
+      var errBody = ''
+      try {
+        errBody = aiResponse.raw
+      } catch (_) {
+        errBody = '(unable to read body)'
+      }
       $app
         .logger()
         .error(
@@ -272,9 +269,12 @@ routerAdd(
           'status',
           aiResponse.statusCode,
           'body',
-          aiResponse.raw,
+          errBody,
         )
-      return e.internalServerError('Erro da IA (status ' + aiResponse.statusCode + ')')
+      return e.json(aiResponse.statusCode, {
+        error: 'Erro da IA (status ' + aiResponse.statusCode + ')',
+        details: errBody,
+      })
     }
 
     var parsed
