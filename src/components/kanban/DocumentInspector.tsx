@@ -25,7 +25,14 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
-import { getDocumentLabel, ALL_DOCUMENT_KEYS } from '@/lib/document-labels'
+import {
+  getDocumentLabel,
+  OWNER_PF_KEYS,
+  OWNER_PJ_KEYS,
+  MATRICULA_KEYS,
+  CERTIDAO_AMBIENTAL_KEYS,
+  CERTIDAO_FISCAL_KEYS,
+} from '@/lib/document-labels'
 import { format } from 'date-fns'
 
 interface DocumentRecord {
@@ -477,7 +484,9 @@ function DocumentRow({
 export function DocumentInspector({ landId }: { landId: string }) {
   const [docs, setDocs] = useState<DocumentRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [pendingDocs, setPendingDocs] = useState<DocumentRecord[]>([])
+  const [missingItems, setMissingItems] = useState<{ subjectLabel: string; docLabels: string[] }[]>(
+    [],
+  )
 
   const fetchDocs = async () => {
     try {
@@ -669,11 +678,10 @@ export function DocumentInspector({ landId }: { landId: string }) {
     return items
   })
 
-  if (pendingDocs.length > 0) {
-    const missingLabels = pendingDocs.map((d) => getDocumentLabel(d.document_key))
+  for (const item of missingItems) {
     attentionItems.push({
-      docLabel: 'Falta enviar',
-      message: missingLabels.join(', '),
+      docLabel: `Falta enviar (${item.subjectLabel})`,
+      message: item.docLabels.join(', '),
       severity: 'warning',
     })
   }

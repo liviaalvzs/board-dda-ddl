@@ -38,6 +38,37 @@ const DOCUMENT_LABELS: Record<string, string> = {
 
 export const ALL_DOCUMENT_KEYS = Object.keys(DOCUMENT_LABELS)
 
+export const OWNER_PF_KEYS = [
+  'pf_documentos_pessoais',
+  'pf_certidao_estado_civil',
+  'pf_documentos_pessoais_conjuge',
+  'pf_comprovante_residencia',
+]
+
+export const OWNER_PJ_KEYS = [
+  'pj_contrato_social',
+  'pj_cartao_cnpj',
+  'pj_inscricao_estadual_municipal',
+  'pj_comprovante_endereco',
+  'pj_documentos_representante_socios',
+]
+
+export const MATRICULA_KEYS = [
+  'imovel_certidao_matricula',
+  'imovel_ccir',
+  'imovel_ditr',
+  'imovel_car',
+  'imovel_shapefile_kml_kmz',
+]
+
+export const CERTIDAO_AMBIENTAL_KEYS = [
+  'cnd_ambiental_estadual',
+  'cni_ambiental_estadual',
+  'certidao_ambiental_municipal',
+]
+
+export const CERTIDAO_FISCAL_KEYS = ['cnd_federal', 'cnd_estadual', 'cnd_municipal']
+
 export function getDocumentLabel(key: string): string {
   if (DOCUMENT_LABELS[key]) return DOCUMENT_LABELS[key]
   return key.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
