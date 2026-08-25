@@ -748,7 +748,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                     value="docs"
                     className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
                   >
-                    <FileText className="w-4 h-4 mr-2" /> Documentos
+                    <FileText className="w-4 h-4 mr-2" /> Envio de Documentos
                   </TabsTrigger>
                   <TabsTrigger
                     value="comments"
