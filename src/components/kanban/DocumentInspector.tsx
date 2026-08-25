@@ -1,16 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import {
-  Search,
-  FileText,
-  Eye,
-  EyeOff,
-  ChevronRight,
-  Loader2,
-  Sparkles,
-  FileQuestion,
-  Bot,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Search, FileText, Loader2, Sparkles, Bot } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import pb from '@/lib/pocketbase/client'
@@ -34,49 +23,9 @@ interface DocumentRecord {
   }
 }
 
-async function fetchPresignedUrl(checkId: string, disposition: 'inline' | 'attachment' = 'inline') {
-  const res = await pb.send('/backend/v1/document-file-url', {
-    method: 'POST',
-    body: { check_id: checkId, disposition },
-  })
-  return res.url as string
-}
-
 function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [loadingPreview, setLoadingPreview] = useState(false)
   const label = getDocumentLabel(doc.document_key)
-  const isPdf = doc.file_ext === '.pdf' || doc.document_url?.toLowerCase().endsWith('.pdf')
-  const isImage =
-    ['.jpg', '.jpeg', '.png'].includes(doc.file_ext || '') ||
-    /\.(jpe?g|png)$/i.test(doc.document_url || '')
-
   const senderName = doc.expand?.user?.name || doc.expand?.user?.email?.split('@')[0] || '—'
-
-  const handleTogglePreview = async () => {
-    if (previewOpen) {
-      setPreviewOpen(false)
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-        setPreviewUrl(null)
-      }
-      return
-    }
-    setLoadingPreview(true)
-    try {
-      const signedUrl = await fetchPresignedUrl(doc.id)
-      const resp = await fetch(signedUrl)
-      const blob = await resp.blob()
-      const blobUrl = URL.createObjectURL(blob)
-      setPreviewUrl(blobUrl)
-      setPreviewOpen(true)
-    } catch (e) {
-      console.error('Erro ao gerar preview:', e)
-    } finally {
-      setLoadingPreview(false)
-    }
-  }
 
   return (
     <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
@@ -88,57 +37,10 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
             Enviado por {senderName} em {format(new Date(doc.updated), 'dd/MM/yyyy')}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleTogglePreview}
-          disabled={loadingPreview}
-          className="shrink-0 h-8 text-xs font-semibold text-brand-primary/60 hover:text-brand-primary gap-1.5"
-        >
-          {loadingPreview ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Carregando
-            </>
-          ) : previewOpen ? (
-            <>
-              <EyeOff className="w-3.5 h-3.5" /> Ocultar
-            </>
-          ) : (
-            <>
-              <Eye className="w-3.5 h-3.5" /> Preview
-            </>
-          )}
-        </Button>
+        <Badge className="bg-emerald-100 text-emerald-700 border-none text-[9px] font-bold px-2 py-0.5 shrink-0">
+          Enviado
+        </Badge>
       </div>
-
-      {previewOpen && previewUrl && (
-        <div className="border-t border-brand-primary/5">
-          {isPdf ? (
-            <iframe src={previewUrl} className="w-full h-[400px] bg-slate-50" title={label} />
-          ) : isImage ? (
-            <div className="p-4 bg-slate-50 flex justify-center">
-              <img
-                src={previewUrl}
-                alt={label}
-                className="max-h-[400px] max-w-full object-contain rounded-lg border border-slate-200"
-              />
-            </div>
-          ) : (
-            <div className="p-6 bg-slate-50 flex flex-col items-center gap-2 text-brand-primary/40">
-              <FileQuestion className="w-8 h-8" />
-              <p className="text-xs font-medium">Preview não disponível para este formato</p>
-              <a
-                href={previewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-brand-secondary hover:underline font-semibold"
-              >
-                Abrir em nova aba
-              </a>
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="px-5 py-4 bg-slate-50/50 border-t border-brand-primary/5">
         <div className="flex items-center gap-2 mb-3">
