@@ -98,246 +98,122 @@ function VisibilityBadge({ level }: { level: string }) {
   )
 }
 
-function WrongDocumentBanner({ detected, expected }: { detected?: string; expected?: string }) {
-  const expectedLabel = expected || 'o documento esperado'
+function StatusBadge({ doc, extracted }: { doc: DocumentRecord; extracted: ExtractedData | null }) {
+  if (
+    extracted?.is_personal_document === false ||
+    extracted?.is_certidao_estado_civil === false ||
+    extracted?.is_comprovante_residencia === false
+  ) {
+    return (
+      <Badge className="bg-rose-100 text-rose-700 border-none text-[9px] font-bold px-2 py-0.5">
+        Documento Errado
+      </Badge>
+    )
+  }
+  const canAnalyze = ANALYZABLE_KEYS.has(doc.document_key)
+  const isStale = canAnalyze && doc.ai_analysis === null && (doc.replaced_count ?? 0) > 0
+  if (isStale) {
+    return (
+      <Badge className="bg-amber-100 text-amber-700 border-none text-[9px] font-bold px-2 py-0.5">
+        Reanalisar
+      </Badge>
+    )
+  }
+  if (extracted) {
+    return (
+      <Badge className="bg-emerald-100 text-emerald-700 border-none text-[9px] font-bold px-2 py-0.5">
+        Analisado
+      </Badge>
+    )
+  }
   return (
-    <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 flex items-start gap-3">
-      <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">
-        <AlertTriangle className="w-4 h-4 text-rose-600" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-rose-700">Documento Errado</p>
-        <p className="text-xs text-rose-600/80 mt-0.5">
-          Este arquivo não corresponde a {expectedLabel}.
-          {detected && detected !== 'Não Aplicável' && (
-            <>
-              {' '}
-              A IA identificou como: <strong>{detected}</strong>.
-            </>
-          )}
-        </p>
-      </div>
-    </div>
+    <Badge className="bg-slate-100 text-slate-600 border-none text-[9px] font-bold px-2 py-0.5">
+      Enviado
+    </Badge>
   )
 }
 
-function StaleAnalysisBanner() {
-  return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2.5">
-      <RefreshCw className="w-4 h-4 text-amber-600 shrink-0" />
-      <p className="text-xs text-amber-700 font-medium">
-        O documento foi substituído. Reanálise necessária.
-      </p>
-    </div>
-  )
+function extractedSummary(data: ExtractedData, documentKey: string): string {
+  if (documentKey === 'pf_comprovante_residencia') {
+    if (data.is_comprovante_residencia === false) return 'Documento errado'
+    if (data.is_comprovante_residencia === true) {
+      return [data.nome_titular, data.cidade ? `${data.cidade}/${data.estado}` : '']
+        .filter(Boolean)
+        .join(' · ')
+    }
+    return 'Análise desatualizada'
+  }
+  if (documentKey === 'pf_certidao_estado_civil') {
+    if (data.is_certidao_estado_civil === false) return 'Documento errado'
+    if (data.is_certidao_estado_civil === true) {
+      return [data.tipo_certidao, data.estado_civil_resultante].filter(Boolean).join(' · ')
+    }
+    return 'Análise desatualizada'
+  }
+  if (data.is_personal_document === false) return 'Documento errado'
+  return [data.nome, data.cpf].filter(Boolean).join(' · ')
 }
 
-function AttentionReport({ items }: { items: AttentionItem[] }) {
-  const [open, setOpen] = useState(false)
-
-  if (items.length === 0) return null
-
-  const errorCount = items.filter((i) => i.severity === 'error').length
-  const warningCount = items.filter((i) => i.severity === 'warning').length
-
+function DetailGrid({ items }: { items: { icon: any; label: string; value?: string }[] }) {
   return (
-    <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full px-5 py-4 flex items-center gap-3 hover:bg-slate-50/50 transition-colors"
-      >
-        <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
-          <AlertTriangle className="w-5 h-5 text-rose-600" />
-        </div>
-        <div className="flex-1 text-left">
-          <h3 className="text-sm font-semibold text-brand-primary">Pontos de Atenção</h3>
-          <p className="text-xs text-brand-primary/50 mt-0.5">
-            {errorCount > 0 && (
-              <span className="text-rose-600 font-semibold">
-                {errorCount} {errorCount === 1 ? 'erro' : 'erros'}
-              </span>
-            )}
-            {errorCount > 0 && warningCount > 0 && ' · '}
-            {warningCount > 0 && (
-              <span className="text-amber-600 font-semibold">
-                {warningCount} {warningCount === 1 ? 'aviso' : 'avisos'}
-              </span>
-            )}
-          </p>
-        </div>
-        <ChevronDown
-          className={cn('w-5 h-5 text-brand-primary/40 transition-transform', open && 'rotate-180')}
-        />
-      </button>
-
-      {open && (
-        <div className="px-5 pb-4 space-y-2 border-t border-brand-primary/5 pt-3">
-          {items.map((item, i) => (
-            <div
-              key={i}
-              className={cn(
-                'flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-xs',
-                item.severity === 'error'
-                  ? 'bg-rose-50 border border-rose-200'
-                  : 'bg-amber-50 border border-amber-200',
-              )}
-            >
-              {item.severity === 'error' ? (
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-              ) : (
-                <RefreshCw className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-              )}
-              <div>
-                <p
-                  className={cn(
-                    'font-semibold',
-                    item.severity === 'error' ? 'text-rose-700' : 'text-amber-700',
-                  )}
-                >
-                  {item.docLabel}
-                </p>
-                <p
-                  className={cn(
-                    'mt-0.5',
-                    item.severity === 'error' ? 'text-rose-600/80' : 'text-amber-600/80',
-                  )}
-                >
-                  {item.message}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function CertidaoInfo({ data }: { data: ExtractedData }) {
-  const fields = [
-    { icon: Heart, label: 'Tipo', value: data.tipo_certidao },
-    { icon: User, label: 'Estado Civil', value: data.estado_civil_resultante },
-    { icon: Calendar, label: 'Data Emissão', value: data.data_emissao },
-    { icon: Building2, label: 'Cartório', value: data.cartorio },
-  ]
-
-  return (
-    <div className="space-y-2.5">
-      {data.good_visibility && data.good_visibility !== 'Não Aplicável' && (
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold text-brand-primary/50 uppercase tracking-wider">
-            Qualidade do documento:
-          </span>
-          <VisibilityBadge level={data.good_visibility} />
-        </div>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {fields.map(({ icon: Icon, label, value }) => (
-          <div
-            key={label}
-            className="flex items-center gap-2.5 bg-white rounded-lg border border-brand-primary/10 px-3 py-2.5"
-          >
-            <Icon className="w-4 h-4 text-brand-secondary shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-brand-primary/40 uppercase tracking-wider">
-                {label}
-              </p>
-              <p className="text-sm font-semibold text-brand-primary truncate">
-                {value || 'Não Identificado'}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-      {data.nomes_mencionados && data.nomes_mencionados.length > 0 && (
-        <div className="bg-white rounded-lg border border-brand-primary/10 px-3 py-2.5">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Users className="w-4 h-4 text-brand-secondary shrink-0" />
-            <p className="text-[10px] font-semibold text-brand-primary/40 uppercase tracking-wider">
-              Pessoas mencionadas
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      {items.map(({ icon: Icon, label, value }) => (
+        <div key={label} className="flex items-center gap-2.5 bg-slate-50 rounded-lg px-3 py-2">
+          <Icon className="w-3.5 h-3.5 text-brand-secondary shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[9px] font-semibold text-brand-primary/40 uppercase tracking-wider">
+              {label}
+            </p>
+            <p className="text-xs font-semibold text-brand-primary truncate">
+              {value || 'Não Identificado'}
             </p>
           </div>
-          <div className="space-y-1 ml-6">
-            {data.nomes_mencionados.map((nome, i) => (
-              <p key={i} className="text-sm font-semibold text-brand-primary">
-                {nome}
-              </p>
-            ))}
-          </div>
         </div>
-      )}
+      ))}
     </div>
   )
 }
 
-function ComprovanteInfo({ data }: { data: ExtractedData }) {
-  const fields = [
-    { icon: User, label: 'Titular', value: data.nome_titular },
-    { icon: MapPin, label: 'Endereço', value: data.endereco_completo },
-    { icon: Building2, label: 'Bairro', value: data.bairro },
-    {
-      icon: MapPin,
-      label: 'Cidade/UF',
-      value:
-        data.cidade && data.estado ? `${data.cidade} - ${data.estado}` : data.cidade || data.estado,
-    },
-    { icon: FileText, label: 'CEP', value: data.cep },
-    { icon: FileText, label: 'Tipo', value: data.tipo_comprovante },
-    { icon: Calendar, label: 'Referência', value: data.data_referencia },
-  ]
-
-  return (
-    <div className="space-y-2.5">
-      {data.good_visibility && data.good_visibility !== 'Não Aplicável' && (
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold text-brand-primary/50 uppercase tracking-wider">
-            Qualidade do documento:
-          </span>
-          <VisibilityBadge level={data.good_visibility} />
-        </div>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {fields.map(({ icon: Icon, label, value }) => (
-          <div
-            key={label}
-            className="flex items-center gap-2.5 bg-white rounded-lg border border-brand-primary/10 px-3 py-2.5"
-          >
-            <Icon className="w-4 h-4 text-brand-secondary shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-brand-primary/40 uppercase tracking-wider">
-                {label}
-              </p>
-              <p className="text-sm font-semibold text-brand-primary truncate">
-                {value || 'Não Identificado'}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function ExtractedInfo({ data, documentKey }: { data: ExtractedData; documentKey: string }) {
+function ExpandedDetails({ data, documentKey }: { data: ExtractedData; documentKey: string }) {
   if (documentKey === 'pf_comprovante_residencia') {
     if (data.is_comprovante_residencia === false) {
       return (
-        <WrongDocumentBanner
-          detected={data.document_type_detected}
-          expected="um comprovante de residência"
-        />
+        <p className="text-xs text-rose-600">
+          Não é um comprovante de residência.
+          {data.document_type_detected && ` Identificado como: ${data.document_type_detected}`}
+        </p>
       )
     }
-    if (data.is_comprovante_residencia === true) {
-      return <ComprovanteInfo data={data} />
+    if (data.is_comprovante_residencia !== true) {
+      return (
+        <p className="text-xs text-amber-600">
+          Análise desatualizada — reanalisar para usar o novo modelo.
+        </p>
+      )
     }
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2.5">
-        <RefreshCw className="w-4 h-4 text-amber-600 shrink-0" />
-        <p className="text-xs text-amber-700 font-medium">
-          Análise desatualizada. Clique em <strong>Reanalisar</strong> para usar o novo modelo.
-        </p>
+      <div className="space-y-2">
+        {data.good_visibility && data.good_visibility !== 'Não Aplicável' && (
+          <VisibilityBadge level={data.good_visibility} />
+        )}
+        <DetailGrid
+          items={[
+            { icon: User, label: 'Titular', value: data.nome_titular },
+            { icon: MapPin, label: 'Endereço', value: data.endereco_completo },
+            { icon: Building2, label: 'Bairro', value: data.bairro },
+            {
+              icon: MapPin,
+              label: 'Cidade/UF',
+              value:
+                data.cidade && data.estado
+                  ? `${data.cidade} - ${data.estado}`
+                  : data.cidade || data.estado,
+            },
+            { icon: FileText, label: 'CEP', value: data.cep },
+            { icon: FileText, label: 'Tipo', value: data.tipo_comprovante },
+            { icon: Calendar, label: 'Referência', value: data.data_referencia },
+          ]}
+        />
       </div>
     )
   }
@@ -345,74 +221,74 @@ function ExtractedInfo({ data, documentKey }: { data: ExtractedData; documentKey
   if (documentKey === 'pf_certidao_estado_civil') {
     if (data.is_certidao_estado_civil === false) {
       return (
-        <WrongDocumentBanner
-          detected={data.document_type_detected}
-          expected="uma certidão de estado civil"
-        />
+        <p className="text-xs text-rose-600">
+          Não é uma certidão de estado civil.
+          {data.document_type_detected && ` Identificado como: ${data.document_type_detected}`}
+        </p>
       )
     }
-    if (data.is_certidao_estado_civil === true) {
-      return <CertidaoInfo data={data} />
+    if (data.is_certidao_estado_civil !== true) {
+      return (
+        <p className="text-xs text-amber-600">
+          Análise desatualizada — reanalisar para usar o novo modelo.
+        </p>
+      )
     }
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2.5">
-        <RefreshCw className="w-4 h-4 text-amber-600 shrink-0" />
-        <p className="text-xs text-amber-700 font-medium">
-          Análise desatualizada. Clique em <strong>Reanalisar</strong> para usar o novo modelo.
-        </p>
+      <div className="space-y-2">
+        {data.good_visibility && data.good_visibility !== 'Não Aplicável' && (
+          <VisibilityBadge level={data.good_visibility} />
+        )}
+        <DetailGrid
+          items={[
+            { icon: Heart, label: 'Tipo', value: data.tipo_certidao },
+            { icon: User, label: 'Estado Civil', value: data.estado_civil_resultante },
+            { icon: Calendar, label: 'Data Emissão', value: data.data_emissao },
+            { icon: Building2, label: 'Cartório', value: data.cartorio },
+          ]}
+        />
+        {data.nomes_mencionados && data.nomes_mencionados.length > 0 && (
+          <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+            <Users className="w-3.5 h-3.5 text-brand-secondary shrink-0" />
+            <div>
+              <p className="text-[9px] font-semibold text-brand-primary/40 uppercase tracking-wider">
+                Pessoas mencionadas
+              </p>
+              <p className="text-xs font-semibold text-brand-primary">
+                {data.nomes_mencionados.join(', ')}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
 
   if (data.is_personal_document === false) {
     return (
-      <WrongDocumentBanner
-        detected={data.document_type_detected}
-        expected="um documento pessoal (RG ou CNH)"
-      />
+      <p className="text-xs text-rose-600">
+        Não é um documento pessoal (RG ou CNH).
+        {data.document_type_detected && ` Identificado como: ${data.document_type_detected}`}
+      </p>
     )
   }
 
-  const fields = [
-    { icon: User, label: 'Nome', value: data.nome },
-    { icon: CreditCard, label: 'CPF', value: data.cpf },
-    { icon: IdCard, label: 'RG', value: data.rg },
-    { icon: MapPin, label: 'Estado', value: data.estado },
-  ]
-
   return (
-    <div className="space-y-2.5">
-      {data.good_visibility && (
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold text-brand-primary/50 uppercase tracking-wider">
-            Qualidade do documento:
-          </span>
-          <VisibilityBadge level={data.good_visibility} />
-        </div>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {fields.map(({ icon: Icon, label, value }) => (
-          <div
-            key={label}
-            className="flex items-center gap-2.5 bg-white rounded-lg border border-brand-primary/10 px-3 py-2.5"
-          >
-            <Icon className="w-4 h-4 text-brand-secondary shrink-0" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-brand-primary/40 uppercase tracking-wider">
-                {label}
-              </p>
-              <p className="text-sm font-semibold text-brand-primary truncate">
-                {value || 'Não Identificado'}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="space-y-2">
+      {data.good_visibility && <VisibilityBadge level={data.good_visibility} />}
+      <DetailGrid
+        items={[
+          { icon: User, label: 'Nome', value: data.nome },
+          { icon: CreditCard, label: 'CPF', value: data.cpf },
+          { icon: IdCard, label: 'RG', value: data.rg },
+          { icon: MapPin, label: 'Estado', value: data.estado },
+        ]}
+      />
     </div>
   )
 }
 
-function DocumentPreviewCard({
+function DocumentRow({
   doc,
   pessoaisAnalysis,
 }: {
@@ -422,7 +298,6 @@ function DocumentPreviewCard({
   const label = getDocumentLabel(doc.document_key)
   const senderName = doc.expand?.user?.name || doc.expand?.user?.email?.split('@')[0] || '—'
   const canAnalyze = ANALYZABLE_KEYS.has(doc.document_key)
-  const isStale = canAnalyze && doc.ai_analysis === null && (doc.replaced_count ?? 0) > 0
   const isCertidao = doc.document_key === 'pf_certidao_estado_civil'
   const needsPessoaisFirst =
     isCertidao &&
@@ -432,7 +307,7 @@ function DocumentPreviewCard({
   const [extracted, setExtracted] = useState<ExtractedData | null>(doc.ai_analysis ?? null)
   const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
-  const [downloadError, setDownloadError] = useState('')
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     setExtracted(doc.ai_analysis ?? null)
@@ -448,14 +323,15 @@ function DocumentPreviewCard({
       })
       if (res.extracted) {
         setExtracted(res.extracted)
+        setExpanded(true)
       } else if (res.raw) {
-        setError('A IA retornou um formato inesperado. Tente novamente.')
+        setError('A IA retornou um formato inesperado.')
       }
     } catch (e: any) {
       const msg =
         e?.response?.message ||
         e?.response?.error ||
-        (e instanceof Error ? e.message : 'Erro ao analisar documento.')
+        (e instanceof Error ? e.message : 'Erro ao analisar.')
       setError(msg)
     } finally {
       setAnalyzing(false)
@@ -464,167 +340,132 @@ function DocumentPreviewCard({
 
   const handleDownload = async () => {
     setDownloading(true)
-    setDownloadError('')
     try {
       const res = await pb.send('/backend/v1/document-file-url', {
         method: 'POST',
         body: { check_id: doc.id, disposition: 'inline' },
       })
-      if (res.url) {
-        window.open(res.url, '_blank')
-      }
-    } catch (e: any) {
-      setDownloadError(e?.response?.message || e?.message || 'Erro ao obter link do documento.')
-    } finally {
-      setDownloading(false)
-    }
+      if (res.url) window.open(res.url, '_blank')
+    } catch (_) {}
+    setDownloading(false)
   }
 
+  const summary = extracted ? extractedSummary(extracted, doc.document_key) : null
+
   return (
-    <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 flex items-center gap-3">
-        <FileText className="w-5 h-5 text-brand-secondary shrink-0" />
+    <div className="border-t border-brand-primary/5 first:border-t-0">
+      {/* Main row */}
+      <div
+        className={cn(
+          'flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50/80 transition-colors',
+          expanded && 'bg-slate-50/50',
+        )}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <FileText className="w-4 h-4 text-brand-secondary shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-brand-primary truncate">{label}</p>
-          <p className="text-[11px] text-brand-primary/50 mt-0.5">
-            Enviado por {senderName} em {format(new Date(doc.updated), 'dd/MM/yyyy')}
-          </p>
-        </div>
-        {extracted?.is_personal_document === false ||
-        extracted?.is_certidao_estado_civil === false ||
-        extracted?.is_comprovante_residencia === false ? (
-          <Badge className="bg-rose-100 text-rose-700 border-none text-[9px] font-bold px-2 py-0.5 shrink-0">
-            Documento Errado
-          </Badge>
-        ) : isStale ? (
-          <Badge className="bg-amber-100 text-amber-700 border-none text-[9px] font-bold px-2 py-0.5 shrink-0">
-            Reanalisar
-          </Badge>
-        ) : (
-          <Badge className="bg-emerald-100 text-emerald-700 border-none text-[9px] font-bold px-2 py-0.5 shrink-0">
-            Enviado
-          </Badge>
-        )}
-      </div>
-
-      <div className="px-5 py-4 bg-slate-50/50 border-t border-brand-primary/5">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span className="text-xs font-bold text-brand-primary/70 uppercase tracking-wider">
-            Informações extraídas
-          </span>
-          {!canAnalyze && (
-            <Badge className="bg-amber-100 text-amber-700 border-none text-[9px] font-bold px-1.5 py-0">
-              Em breve
-            </Badge>
+          {summary ? (
+            <p className="text-[11px] text-brand-primary/50 truncate mt-0.5">{summary}</p>
+          ) : (
+            <p className="text-[11px] text-brand-primary/40 mt-0.5">
+              Enviado por {senderName} em {format(new Date(doc.updated), 'dd/MM/yyyy')}
+            </p>
           )}
         </div>
-
-        {isStale && <StaleAnalysisBanner />}
-
-        {extracted ? (
-          <div className="space-y-3">
-            <ExtractedInfo data={extracted} documentKey={doc.document_key} />
-            {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
-            {canAnalyze && (
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  onClick={handleAnalyze}
-                  disabled={analyzing}
-                  variant="outline"
-                  className="h-8 text-xs font-semibold gap-1.5 border-brand-primary/15 text-brand-primary/70 hover:bg-slate-100"
-                >
-                  {analyzing ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Reanalisando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5" /> Reanalisar
-                    </>
-                  )}
-                </Button>
-              </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge doc={doc} extracted={extracted} />
+          <ChevronDown
+            className={cn(
+              'w-4 h-4 text-brand-primary/30 transition-transform',
+              expanded && 'rotate-180',
             )}
-          </div>
-        ) : canAnalyze && needsPessoaisFirst ? (
-          <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-4 flex items-center gap-3">
-            <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
-            <p className="text-xs text-amber-700 leading-relaxed">
-              Analise os <strong>Documentos Pessoais</strong> primeiro para poder analisar a
-              Certidão de Estado Civil.
+          />
+        </div>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3">
+          {extracted ? (
+            <ExpandedDetails data={extracted} documentKey={doc.document_key} />
+          ) : canAnalyze && needsPessoaisFirst ? (
+            <p className="text-xs text-amber-600">
+              <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+              Analise os Documentos Pessoais primeiro.
             </p>
-          </div>
-        ) : canAnalyze ? (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-dashed border-brand-primary/15 bg-white p-4 flex items-center gap-3">
-              <Scan className="w-6 h-6 text-brand-secondary/40 shrink-0" />
-              <p className="text-xs text-brand-primary/50 leading-relaxed">
-                {isCertidao ? (
+          ) : canAnalyze ? (
+            <div className="flex items-center gap-2">
+              <Scan className="w-4 h-4 text-brand-secondary/40 shrink-0" />
+              <p className="text-xs text-brand-primary/50">
+                {isCertidao
+                  ? 'Extrair tipo de certidão, nomes, cartório e estado civil.'
+                  : doc.document_key === 'pf_comprovante_residencia'
+                    ? 'Extrair titular, endereço completo e tipo de comprovante.'
+                    : 'Extrair RG, CPF, Nome e Estado.'}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Bot className="w-4 h-4 text-brand-primary/20 shrink-0" />
+              <p className="text-xs text-brand-primary/40">Análise com IA em breve.</p>
+            </div>
+          )}
+
+          {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
+
+          <div className="flex items-center gap-2 pt-1">
+            {canAnalyze && !needsPessoaisFirst && (
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleAnalyze()
+                }}
+                disabled={analyzing}
+                variant={extracted ? 'outline' : 'default'}
+                className={cn(
+                  'h-7 text-[11px] font-semibold gap-1.5',
+                  extracted
+                    ? 'border-brand-primary/15 text-brand-primary/70 hover:bg-slate-100'
+                    : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
+                )}
+              >
+                {analyzing ? (
                   <>
-                    Clique em <strong>Analisar</strong> para extrair tipo de certidão, nomes,
-                    cartório e estado civil usando IA.
-                  </>
-                ) : doc.document_key === 'pf_comprovante_residencia' ? (
-                  <>
-                    Clique em <strong>Analisar</strong> para extrair titular, endereço completo e
-                    tipo de comprovante usando IA.
+                    <Loader2 className="w-3 h-3 animate-spin" />{' '}
+                    {extracted ? 'Reanalisando...' : 'Analisando...'}
                   </>
                 ) : (
                   <>
-                    Clique em <strong>Analisar</strong> para extrair RG, CPF, Nome e Estado deste
-                    documento usando IA.
+                    {extracted ? (
+                      <RefreshCw className="w-3 h-3" />
+                    ) : (
+                      <Sparkles className="w-3 h-3" />
+                    )}
+                    {extracted ? 'Reanalisar' : 'Analisar com IA'}
                   </>
                 )}
-              </p>
-            </div>
-            {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
-            <Button
-              onClick={handleAnalyze}
-              disabled={analyzing}
-              className="bg-brand-secondary hover:bg-brand-secondary/90 text-white h-9 text-xs font-semibold gap-1.5"
-            >
-              {analyzing ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Analisando...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" /> Analisar com IA
-                </>
-              )}
-            </Button>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-dashed border-brand-primary/15 bg-white p-4 flex items-center gap-3">
-            <Bot className="w-6 h-6 text-brand-primary/20 shrink-0" />
-            <p className="text-xs text-brand-primary/40 leading-relaxed">
-              A IA analisará este documento e extrairá automaticamente as informações relevantes —
-              nomes, CPF/CNPJ, datas, valores, endereços e cláusulas importantes.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {doc.document_url && (
-        <div className="px-5 py-3 border-t border-brand-primary/5 flex items-center gap-2">
-          <Button
-            onClick={handleDownload}
-            disabled={downloading}
-            variant="outline"
-            className="h-8 text-xs font-semibold gap-1.5 border-brand-primary/15 text-brand-primary/70 hover:bg-slate-100"
-          >
-            {downloading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Abrindo...
-              </>
-            ) : (
-              <>
-                <Download className="w-3.5 h-3.5" /> Ver Documento
-              </>
+              </Button>
             )}
-          </Button>
-          {downloadError && <p className="text-xs text-rose-600 font-medium">{downloadError}</p>}
+            {doc.document_url && (
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDownload()
+                }}
+                disabled={downloading}
+                variant="outline"
+                className="h-7 text-[11px] font-semibold gap-1.5 border-brand-primary/15 text-brand-primary/70 hover:bg-slate-100"
+              >
+                {downloading ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Download className="w-3 h-3" />
+                )}
+                Ver Documento
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -634,7 +475,6 @@ function DocumentPreviewCard({
 export function DocumentInspector({ landId }: { landId: string }) {
   const [docs, setDocs] = useState<DocumentRecord[]>([])
   const [loading, setLoading] = useState(true)
-
   const [pendingDocs, setPendingDocs] = useState<DocumentRecord[]>([])
 
   const fetchDocs = async () => {
@@ -823,26 +663,76 @@ export function DocumentInspector({ landId }: { landId: string }) {
     })
   }
 
+  const errorCount = attentionItems.filter((i) => i.severity === 'error').length
+  const warningCount = attentionItems.filter((i) => i.severity === 'warning').length
+
   return (
     <div className="space-y-4">
-      {attentionItems.length > 0 && <AttentionReport items={attentionItems} />}
-
-      <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm p-5 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-          <Sparkles className="w-5 h-5 text-amber-600" />
+      {/* Attention items banner */}
+      {attentionItems.length > 0 && (
+        <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 flex items-center gap-3 border-b border-brand-primary/5 bg-rose-50/50">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span className="text-xs font-bold text-brand-primary/70 uppercase tracking-wider flex-1">
+              Pontos de Atenção
+            </span>
+            {errorCount > 0 && (
+              <Badge className="bg-rose-100 text-rose-700 border-none text-[9px] font-bold px-1.5 py-0">
+                {errorCount} {errorCount === 1 ? 'erro' : 'erros'}
+              </Badge>
+            )}
+            {warningCount > 0 && (
+              <Badge className="bg-amber-100 text-amber-700 border-none text-[9px] font-bold px-1.5 py-0">
+                {warningCount} {warningCount === 1 ? 'aviso' : 'avisos'}
+              </Badge>
+            )}
+          </div>
+          <div className="divide-y divide-brand-primary/5">
+            {attentionItems.map((item, i) => (
+              <div key={i} className="px-4 py-2.5 flex items-start gap-2.5 text-xs">
+                {item.severity === 'error' ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <span
+                    className={cn(
+                      'font-semibold',
+                      item.severity === 'error' ? 'text-rose-700' : 'text-amber-700',
+                    )}
+                  >
+                    {item.docLabel}:
+                  </span>{' '}
+                  <span
+                    className={item.severity === 'error' ? 'text-rose-600/80' : 'text-amber-600/80'}
+                  >
+                    {item.message}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div>
-          <h3 className="text-sm font-semibold text-brand-primary">Inspetor de Documentos</h3>
-          <p className="text-xs text-brand-primary/50 mt-0.5">
-            {docs.length} {docs.length === 1 ? 'documento enviado' : 'documentos enviados'} —
-            analise documentos pessoais para extrair informações com IA.
-          </p>
+      )}
+
+      {/* Documents table */}
+      <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 flex items-center gap-3 border-b border-brand-primary/5">
+          <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+          <span className="text-xs font-bold text-brand-primary/70 uppercase tracking-wider flex-1">
+            Documentos Enviados
+          </span>
+          <Badge className="bg-brand-secondary/10 text-brand-secondary border-none text-[9px] font-bold px-1.5 py-0">
+            {docs.length} {docs.length === 1 ? 'documento' : 'documentos'}
+          </Badge>
+        </div>
+        <div className="divide-y-0">
+          {docs.map((doc) => (
+            <DocumentRow key={doc.id} doc={doc} pessoaisAnalysis={pessoaisAnalysis} />
+          ))}
         </div>
       </div>
-
-      {docs.map((doc) => (
-        <DocumentPreviewCard key={doc.id} doc={doc} pessoaisAnalysis={pessoaisAnalysis} />
-      ))}
     </div>
   )
 }
