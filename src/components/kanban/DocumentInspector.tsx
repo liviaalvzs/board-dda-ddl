@@ -57,15 +57,22 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
   const handleTogglePreview = async () => {
     if (previewOpen) {
       setPreviewOpen(false)
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+        setPreviewUrl(null)
+      }
       return
     }
     setLoadingPreview(true)
     try {
-      const url = await fetchPresignedUrl(doc.id)
-      setPreviewUrl(url)
+      const signedUrl = await fetchPresignedUrl(doc.id)
+      const resp = await fetch(signedUrl)
+      const blob = await resp.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      setPreviewUrl(blobUrl)
       setPreviewOpen(true)
     } catch (e) {
-      console.error('Erro ao gerar URL do preview:', e)
+      console.error('Erro ao gerar preview:', e)
     } finally {
       setLoadingPreview(false)
     }
