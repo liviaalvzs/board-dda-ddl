@@ -36,6 +36,8 @@ const DOCUMENT_LABELS: Record<string, string> = {
   cnd_municipal: 'Certidão Negativa Fiscal Municipal (CND Municipal)',
 }
 
+export const ALL_DOCUMENT_KEYS = Object.keys(DOCUMENT_LABELS)
+
 export function getDocumentLabel(key: string): string {
   if (DOCUMENT_LABELS[key]) return DOCUMENT_LABELS[key]
   return key.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())

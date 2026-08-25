@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
-import { getDocumentLabel } from '@/lib/document-labels'
+import { getDocumentLabel, ALL_DOCUMENT_KEYS } from '@/lib/document-labels'
 import { format } from 'date-fns'
 
 interface DocumentRecord {
@@ -487,11 +487,24 @@ export function DocumentInspector({ landId }: { landId: string }) {
         sort: '-updated',
       })
       setDocs(records as unknown as DocumentRecord[])
-      const pending = await pb.collection('document_checks').getFullList({
-        filter: `land_id="${landId}" && document_url="" && not_applicable=false`,
+      const allChecks = await pb.collection('document_checks').getFullList({
+        filter: `land_id="${landId}"`,
         sort: 'document_key',
       })
-      setPendingDocs(pending as unknown as DocumentRecord[])
+      const completedKeys = new Set(
+        (allChecks as unknown as DocumentRecord[])
+          .filter((d) => d.is_completed && d.document_url)
+          .map((d) => d.document_key),
+      )
+      const naKeys = new Set(
+        (allChecks as unknown as DocumentRecord[])
+          .filter((d) => d.not_applicable)
+          .map((d) => d.document_key),
+      )
+      const missingKeys = ALL_DOCUMENT_KEYS.filter(
+        (key) => !completedKeys.has(key) && !naKeys.has(key),
+      )
+      setPendingDocs(missingKeys.map((key) => ({ document_key: key }) as unknown as DocumentRecord))
     } catch (e) {
       console.error(e)
     } finally {
