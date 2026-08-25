@@ -286,9 +286,7 @@ routerAdd(
           'document_checks',
           'land_id = "' +
             landId.replace(/"/g, '\\"') +
-            '" && document_key = "pf_documentos_pessoais" && subject_id = "' +
-            subjectId.replace(/"/g, '\\"') +
-            '" && is_completed = true',
+            '" && document_key = "pf_documentos_pessoais" && is_completed = true',
         )
       } catch (_) {}
 
