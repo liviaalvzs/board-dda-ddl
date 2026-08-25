@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -98,12 +98,25 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
     fetchSubjects()
   }, [landId])
 
+  const debounceChecks = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceSubjects = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const debouncedFetchChecks = useCallback(() => {
+    if (debounceChecks.current) clearTimeout(debounceChecks.current)
+    debounceChecks.current = setTimeout(() => fetchChecks(), 300)
+  }, [landId])
+
+  const debouncedFetchSubjects = useCallback(() => {
+    if (debounceSubjects.current) clearTimeout(debounceSubjects.current)
+    debounceSubjects.current = setTimeout(() => fetchSubjects(), 300)
+  }, [landId])
+
   useRealtime('document_checks', (e) => {
-    if (e.record.land_id === landId) fetchChecks()
+    if (e.record.land_id === landId) debouncedFetchChecks()
   })
 
   useRealtime('land_subjects', (e) => {
-    if (e.record.land_id === landId) fetchSubjects()
+    if (e.record.land_id === landId) debouncedFetchSubjects()
   })
 
   const handleFileUpload = async (key: string, subjectId: string, file: File) => {
