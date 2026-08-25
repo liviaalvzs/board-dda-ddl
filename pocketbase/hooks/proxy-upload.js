@@ -538,6 +538,7 @@ routerAdd(
     record.set('document_url', s3Url)
     record.set('is_completed', true)
     record.set('replaced_count', replacedCount)
+    if (wasCompleted) record.set('ai_analysis', null)
     // Guarda o tipo, já que a chave no S3 não o carrega mais.
     record.set('file_ext', ext)
     // O S3 é o repositório definitivo. A cópia no PocketBase serve apenas para

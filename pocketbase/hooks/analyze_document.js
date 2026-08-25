@@ -367,6 +367,15 @@ routerAdd(
       return e.json(200, { raw: content, extracted: null })
     }
 
+    record.set('ai_analysis', extracted)
+    try {
+      $app.save(record)
+    } catch (saveErr) {
+      $app
+        .logger()
+        .error('analyze-document: failed to persist ai_analysis', 'error', String(saveErr))
+    }
+
     return e.json(200, { extracted: extracted })
   },
   $apis.requireAuth(),
