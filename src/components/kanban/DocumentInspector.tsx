@@ -757,20 +757,30 @@ export function DocumentInspector({ landId }: { landId: string }) {
     if (
       doc.document_key === 'pf_comprovante_residencia' &&
       analysis?.is_comprovante_residencia === true &&
-      pessoaisNome &&
-      pessoaisNome !== 'não identificado' &&
       analysis.nome_titular &&
       analysis.nome_titular !== 'Não Identificado' &&
       analysis.nome_titular !== 'Não Aplicável'
     ) {
       const normalizedTitular = normalizeName(analysis.nome_titular)
-      const normalizedProp = normalizeName(pessoaisNome)
-      if (normalizedTitular !== normalizedProp) {
-        items.push({
-          docLabel: label,
-          message: `O titular do comprovante ("${analysis.nome_titular}") não confere com o proprietário ("${pessoaisAnalysis?.nome}")`,
-          severity: 'warning',
-        })
+      const matchesProp =
+        pessoaisNome &&
+        pessoaisNome !== 'não identificado' &&
+        normalizeName(pessoaisNome) === normalizedTitular
+      const matchesConjuge =
+        conjugeNome &&
+        conjugeNome !== 'não identificado' &&
+        normalizeName(conjugeNome) === normalizedTitular
+      if (!matchesProp && !matchesConjuge) {
+        const nomes: string[] = []
+        if (pessoaisAnalysis?.nome) nomes.push(pessoaisAnalysis.nome)
+        if (conjugeAnalysis?.nome) nomes.push(conjugeAnalysis.nome)
+        if (nomes.length > 0) {
+          items.push({
+            docLabel: label,
+            message: `O titular do comprovante ("${analysis.nome_titular}") não confere com ${nomes.length > 1 ? 'o proprietário nem o cônjuge' : 'o proprietário'} (${nomes.map((n) => `"${n}"`).join(', ')})`,
+            severity: 'warning',
+          })
+        }
       }
     }
 
