@@ -8,6 +8,8 @@ import {
   Leaf,
   Scale,
   Award,
+  Minimize2,
+  Maximize2,
 } from 'lucide-react'
 import { KanbanCardType } from '@/types/kanban'
 import { cn } from '@/lib/utils'
@@ -68,9 +70,11 @@ function DocProgressRow({
 interface KanbanCardProps {
   card: KanbanCardType
   onDragStart: (e: React.DragEvent<HTMLDivElement>, cardId: string) => void
+  minimized?: boolean
+  onToggleMinimize?: () => void
 }
 
-export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
+export function KanbanCard({ card, onDragStart, minimized, onToggleMinimize }: KanbanCardProps) {
   const navigate = useNavigate()
   const { getThresholdForStage } = useDelayedThreshold()
   const { attention: attentionThreshold, delayed: delayedThreshold } = getThresholdForStage(
@@ -132,6 +136,64 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
   // mostrar "0/0" e parecer que nada foi entregue.
   const docProgress = card.docProgress || emptyDocumentProgress()
 
+  if (minimized) {
+    return (
+      <div
+        draggable={!card.isSaving}
+        onDragStart={(e) => {
+          if (!card.isSaving) onDragStart(e, card.id)
+        }}
+        className={cn(
+          'relative rounded-lg px-3 py-2 shadow-sm border transition-all duration-200 group flex items-center gap-2',
+          urgencyClass,
+          hoverClass,
+          card.isSaving ? 'cursor-wait opacity-60' : 'cursor-grab active:cursor-grabbing',
+        )}
+      >
+        {card.isSaving && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-white/50 backdrop-blur-sm">
+            <Loader2 className="h-3 w-3 animate-spin text-brand-primary" />
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleMinimize?.()
+          }}
+          className="shrink-0 p-0.5 rounded hover:bg-slate-200 transition-colors text-slate-400 hover:text-slate-600"
+        >
+          <Maximize2 className="w-3 h-3" />
+        </button>
+        <span
+          className="flex-1 min-w-0 text-xs font-semibold text-slate-800 truncate cursor-pointer hover:text-brand-secondary transition-colors"
+          onClick={() => {
+            if (!card.isSaving) navigate(`/land/${card.id}`)
+          }}
+          title={card.name || card.title}
+        >
+          {card.name || card.title}
+        </span>
+        {urgencyBadge}
+        <div
+          className={cn(
+            'shrink-0 flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded',
+            daysInStatus === null
+              ? 'bg-slate-100 text-slate-500'
+              : isDelayed
+                ? 'bg-rose-100 text-rose-700'
+                : needsAttention
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-emerald-100 text-emerald-700',
+          )}
+        >
+          <Clock className="w-2.5 h-2.5" />
+          {daysInStatus === null ? '—' : `${daysInStatus}d`}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       draggable={!card.isSaving}
@@ -158,9 +220,23 @@ export function KanbanCard({ card, onDragStart }: KanbanCardProps) {
       )}
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-start gap-2">
-          <span className="text-slate-500 font-bold text-[10px] tracking-widest uppercase bg-white/60 px-1.5 py-0.5 rounded">
-            {card.clusterSerial || card.id}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {onToggleMinimize && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleMinimize()
+                }}
+                className="shrink-0 p-0.5 rounded hover:bg-slate-200 transition-colors text-slate-400 hover:text-slate-600"
+              >
+                <Minimize2 className="w-3 h-3" />
+              </button>
+            )}
+            <span className="text-slate-500 font-bold text-[10px] tracking-widest uppercase bg-white/60 px-1.5 py-0.5 rounded">
+              {card.clusterSerial || card.id}
+            </span>
+          </div>
           <div className="flex gap-1 flex-wrap justify-end">
             {urgencyBadge}
             {isNew && (

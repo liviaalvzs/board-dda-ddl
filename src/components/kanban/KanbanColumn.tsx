@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { KanbanColumnType, KanbanCardType } from '@/types/kanban'
 import { KanbanCard } from './KanbanCard'
 import { cn } from '@/lib/utils'
-import { ChevronRight, Leaf } from 'lucide-react'
+import { ChevronRight, Leaf, Minimize2, Maximize2 } from 'lucide-react'
 
 interface KanbanColumnProps {
   column: KanbanColumnType
@@ -14,6 +14,30 @@ interface KanbanColumnProps {
 export function KanbanColumn({ column, cards, onDropCard, collapsible }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [collapsed, setCollapsed] = useState(!!collapsible)
+  const [allMinimized, setAllMinimized] = useState(false)
+  const [minimizedCards, setMinimizedCards] = useState<Set<string>>(new Set())
+
+  const isCardMinimized = useCallback(
+    (cardId: string) => {
+      if (minimizedCards.has(cardId)) return !allMinimized
+      return allMinimized
+    },
+    [allMinimized, minimizedCards],
+  )
+
+  const toggleCardMinimize = useCallback((cardId: string) => {
+    setMinimizedCards((prev) => {
+      const next = new Set(prev)
+      if (next.has(cardId)) next.delete(cardId)
+      else next.add(cardId)
+      return next
+    })
+  }, [])
+
+  const toggleAllMinimized = useCallback(() => {
+    setAllMinimized((prev) => !prev)
+    setMinimizedCards(new Set())
+  }, [])
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -96,8 +120,25 @@ export function KanbanColumn({ column, cards, onDropCard, collapsible }: KanbanC
             {column.title}
           </h3>
         </div>
-        <div className="bg-white text-brand-primary font-bold text-xs px-3 py-1 rounded-full shadow-sm flex-shrink-0 border border-slate-200/80">
-          {cards.length} {cards.length === 1 ? 'card' : 'cards'}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleAllMinimized()
+            }}
+            className="p-1 rounded-md hover:bg-slate-200 transition-colors text-slate-400 hover:text-slate-600"
+            title={allMinimized ? 'Expandir todos' : 'Minimizar todos'}
+          >
+            {allMinimized ? (
+              <Maximize2 className="w-3.5 h-3.5" />
+            ) : (
+              <Minimize2 className="w-3.5 h-3.5" />
+            )}
+          </button>
+          <div className="bg-white text-brand-primary font-bold text-xs px-3 py-1 rounded-full shadow-sm border border-slate-200/80">
+            {cards.length} {cards.length === 1 ? 'card' : 'cards'}
+          </div>
         </div>
       </div>
 
@@ -109,7 +150,13 @@ export function KanbanColumn({ column, cards, onDropCard, collapsible }: KanbanC
           </div>
         ) : (
           cards.map((card) => (
-            <KanbanCard key={card.id} card={card} onDragStart={handleDragStart} />
+            <KanbanCard
+              key={card.id}
+              card={card}
+              onDragStart={handleDragStart}
+              minimized={isCardMinimized(card.id)}
+              onToggleMinimize={() => toggleCardMinimize(card.id)}
+            />
           ))
         )}
       </div>

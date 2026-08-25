@@ -43,6 +43,7 @@
 
   body {
     @apply bg-brand-background text-foreground font-sans antialiased;
+    zoom: 0.8;
   }
 
   section[aria-label='Notifications alt+T'] {
