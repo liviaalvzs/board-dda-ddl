@@ -314,7 +314,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
                 <SubjectIcon className="h-3 w-3" />
                 {block.subject.label}
               </span>
-              <span className="ml-auto flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-primary px-2 text-[11px] font-bold text-white shrink-0">
+              <span className="ml-auto flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-secondary px-2 text-[11px] font-bold text-white shrink-0">
                 {required.length === 0 ? '—' : `${blockCompleted}/${required.length}`}
               </span>
             </button>
