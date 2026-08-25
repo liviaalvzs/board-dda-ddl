@@ -130,10 +130,20 @@ export function DdlSection({ metadata, externalId, onUpdated }: DdlSectionProps)
         </p>
       )}
 
-      {/* Datas de etapa: pedido e recebimento */}
+      <OfficeSelector
+        metadata={metadata}
+        externalId={externalId}
+        fieldName="externalOffices"
+        expandKey="external_offices"
+        label="Escritório externo"
+        disabled={!unlocked}
+        onUpdated={onUpdated}
+      />
+
+      {/* 3 datas: Pedido → Estimada → Recebimento */}
       {unlocked && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Data do pedido — read-only */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* 1. Data do pedido — read-only */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
               <CalendarIcon className="w-3.5 h-3.5" />
@@ -153,7 +163,25 @@ export function DdlSection({ metadata, externalId, onUpdated }: DdlSectionProps)
             </div>
           </div>
 
-          {/* Data de recebimento (etapa) — editável */}
+          {/* 2. Data estimada — editável (campo existente) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
+              <Clock className="w-3.5 h-3.5" />
+              {DDL_MILESTONE.planned.label}
+            </div>
+            <ProcessDateField
+              field={DDL_MILESTONE.planned}
+              milestoneTitle={DDL_MILESTONE.title}
+              columnLabel={DDL_MILESTONE.planned.label}
+              value={metadata?.[DDL_MILESTONE.planned.key]}
+              externalId={externalId}
+              variant="planned"
+              disabled={!unlocked}
+              onUpdated={onUpdated}
+            />
+          </div>
+
+          {/* 3. Data de recebimento — editável (stage 4→5) */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -218,53 +246,6 @@ export function DdlSection({ metadata, externalId, onUpdated }: DdlSectionProps)
           </div>
         </div>
       )}
-
-      <OfficeSelector
-        metadata={metadata}
-        externalId={externalId}
-        fieldName="externalOffices"
-        expandKey="external_offices"
-        label="Escritório externo"
-        disabled={!unlocked}
-        onUpdated={onUpdated}
-      />
-
-      <div className="hidden sm:grid grid-cols-[1fr_28px_1fr] gap-0 items-center pb-2 border-b border-brand-primary/10">
-        <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
-          <Clock className="w-3.5 h-3.5" /> {DDL_MILESTONE.planned.label}
-        </div>
-        <div />
-        <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
-          <CheckCircle2 className="w-3.5 h-3.5" /> {DDL_MILESTONE.actual.label}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_28px_1fr] gap-2 sm:gap-0 sm:items-center">
-        <ProcessDateField
-          field={DDL_MILESTONE.planned}
-          milestoneTitle={DDL_MILESTONE.title}
-          columnLabel={DDL_MILESTONE.planned.label}
-          value={metadata?.[DDL_MILESTONE.planned.key]}
-          externalId={externalId}
-          variant="planned"
-          disabled={!unlocked}
-          onUpdated={onUpdated}
-        />
-        <div className="hidden sm:flex items-center justify-center text-brand-primary/30">
-          <ArrowRight className="w-4 h-4" />
-        </div>
-        <ProcessDateField
-          field={DDL_MILESTONE.actual}
-          milestoneTitle={DDL_MILESTONE.title}
-          columnLabel={DDL_MILESTONE.actual.label}
-          value={metadata?.[DDL_MILESTONE.actual.key]}
-          externalId={externalId}
-          variant="actual"
-          isPlannedFilled={!!plannedDate}
-          disabled={!unlocked}
-          onUpdated={onUpdated}
-        />
-      </div>
     </div>
   )
 }
