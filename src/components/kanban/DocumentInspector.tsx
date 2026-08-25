@@ -488,7 +488,7 @@ export function DocumentInspector({ landId }: { landId: string }) {
       })
       setDocs(records as unknown as DocumentRecord[])
       const pending = await pb.collection('document_checks').getFullList({
-        filter: `land_id="${landId}" && is_completed=false && not_applicable=false`,
+        filter: `land_id="${landId}" && document_url="" && not_applicable=false`,
         sort: 'document_key',
       })
       setPendingDocs(pending as unknown as DocumentRecord[])
