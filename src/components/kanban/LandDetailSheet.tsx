@@ -29,6 +29,7 @@ import {
   Building2,
   Timer,
   Settings2,
+  SearchCheck,
 } from 'lucide-react'
 
 import pb from '@/lib/pocketbase/client'
@@ -44,6 +45,7 @@ import { DdaSection } from '@/components/kanban/DdaSection'
 import { DdlSection } from '@/components/kanban/DdlSection'
 
 import { StageDatesSection } from '@/components/kanban/StageDatesSection'
+import { DocumentInspector } from '@/components/kanban/DocumentInspector'
 import { getStatusLabel } from '@/lib/status-mapping'
 
 const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
@@ -746,6 +748,12 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                     <FileText className="w-4 h-4 mr-2" /> Envio de Documentos
                   </TabsTrigger>
                   <TabsTrigger
+                    value="inspector"
+                    className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
+                  >
+                    <SearchCheck className="w-4 h-4 mr-2" /> Inspetor
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="deadlines"
                     className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
                   >
@@ -886,6 +894,10 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
 
                 <TabsContent value="docs" className="animate-fade-in-up mt-0 outline-none">
                   <DocumentChecklist landId={landId} metadata={metadata} />
+                </TabsContent>
+
+                <TabsContent value="inspector" className="animate-fade-in-up mt-0 outline-none">
+                  <DocumentInspector landId={landId} />
                 </TabsContent>
 
                 <TabsContent value="deadlines" className="animate-fade-in-up mt-0 outline-none">
