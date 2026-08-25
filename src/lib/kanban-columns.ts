@@ -13,7 +13,11 @@ export interface KanbanColumnConfig {
   title: string
   color: string
   dotClass: string
+  collapsible?: boolean
+  excludeFromMetrics?: boolean
 }
+
+export const ON_HOLD_STAGE_ID = 'on-hold'
 
 export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
   {
@@ -45,6 +49,14 @@ export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
     title: '5. Recebimento DDL preliminar / Análise interna',
     color: '#8b5cf6',
     dotClass: 'bg-violet-500',
+  },
+  {
+    id: 'on-hold',
+    title: 'On Hold',
+    color: '#9ca3af',
+    dotClass: 'bg-gray-400',
+    collapsible: true,
+    excludeFromMetrics: true,
   },
   {
     id: 'levantamento-documentos-complementares',

@@ -25,7 +25,7 @@ import {
 import { useRealtime } from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Badge } from '@/components/ui/badge'
-import { KANBAN_COLUMNS as KANBAN_STAGES } from '@/lib/kanban-columns'
+import { KANBAN_COLUMNS as KANBAN_STAGES, ON_HOLD_STAGE_ID } from '@/lib/kanban-columns'
 import { fetchFirstStageEntry, FIRST_STAGE_ID } from '@/services/land-stages'
 import { parseStageDates } from '@/lib/stage-dates-helpers'
 import { parseDateValue, isDdaRequested, isDdaOverdue } from '@/lib/process-dates-helpers'
@@ -52,6 +52,7 @@ const KANBAN_COLUMNS: KanbanColumnType[] = KANBAN_STAGES.map((c) => ({
   id: c.id,
   title: c.title,
   color: c.dotClass,
+  collapsible: c.collapsible,
 }))
 
 // Os filtros usam <select> nativo de propósito, e não o Select do Radix.
@@ -403,7 +404,7 @@ export default function Index() {
         Object.values(metadata).find(
           (m: any) => m.external_id === card.id || m.external_id === card.clusterSerial,
         )
-      if (!meta?.status || !meta?.stage_dates) continue
+      if (!meta?.status || !meta?.stage_dates || meta.status === ON_HOLD_STAGE_ID) continue
       const stageEntry = getCurrentStageEntry(meta.stage_dates, meta.status)
       if (!stageEntry) continue
       const days = differenceInDays(new Date(), stageEntry)

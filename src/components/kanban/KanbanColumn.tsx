@@ -2,16 +2,18 @@ import { useState } from 'react'
 import { KanbanColumnType, KanbanCardType } from '@/types/kanban'
 import { KanbanCard } from './KanbanCard'
 import { cn } from '@/lib/utils'
-import { Leaf } from 'lucide-react'
+import { ChevronRight, Leaf } from 'lucide-react'
 
 interface KanbanColumnProps {
   column: KanbanColumnType
   cards: KanbanCardType[]
   onDropCard: (cardId: string, targetColumnId: string) => void
+  collapsible?: boolean
 }
 
-export function KanbanColumn({ column, cards, onDropCard }: KanbanColumnProps) {
+export function KanbanColumn({ column, cards, onDropCard, collapsible }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
+  const [collapsed, setCollapsed] = useState(!!collapsible)
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -37,18 +39,53 @@ export function KanbanColumn({ column, cards, onDropCard }: KanbanColumnProps) {
     e.dataTransfer.effectAllowed = 'move'
   }
 
+  if (collapsed) {
+    return (
+      <div
+        className={cn(
+          'flex flex-col flex-shrink-0 w-14 h-full max-h-full bg-gray-100 rounded-xl transition-all duration-200 border border-gray-300 shadow-rg-card items-center cursor-pointer',
+          isDragOver && 'bg-brand-secondary/10 ring-2 ring-brand-secondary/30',
+        )}
+        onClick={() => setCollapsed(false)}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <div className="py-4 flex flex-col items-center gap-2">
+          <ChevronRight className="w-4 h-4 text-gray-400" />
+          <div className="bg-gray-200 text-gray-600 font-bold text-xs px-2 py-0.5 rounded-full">
+            {cards.length}
+          </div>
+          <span className="text-xs font-semibold text-gray-500 [writing-mode:vertical-lr] rotate-180">
+            {column.title}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn(
-        'flex flex-col flex-shrink-0 w-[280px] sm:w-[320px] h-full max-h-full bg-slate-100/80 rounded-xl transition-all duration-200 border border-slate-200 shadow-rg-card',
+        'flex flex-col flex-shrink-0 w-[280px] sm:w-[320px] h-full max-h-full rounded-xl transition-all duration-200 border shadow-rg-card',
+        collapsible ? 'bg-gray-50 border-gray-300' : 'bg-slate-100/80 border-slate-200',
         isDragOver && 'bg-brand-secondary/10 ring-2 ring-brand-secondary/30',
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="p-4 flex-shrink-0 border-b border-slate-200/80 flex items-center justify-between gap-3 bg-slate-100 rounded-t-xl shadow-sm z-10 relative">
+      <div
+        className={cn(
+          'p-4 flex-shrink-0 border-b flex items-center justify-between gap-3 rounded-t-xl shadow-sm z-10 relative',
+          collapsible
+            ? 'bg-gray-100 border-gray-300 cursor-pointer hover:bg-gray-200 transition-colors'
+            : 'bg-slate-100 border-slate-200/80',
+        )}
+        onClick={collapsible ? () => setCollapsed(true) : undefined}
+      >
         <div className="flex items-center gap-2.5">
+          {collapsible && <ChevronRight className="w-4 h-4 text-gray-400 rotate-90" />}
           <div
             className={cn(
               'w-3 h-3 rounded-full flex-shrink-0 shadow-sm',

@@ -368,6 +368,7 @@ export function KanbanBoard({
             cards={enrichedCards.filter((c) => c.stageId === column.id)}
             onDropCard={handleMoveCard}
             onCreateCard={onCreateCard}
+            collapsible={column.collapsible}
           />
         ))}
       </div>

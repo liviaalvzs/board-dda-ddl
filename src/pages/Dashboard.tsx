@@ -19,6 +19,7 @@ import {
   calculateStatusDistribution,
 } from '@/lib/dash-utils'
 import { AlertTriangle, CheckCircle2, Layers, Search, Timer } from 'lucide-react'
+import { ON_HOLD_STAGE_ID } from '@/lib/kanban-columns'
 import { StageTimeChart } from '@/components/dash/StageTimeChart'
 import { PlannedVsActualCard } from '@/components/dash/PlannedVsActualCard'
 import { StageRankingTable } from '@/components/dash/StageRankingTable'
@@ -92,9 +93,14 @@ export default function Dashboard() {
   }, [])
   useRealtime('land_metadata', () => loadData())
 
-  const delays = useMemo(() => calculateStageDelays(lands), [lands])
+  const activeLands = useMemo(
+    () => lands.filter((l) => (l.status || '').trim() !== ON_HOLD_STAGE_ID),
+    [lands],
+  )
+
+  const delays = useMemo(() => calculateStageDelays(activeLands), [activeLands])
   const statusDist = useMemo(() => calculateStatusDistribution(lands), [lands])
-  const stageTimes = useMemo(() => calculateStageAverageTime(lands), [lands])
+  const stageTimes = useMemo(() => calculateStageAverageTime(activeLands), [activeLands])
 
   const ddStageIds = new Set([
     'triagem-documentos-basicos',
@@ -111,7 +117,7 @@ export default function Dashboard() {
   }, [lands])
 
   const kpis = useMemo(() => {
-    const inProgress = lands.filter((l) => (l.status || '').trim()).length
+    const inProgress = activeLands.filter((l) => (l.status || '').trim()).length
     // O indicador de prazo usa só as etapas com data estimada de conclusão —
     // as de tempo de resposta não têm "prazo" contra o qual comparar.
     const deviationStages = delays.filter((d) => d.kind === 'deviation')
@@ -123,7 +129,7 @@ export default function Dashboard() {
         10
       : 0
     return { inProgress, evaluated, onTime, onTimeRate, avgStageDays }
-  }, [lands, delays, stageTimes])
+  }, [activeLands, delays, stageTimes])
 
   if (loading) {
     return (
