@@ -1,8 +1,13 @@
-import { Leaf, Clock, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Leaf, Clock, CheckCircle2, CalendarIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProcessDateField } from '@/components/kanban/ProcessDateField'
 import { OfficeSelector } from '@/components/kanban/OfficeSelector'
-import { DDA_MILESTONE, parseDateValue, calculateDdaFlag } from '@/lib/process-dates-helpers'
+import {
+  DDA_MILESTONE,
+  DATA_SOLICITACAO_DD,
+  parseDateValue,
+  calculateDdaFlag,
+} from '@/lib/process-dates-helpers'
 
 interface DdaSectionProps {
   metadata: any
@@ -52,39 +57,59 @@ export function DdaSection({ metadata, externalId, onUpdated }: DdaSectionProps)
         onUpdated={onUpdated}
       />
 
-      <div className="hidden sm:grid grid-cols-[1fr_28px_1fr] gap-0 items-center pb-2 border-b border-brand-primary/10">
-        <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
-          <Clock className="w-3.5 h-3.5" /> {DDA_MILESTONE.planned.label}
+      {/* 3 datas: Pedido → Estimada → Recebimento */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* 1. Data do pedido */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
+            <CalendarIcon className="w-3.5 h-3.5" />
+            Data do pedido
+          </div>
+          <ProcessDateField
+            field={DATA_SOLICITACAO_DD}
+            milestoneTitle={DDA_MILESTONE.title}
+            columnLabel="Data do pedido"
+            value={metadata?.[DATA_SOLICITACAO_DD.key]}
+            externalId={externalId}
+            variant="planned"
+            onUpdated={onUpdated}
+          />
         </div>
-        <div />
-        <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
-          <CheckCircle2 className="w-3.5 h-3.5" /> {DDA_MILESTONE.actual.label}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_28px_1fr] gap-2 sm:gap-0 sm:items-center">
-        <ProcessDateField
-          field={DDA_MILESTONE.planned}
-          milestoneTitle={DDA_MILESTONE.title}
-          columnLabel={DDA_MILESTONE.planned.label}
-          value={metadata?.[DDA_MILESTONE.planned.key]}
-          externalId={externalId}
-          variant="planned"
-          onUpdated={onUpdated}
-        />
-        <div className="hidden sm:flex items-center justify-center text-brand-primary/30">
-          <ArrowRight className="w-4 h-4" />
+        {/* 2. Data estimada */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
+            <Clock className="w-3.5 h-3.5" />
+            {DDA_MILESTONE.planned.label}
+          </div>
+          <ProcessDateField
+            field={DDA_MILESTONE.planned}
+            milestoneTitle={DDA_MILESTONE.title}
+            columnLabel={DDA_MILESTONE.planned.label}
+            value={metadata?.[DDA_MILESTONE.planned.key]}
+            externalId={externalId}
+            variant="planned"
+            onUpdated={onUpdated}
+          />
         </div>
-        <ProcessDateField
-          field={DDA_MILESTONE.actual}
-          milestoneTitle={DDA_MILESTONE.title}
-          columnLabel={DDA_MILESTONE.actual.label}
-          value={metadata?.[DDA_MILESTONE.actual.key]}
-          externalId={externalId}
-          variant="actual"
-          isPlannedFilled={!!plannedDate}
-          onUpdated={onUpdated}
-        />
+
+        {/* 3. Data de recebimento */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            {DDA_MILESTONE.actual.label}
+          </div>
+          <ProcessDateField
+            field={DDA_MILESTONE.actual}
+            milestoneTitle={DDA_MILESTONE.title}
+            columnLabel={DDA_MILESTONE.actual.label}
+            value={metadata?.[DDA_MILESTONE.actual.key]}
+            externalId={externalId}
+            variant="actual"
+            isPlannedFilled={!!plannedDate}
+            onUpdated={onUpdated}
+          />
+        </div>
       </div>
     </div>
   )
