@@ -280,15 +280,28 @@ routerAdd(
 
     if (documentKey === 'pf_certidao_estado_civil') {
       // Verifica se documentos pessoais já foram analisados
-      var pessoaisRecord = null
+      var pessoaisRecords = []
       try {
-        pessoaisRecord = $app.findFirstRecordByFilter(
+        pessoaisRecords = $app.findRecordsByFilter(
           'document_checks',
-          'land_id = "' +
-            landId.replace(/"/g, '\\"') +
-            '" && document_key = "pf_documentos_pessoais" && is_completed = true',
+          'land_id = {:landId} && document_key = "pf_documentos_pessoais" && is_completed = true',
+          '-updated',
+          1,
+          0,
+          { landId: landId },
         )
-      } catch (_) {}
+      } catch (filterErr) {
+        $app
+          .logger()
+          .error(
+            'analyze-document: pessoais filter error',
+            'error',
+            String(filterErr),
+            'landId',
+            landId,
+          )
+      }
+      var pessoaisRecord = pessoaisRecords && pessoaisRecords.length > 0 ? pessoaisRecords[0] : null
 
       var pessoaisAnalysisRaw = pessoaisRecord ? pessoaisRecord.get('ai_analysis') : null
       var pessoaisAnalysis = pessoaisAnalysisRaw
@@ -299,18 +312,24 @@ routerAdd(
           pessoaisAnalysis = null
         }
       }
+
+      $app
+        .logger()
+        .error(
+          'analyze-document: pessoais debug',
+          'landId',
+          landId,
+          'recordFound',
+          !!pessoaisRecord,
+          'recordCount',
+          pessoaisRecords ? pessoaisRecords.length : -1,
+          'analysisType',
+          typeof pessoaisAnalysisRaw,
+          'hasNome',
+          pessoaisAnalysis ? !!pessoaisAnalysis.nome : false,
+        )
+
       if (!pessoaisAnalysis || !pessoaisAnalysis.nome) {
-        $app
-          .logger()
-          .warn(
-            'analyze-document: pessoais check failed',
-            'recordFound',
-            !!pessoaisRecord,
-            'analysisType',
-            typeof pessoaisAnalysisRaw,
-            'analysisValue',
-            pessoaisAnalysisRaw ? JSON.stringify(pessoaisAnalysisRaw).substring(0, 200) : 'null',
-          )
         return e.badRequestError(
           'É necessário analisar os Documentos Pessoais antes da Certidão de Estado Civil.',
         )
