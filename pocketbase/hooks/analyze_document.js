@@ -290,8 +290,27 @@ routerAdd(
         )
       } catch (_) {}
 
-      var pessoaisAnalysis = pessoaisRecord ? pessoaisRecord.get('ai_analysis') : null
+      var pessoaisAnalysisRaw = pessoaisRecord ? pessoaisRecord.get('ai_analysis') : null
+      var pessoaisAnalysis = pessoaisAnalysisRaw
+      if (typeof pessoaisAnalysis === 'string' && pessoaisAnalysis.length > 0) {
+        try {
+          pessoaisAnalysis = JSON.parse(pessoaisAnalysis)
+        } catch (_) {
+          pessoaisAnalysis = null
+        }
+      }
       if (!pessoaisAnalysis || !pessoaisAnalysis.nome) {
+        $app
+          .logger()
+          .warn(
+            'analyze-document: pessoais check failed',
+            'recordFound',
+            !!pessoaisRecord,
+            'analysisType',
+            typeof pessoaisAnalysisRaw,
+            'analysisValue',
+            pessoaisAnalysisRaw ? JSON.stringify(pessoaisAnalysisRaw).substring(0, 200) : 'null',
+          )
         return e.badRequestError(
           'É necessário analisar os Documentos Pessoais antes da Certidão de Estado Civil.',
         )
