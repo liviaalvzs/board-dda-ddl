@@ -87,7 +87,7 @@ export default function Layout() {
               </h1>
             </div>
 
-            <nav className="flex items-center gap-6">
+            <nav className="flex items-center gap-6 overflow-x-auto">
               {navItems.map((item) => {
                 const isActive = item.match(location.pathname)
                 return (
@@ -95,7 +95,7 @@ export default function Layout() {
                     key={item.to}
                     to={item.to}
                     className={cn(
-                      'flex items-center gap-2 text-sm font-medium transition-colors',
+                      'flex items-center gap-2 text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0',
                       isActive
                         ? 'text-brand-secondary'
                         : 'text-brand-primary/60 hover:text-brand-primary',
