@@ -291,7 +291,51 @@ routerAdd(
 
     var prompt = ''
 
-    if (documentKey === 'pf_certidao_estado_civil') {
+    if (documentKey === 'pf_comprovante_residencia') {
+      // Tenta buscar nome do proprietário para cross-reference (opcional)
+      var nomeProprietario = ''
+      try {
+        var pessoaisDocs = $app.findRecordsByFilter(
+          'document_checks',
+          'land_id = {:landId} && document_key = "pf_documentos_pessoais"',
+          '-updated',
+          10,
+          0,
+          { landId: landId },
+        )
+        for (var pi = 0; pi < pessoaisDocs.length; pi++) {
+          var pAnalysis = getAiAnalysis(pessoaisDocs[pi])
+          if (pAnalysis && pAnalysis.nome && pAnalysis.nome !== 'Não Aplicável') {
+            nomeProprietario = pAnalysis.nome
+            break
+          }
+        }
+      } catch (_) {}
+
+      prompt =
+        'Analise a imagem enviada e determine se é um comprovante de residência brasileiro ' +
+        '(conta de luz, água, gás, telefone, internet, extrato bancário, correspondência oficial, etc.).\n\n' +
+        'Se NÃO for um comprovante de residência, retorne APENAS este JSON:\n' +
+        '{\n  "is_comprovante_residencia": false,\n  "document_type_detected": "<descreva o que é>",\n  "nome_titular": "Não Aplicável",\n  "endereco_completo": "Não Aplicável",\n  "bairro": "Não Aplicável",\n  "cidade": "Não Aplicável",\n  "estado": "Não Aplicável",\n  "cep": "Não Aplicável",\n  "tipo_comprovante": "Não Aplicável",\n  "data_referencia": "Não Aplicável",\n  "good_visibility": "Não Aplicável"\n}\n\n' +
+        'Se FOR um comprovante de residência, retorne APENAS este JSON:\n' +
+        '{\n  "is_comprovante_residencia": true,\n  "document_type_detected": "Comprovante de Residência",\n  "nome_titular": "<nome completo do titular>",\n  "endereco_completo": "<rua/avenida, número, complemento>",\n  "bairro": "<bairro>",\n  "cidade": "<cidade>",\n  "estado": "<UF>",\n  "cep": "<CEP>",\n  "tipo_comprovante": "<conta de luz, água, telefone, etc.>",\n  "data_referencia": "<mês/ano de referência ou data de emissão>",\n  "good_visibility": ""\n}\n\n' +
+        'Regras de extração:\n' +
+        '1. **NOME TITULAR**: Nome da pessoa ou empresa que consta como titular/destinatário do documento\n' +
+        '2. **ENDEREÇO**: Extraia rua, número, complemento, bairro, cidade, estado e CEP separadamente\n' +
+        '3. **TIPO**: Identifique a concessionária/empresa e tipo (energia, água, gás, telefone, internet, banco, correios)\n' +
+        '4. **DATA**: Mês/ano de referência da conta ou data de emissão\n' +
+        '5. Se ilegível ou ausente → "Não Identificado"\n' +
+        '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
+        '7. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade do documento'
+
+      if (nomeProprietario) {
+        prompt +=
+          '\n\nIMPORTANTE: O nome de referência do proprietário é "' +
+          nomeProprietario +
+          '". ' +
+          'Compare com o nome do titular do comprovante e indique se são a mesma pessoa.'
+      }
+    } else if (documentKey === 'pf_certidao_estado_civil') {
       // Tenta buscar nome do proprietário para cross-reference (opcional)
       var nomeReferencia = ''
       try {

@@ -4,6 +4,7 @@ import {
   FileText,
   Loader2,
   Sparkles,
+  Download,
   Bot,
   Scan,
   User,
@@ -48,6 +49,7 @@ interface DocumentRecord {
 interface ExtractedData {
   is_personal_document?: boolean
   is_certidao_estado_civil?: boolean
+  is_comprovante_residencia?: boolean
   document_type_detected?: string
   nome?: string
   cpf?: string
@@ -59,6 +61,13 @@ interface ExtractedData {
   data_emissao?: string
   cartorio?: string
   estado_civil_resultante?: string
+  nome_titular?: string
+  endereco_completo?: string
+  bairro?: string
+  cidade?: string
+  cep?: string
+  tipo_comprovante?: string
+  data_referencia?: string
 }
 
 interface AttentionItem {
@@ -67,7 +76,12 @@ interface AttentionItem {
   severity: 'error' | 'warning'
 }
 
-const ANALYZABLE_KEYS = new Set(['pf_documentos_pessoais', 'pf_certidao_estado_civil'])
+const ANALYZABLE_KEYS = new Set([
+  'pf_documentos_pessoais',
+  'pf_documentos_pessoais_conjuge',
+  'pf_certidao_estado_civil',
+  'pf_comprovante_residencia',
+])
 
 function VisibilityBadge({ level }: { level: string }) {
   const normalized = level.toLowerCase().trim()
@@ -84,7 +98,8 @@ function VisibilityBadge({ level }: { level: string }) {
   )
 }
 
-function WrongDocumentBanner({ detected }: { detected?: string }) {
+function WrongDocumentBanner({ detected, expected }: { detected?: string; expected?: string }) {
+  const expectedLabel = expected || 'o documento esperado'
   return (
     <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 flex items-start gap-3">
       <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -93,7 +108,7 @@ function WrongDocumentBanner({ detected }: { detected?: string }) {
       <div>
         <p className="text-sm font-semibold text-rose-700">Documento Errado</p>
         <p className="text-xs text-rose-600/80 mt-0.5">
-          Este arquivo não é um documento pessoal (RG ou CNH).
+          Este arquivo não corresponde a {expectedLabel}.
           {detected && detected !== 'Não Aplicável' && (
             <>
               {' '}
@@ -256,17 +271,106 @@ function CertidaoInfo({ data }: { data: ExtractedData }) {
   )
 }
 
-function ExtractedInfo({ data }: { data: ExtractedData }) {
+function ComprovanteInfo({ data }: { data: ExtractedData }) {
+  const fields = [
+    { icon: User, label: 'Titular', value: data.nome_titular },
+    { icon: MapPin, label: 'Endereço', value: data.endereco_completo },
+    { icon: Building2, label: 'Bairro', value: data.bairro },
+    {
+      icon: MapPin,
+      label: 'Cidade/UF',
+      value:
+        data.cidade && data.estado ? `${data.cidade} - ${data.estado}` : data.cidade || data.estado,
+    },
+    { icon: FileText, label: 'CEP', value: data.cep },
+    { icon: FileText, label: 'Tipo', value: data.tipo_comprovante },
+    { icon: Calendar, label: 'Referência', value: data.data_referencia },
+  ]
+
+  return (
+    <div className="space-y-2.5">
+      {data.good_visibility && data.good_visibility !== 'Não Aplicável' && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold text-brand-primary/50 uppercase tracking-wider">
+            Qualidade do documento:
+          </span>
+          <VisibilityBadge level={data.good_visibility} />
+        </div>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {fields.map(({ icon: Icon, label, value }) => (
+          <div
+            key={label}
+            className="flex items-center gap-2.5 bg-white rounded-lg border border-brand-primary/10 px-3 py-2.5"
+          >
+            <Icon className="w-4 h-4 text-brand-secondary shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-brand-primary/40 uppercase tracking-wider">
+                {label}
+              </p>
+              <p className="text-sm font-semibold text-brand-primary truncate">
+                {value || 'Não Identificado'}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ExtractedInfo({ data, documentKey }: { data: ExtractedData; documentKey: string }) {
+  if (documentKey === 'pf_comprovante_residencia') {
+    if (data.is_comprovante_residencia === false) {
+      return (
+        <WrongDocumentBanner
+          detected={data.document_type_detected}
+          expected="um comprovante de residência"
+        />
+      )
+    }
+    if (data.is_comprovante_residencia === true) {
+      return <ComprovanteInfo data={data} />
+    }
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2.5">
+        <RefreshCw className="w-4 h-4 text-amber-600 shrink-0" />
+        <p className="text-xs text-amber-700 font-medium">
+          Análise desatualizada. Clique em <strong>Reanalisar</strong> para usar o novo modelo.
+        </p>
+      </div>
+    )
+  }
+
+  if (documentKey === 'pf_certidao_estado_civil') {
+    if (data.is_certidao_estado_civil === false) {
+      return (
+        <WrongDocumentBanner
+          detected={data.document_type_detected}
+          expected="uma certidão de estado civil"
+        />
+      )
+    }
+    if (data.is_certidao_estado_civil === true) {
+      return <CertidaoInfo data={data} />
+    }
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-center gap-2.5">
+        <RefreshCw className="w-4 h-4 text-amber-600 shrink-0" />
+        <p className="text-xs text-amber-700 font-medium">
+          Análise desatualizada. Clique em <strong>Reanalisar</strong> para usar o novo modelo.
+        </p>
+      </div>
+    )
+  }
+
   if (data.is_personal_document === false) {
-    return <WrongDocumentBanner detected={data.document_type_detected} />
-  }
-
-  if (data.is_certidao_estado_civil === false) {
-    return <WrongDocumentBanner detected={data.document_type_detected} />
-  }
-
-  if (data.is_certidao_estado_civil === true) {
-    return <CertidaoInfo data={data} />
+    return (
+      <WrongDocumentBanner
+        detected={data.document_type_detected}
+        expected="um documento pessoal (RG ou CNH)"
+      />
+    )
   }
 
   const fields = [
@@ -327,6 +431,8 @@ function DocumentPreviewCard({
   const [analyzing, setAnalyzing] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedData | null>(doc.ai_analysis ?? null)
   const [error, setError] = useState('')
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState('')
 
   useEffect(() => {
     setExtracted(doc.ai_analysis ?? null)
@@ -356,6 +462,24 @@ function DocumentPreviewCard({
     }
   }
 
+  const handleDownload = async () => {
+    setDownloading(true)
+    setDownloadError('')
+    try {
+      const res = await pb.send('/backend/v1/document-file-url', {
+        method: 'POST',
+        body: { check_id: doc.id, disposition: 'inline' },
+      })
+      if (res.url) {
+        window.open(res.url, '_blank')
+      }
+    } catch (e: any) {
+      setDownloadError(e?.response?.message || e?.message || 'Erro ao obter link do documento.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
       <div className="px-5 py-4 flex items-center gap-3">
@@ -367,7 +491,8 @@ function DocumentPreviewCard({
           </p>
         </div>
         {extracted?.is_personal_document === false ||
-        extracted?.is_certidao_estado_civil === false ? (
+        extracted?.is_certidao_estado_civil === false ||
+        extracted?.is_comprovante_residencia === false ? (
           <Badge className="bg-rose-100 text-rose-700 border-none text-[9px] font-bold px-2 py-0.5 shrink-0">
             Documento Errado
           </Badge>
@@ -398,7 +523,30 @@ function DocumentPreviewCard({
         {isStale && <StaleAnalysisBanner />}
 
         {extracted ? (
-          <ExtractedInfo data={extracted} />
+          <div className="space-y-3">
+            <ExtractedInfo data={extracted} documentKey={doc.document_key} />
+            {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
+            {canAnalyze && (
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={analyzing}
+                  variant="outline"
+                  className="h-8 text-xs font-semibold gap-1.5 border-brand-primary/15 text-brand-primary/70 hover:bg-slate-100"
+                >
+                  {analyzing ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Reanalisando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5" /> Reanalisar
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
         ) : canAnalyze && needsPessoaisFirst ? (
           <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-4 flex items-center gap-3">
             <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
@@ -416,6 +564,11 @@ function DocumentPreviewCard({
                   <>
                     Clique em <strong>Analisar</strong> para extrair tipo de certidão, nomes,
                     cartório e estado civil usando IA.
+                  </>
+                ) : doc.document_key === 'pf_comprovante_residencia' ? (
+                  <>
+                    Clique em <strong>Analisar</strong> para extrair titular, endereço completo e
+                    tipo de comprovante usando IA.
                   </>
                 ) : (
                   <>
@@ -452,6 +605,28 @@ function DocumentPreviewCard({
           </div>
         )}
       </div>
+
+      {doc.document_url && (
+        <div className="px-5 py-3 border-t border-brand-primary/5 flex items-center gap-2">
+          <Button
+            onClick={handleDownload}
+            disabled={downloading}
+            variant="outline"
+            className="h-8 text-xs font-semibold gap-1.5 border-brand-primary/15 text-brand-primary/70 hover:bg-slate-100"
+          >
+            {downloading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Abrindo...
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5" /> Ver Documento
+              </>
+            )}
+          </Button>
+          {downloadError && <p className="text-xs text-rose-600 font-medium">{downloadError}</p>}
+        </div>
+      )}
     </div>
   )
 }
@@ -509,6 +684,12 @@ export function DocumentInspector({ landId }: { landId: string }) {
   const pessoaisAnalysis = pessoaisDoc?.ai_analysis ?? null
   const pessoaisNome = (pessoaisAnalysis?.nome || '').trim().toLowerCase()
 
+  const conjugeDoc = docs.find(
+    (d) => d.document_key === 'pf_documentos_pessoais_conjuge' && d.ai_analysis,
+  )
+  const conjugeAnalysis = conjugeDoc?.ai_analysis ?? null
+  const conjugeNome = (conjugeAnalysis?.nome || '').trim().toLowerCase()
+
   function normalizeName(name: string) {
     return name
       .toLowerCase()
@@ -541,22 +722,64 @@ export function DocumentInspector({ landId }: { landId: string }) {
     if (
       doc.document_key === 'pf_certidao_estado_civil' &&
       analysis?.is_certidao_estado_civil === true &&
-      pessoaisNome &&
-      pessoaisNome !== 'não identificado' &&
       analysis.nomes_mencionados &&
       analysis.nomes_mencionados.length > 0
     ) {
-      const normalizedPessoais = normalizeName(pessoaisNome)
-      const nameFound = analysis.nomes_mencionados.some(
-        (n) => normalizeName(n) === normalizedPessoais,
-      )
-      if (!nameFound) {
+      if (pessoaisNome && pessoaisNome !== 'não identificado') {
+        const normalizedPessoais = normalizeName(pessoaisNome)
+        const nameFound = analysis.nomes_mencionados.some(
+          (n) => normalizeName(n) === normalizedPessoais,
+        )
+        if (!nameFound) {
+          items.push({
+            docLabel: label,
+            message: `O nome do proprietário ("${pessoaisAnalysis?.nome}") não foi encontrado entre os nomes da certidão: ${analysis.nomes_mencionados.join(', ')}`,
+            severity: 'warning',
+          })
+        }
+      }
+
+      if (conjugeNome && conjugeNome !== 'não identificado') {
+        const normalizedConjuge = normalizeName(conjugeNome)
+        const conjugeFound = analysis.nomes_mencionados.some(
+          (n) => normalizeName(n) === normalizedConjuge,
+        )
+        if (!conjugeFound) {
+          items.push({
+            docLabel: label,
+            message: `O nome do cônjuge ("${conjugeAnalysis?.nome}") não foi encontrado entre os nomes da certidão: ${analysis.nomes_mencionados.join(', ')}`,
+            severity: 'warning',
+          })
+        }
+      }
+    }
+
+    if (
+      doc.document_key === 'pf_comprovante_residencia' &&
+      analysis?.is_comprovante_residencia === true &&
+      pessoaisNome &&
+      pessoaisNome !== 'não identificado' &&
+      analysis.nome_titular &&
+      analysis.nome_titular !== 'Não Identificado' &&
+      analysis.nome_titular !== 'Não Aplicável'
+    ) {
+      const normalizedTitular = normalizeName(analysis.nome_titular)
+      const normalizedProp = normalizeName(pessoaisNome)
+      if (normalizedTitular !== normalizedProp) {
         items.push({
           docLabel: label,
-          message: `O nome do proprietário ("${pessoaisAnalysis?.nome}") não foi encontrado entre os nomes da certidão: ${analysis.nomes_mencionados.join(', ')}`,
+          message: `O titular do comprovante ("${analysis.nome_titular}") não confere com o proprietário ("${pessoaisAnalysis?.nome}")`,
           severity: 'warning',
         })
       }
+    }
+
+    if (analysis && analysis.is_comprovante_residencia === false) {
+      items.push({
+        docLabel: label,
+        message: `Não é um comprovante de residência${analysis.document_type_detected ? `. Identificado como: ${analysis.document_type_detected}` : ''}`,
+        severity: 'error',
+      })
     }
 
     if (
