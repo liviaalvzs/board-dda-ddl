@@ -635,6 +635,8 @@ export function DocumentInspector({ landId }: { landId: string }) {
   const [docs, setDocs] = useState<DocumentRecord[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [pendingDocs, setPendingDocs] = useState<DocumentRecord[]>([])
+
   const fetchDocs = async () => {
     try {
       const records = await pb.collection('document_checks').getFullList({
@@ -643,6 +645,11 @@ export function DocumentInspector({ landId }: { landId: string }) {
         sort: '-updated',
       })
       setDocs(records as unknown as DocumentRecord[])
+      const pending = await pb.collection('document_checks').getFullList({
+        filter: `land_id="${landId}" && is_completed=false && not_applicable=false`,
+        sort: 'document_key',
+      })
+      setPendingDocs(pending as unknown as DocumentRecord[])
     } catch (e) {
       console.error(e)
     } finally {
@@ -806,6 +813,15 @@ export function DocumentInspector({ landId }: { landId: string }) {
 
     return items
   })
+
+  if (pendingDocs.length > 0) {
+    const missingLabels = pendingDocs.map((d) => getDocumentLabel(d.document_key))
+    attentionItems.push({
+      docLabel: 'Falta enviar',
+      message: missingLabels.join(', '),
+      severity: 'warning',
+    })
+  }
 
   return (
     <div className="space-y-4">
