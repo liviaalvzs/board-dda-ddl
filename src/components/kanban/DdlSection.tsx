@@ -181,7 +181,7 @@ export function DdlSection({ metadata, externalId, onUpdated }: DdlSectionProps)
             />
           </div>
 
-          {/* 3. Data de recebimento — editável (stage 4→5) */}
+          {/* 3. Data de recebimento — read-only (stage 4→5) */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -191,57 +191,15 @@ export function DdlSection({ metadata, externalId, onUpdated }: DdlSectionProps)
                   <Info className="w-3 h-3 text-brand-primary/30 cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs max-w-[220px]">
-                  Data em que a terra passou para a etapa 5 (Recebimento DDL preliminar). Também
-                  editável em Prazos e Etapas.
+                  Data em que a terra passou para a etapa 5 (Recebimento DDL preliminar). Alterável
+                  apenas em Prazos e Etapas.
                 </TooltipContent>
               </Tooltip>
             </div>
-            <div className="flex items-center gap-1">
-              <Popover
-                open={recebimentoOpen}
-                onOpenChange={(v) => !savingRecebimento && setRecebimentoOpen(v)}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    disabled={savingRecebimento}
-                    className={cn(
-                      'h-10 flex-1 justify-start rounded-lg border-0 bg-slate-100 text-left text-sm font-normal text-brand-primary',
-                      !dataRecebimentoEtapa && 'text-brand-primary/40',
-                    )}
-                  >
-                    {savingRecebimento ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                    )}
-                    {dataRecebimentoEtapa
-                      ? format(dataRecebimentoEtapa, 'dd/MM/yyyy', { locale: ptBR })
-                      : 'selecione uma data'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={dataRecebimentoEtapa}
-                    onSelect={(date) => handleRecebimentoChange(date)}
-                    locale={ptBR}
-                    initialFocus
-                    disabled={savingRecebimento}
-                  />
-                </PopoverContent>
-              </Popover>
-              {dataRecebimentoEtapa && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 shrink-0 text-brand-primary/40 hover:text-brand-critical"
-                  disabled={savingRecebimento}
-                  onClick={() => handleRecebimentoChange(undefined)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
+            <div className="h-10 flex items-center rounded-lg bg-slate-100 px-3 text-sm text-brand-primary">
+              {dataRecebimentoEtapa
+                ? format(dataRecebimentoEtapa, 'dd/MM/yyyy', { locale: ptBR })
+                : '—'}
             </div>
           </div>
         </div>
