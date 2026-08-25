@@ -738,12 +738,7 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   >
                     <Info className="w-4 h-4 mr-2" /> Informações
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="redefinir-datas"
-                    className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
-                  >
-                    <Settings2 className="w-4 h-4 mr-2" /> Redefinir datas
-                  </TabsTrigger>
+
                   <TabsTrigger
                     value="docs"
                     className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
@@ -751,10 +746,16 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                     <FileText className="w-4 h-4 mr-2" /> Envio de Documentos
                   </TabsTrigger>
                   <TabsTrigger
+                    value="deadlines"
+                    className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
+                  >
+                    <Timer className="w-4 h-4 mr-2" /> Prazos e Etapas
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="comments"
                     className="flex-1 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-brand-secondary text-brand-primary/60 font-semibold text-sm h-10 px-4 transition-all"
                   >
-                    <MessageSquare className="w-4 h-4 mr-2" /> Prazos e Comentários
+                    <MessageSquare className="w-4 h-4 mr-2" /> Comentários
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -883,29 +884,13 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                   </div>
                 </TabsContent>
 
-                <TabsContent
-                  value="redefinir-datas"
-                  className="animate-fade-in-up mt-0 outline-none"
-                >
-                  <div className="grid grid-cols-1">
-                    <StageDatesSection
-                      metadata={metadata}
-                      externalId={effectiveExternalId}
-                      onUpdated={handleMetadataUpdated}
-                    />
-                  </div>
-                </TabsContent>
-
                 <TabsContent value="docs" className="animate-fade-in-up mt-0 outline-none">
                   <DocumentChecklist landId={landId} metadata={metadata} />
                 </TabsContent>
 
-                <TabsContent value="comments" className="animate-fade-in-up mt-0 outline-none">
+                <TabsContent value="deadlines" className="animate-fade-in-up mt-0 outline-none">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
-                      <h3 className="font-display text-lg text-brand-primary flex items-center gap-2 mb-4">
-                        <Timer className="w-5 h-5 text-brand-secondary" /> Prazos e Etapas
-                      </h3>
                       <DiligenceTimeline land={land} landId={landId} metadata={metadata}>
                         <ChangeHistoryCard
                           historyLogs={historyLogs}
@@ -914,12 +899,17 @@ export function LandDetailSheet({ landId, onClose }: LandDetailSheetProps) {
                       </DiligenceTimeline>
                     </div>
                     <div>
-                      <h3 className="font-display text-lg text-brand-primary flex items-center gap-2 mb-4">
-                        <MessageSquare className="w-5 h-5 text-brand-secondary" /> Comentários
-                      </h3>
-                      <CommentsSection landId={landId} />
+                      <StageDatesSection
+                        metadata={metadata}
+                        externalId={effectiveExternalId}
+                        onUpdated={handleMetadataUpdated}
+                      />
                     </div>
                   </div>
+                </TabsContent>
+
+                <TabsContent value="comments" className="animate-fade-in-up mt-0 outline-none">
+                  <CommentsSection landId={landId} />
                 </TabsContent>
               </div>
             </Tabs>
