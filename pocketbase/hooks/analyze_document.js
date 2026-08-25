@@ -288,15 +288,15 @@ routerAdd(
             landId.replace(/"/g, '\\"') +
             '" && document_key = "pf_documentos_pessoais" && subject_id = "' +
             subjectId.replace(/"/g, '\\"') +
-            '"',
+            '" && is_completed = true',
         )
       } catch (_) {}
 
       var pessoaisAnalysis = pessoaisRecord ? pessoaisRecord.get('ai_analysis') : null
       if (!pessoaisAnalysis || !pessoaisAnalysis.nome) {
-        return e.json(400, {
-          error: 'É necessário analisar os Documentos Pessoais antes da Certidão de Estado Civil.',
-        })
+        return e.badRequestError(
+          'É necessário analisar os Documentos Pessoais antes da Certidão de Estado Civil.',
+        )
       }
 
       var nomeReferencia = pessoaisAnalysis.nome || ''

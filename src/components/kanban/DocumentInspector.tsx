@@ -345,8 +345,12 @@ function DocumentPreviewCard({
       } else if (res.raw) {
         setError('A IA retornou um formato inesperado. Tente novamente.')
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao analisar documento.')
+    } catch (e: any) {
+      const msg =
+        e?.response?.message ||
+        e?.response?.error ||
+        (e instanceof Error ? e.message : 'Erro ao analisar documento.')
+      setError(msg)
     } finally {
       setAnalyzing(false)
     }
