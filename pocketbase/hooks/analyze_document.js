@@ -204,18 +204,20 @@ routerAdd(
     // ── Helpers ─────────────────────────────────────────────────────────
     function uint8ToBase64(bytes) {
       var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-      var result = ''
       var len = bytes.length
+      var parts = []
       for (var i = 0; i < len; i += 3) {
         var a = bytes[i]
         var b = i + 1 < len ? bytes[i + 1] : 0
         var c = i + 2 < len ? bytes[i + 2] : 0
-        result += chars[a >> 2]
-        result += chars[((a & 3) << 4) | (b >> 4)]
-        result += i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '='
-        result += i + 2 < len ? chars[c & 63] : '='
+        parts.push(
+          chars[a >> 2],
+          chars[((a & 3) << 4) | (b >> 4)],
+          i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '=',
+          i + 2 < len ? chars[c & 63] : '=',
+        )
       }
-      return result
+      return parts.join('')
     }
 
     // ── Lógica principal ────────────────────────────────────────────────
