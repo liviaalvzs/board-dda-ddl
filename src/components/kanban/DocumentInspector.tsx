@@ -346,7 +346,9 @@ function DocumentRow({
         body: { check_id: doc.id, disposition: 'inline' },
       })
       if (res.url) window.open(res.url, '_blank')
-    } catch (_) {}
+    } catch (_) {
+      /* ignore */
+    }
     setDownloading(false)
   }
 
