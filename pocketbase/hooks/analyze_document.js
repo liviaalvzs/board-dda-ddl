@@ -321,9 +321,9 @@ routerAdd(
         '{\n  "is_certidao_estado_civil": true,\n  "document_type_detected": "Certidão de Estado Civil",\n  "tipo_certidao": "<casamento, nascimento, divórcio, óbito ou averbação>",\n  "nomes_mencionados": ["<nome completo 1>", "<nome completo 2>", ...],\n  "data_emissao": "<dd/mm/aaaa>",\n  "cartorio": "<nome do cartório>",\n  "estado_civil_resultante": "<solteiro, casado, divorciado, viúvo>",\n  "good_visibility": ""\n}\n\n' +
         'Regras de extração:\n' +
         '1. **TIPO**: Identifique se é certidão de casamento, nascimento, divórcio, óbito ou averbação\n' +
-        '2. **NOMES**: Extraia TODOS os nomes completos de pessoas mencionadas na certidão (nubentes, registrado, falecido, etc.)\n' +
+        '2. **NOMES**: Extraia APENAS os nomes do casal (nubentes) ou da pessoa principal do registro. NÃO inclua pais, testemunhas, oficiais ou outros. Máximo 2 nomes.\n' +
         '3. **DATA DE EMISSÃO**: Data em que a certidão foi emitida\n' +
-        '4. **CARTÓRIO**: Nome completo do cartório emissor\n' +
+        '4. **CARTÓRIO**: Nome COMPLETO do cartório emissor, sem cortar. Inclua cidade e estado se visíveis.\n' +
         '5. **ESTADO CIVIL RESULTANTE**: O estado civil que resulta deste documento (casado, solteiro, divorciado, viúvo)\n' +
         '6. Se ilegível ou ausente → "Não Identificado"\n' +
         '7. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
