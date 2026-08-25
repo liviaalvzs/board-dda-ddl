@@ -273,12 +273,14 @@ routerAdd(
     var dataUrl = 'data:' + mimeType + ';base64,' + fileB64
 
     var prompt =
-      'Analise a imagem de documento de identidade brasileiro (RG) e extraia:\n\n' +
-      'Retorne APENAS este JSON:\n' +
-      '{\n  "nome": "",\n  "cpf": "",\n  "rg": "",\n  "estado": "",\n  "good_visibility": ""\n}\n\n' +
-      'Regras de extração:\n' +
+      'Analise a imagem enviada e determine se é um documento pessoal brasileiro (RG ou CNH).\n\n' +
+      'Se NÃO for um documento pessoal (RG ou CNH), retorne APENAS este JSON:\n' +
+      '{\n  "is_personal_document": false,\n  "document_type_detected": "<descreva o que é: certidão, contrato, comprovante, etc.>",\n  "nome": "Não Aplicável",\n  "cpf": "Não Aplicável",\n  "rg": "Não Aplicável",\n  "estado": "Não Aplicável",\n  "good_visibility": "Não Aplicável"\n}\n\n' +
+      'Se FOR um documento pessoal (RG ou CNH), retorne APENAS este JSON:\n' +
+      '{\n  "is_personal_document": true,\n  "document_type_detected": "RG" ou "CNH",\n  "nome": "",\n  "cpf": "",\n  "rg": "",\n  "estado": "",\n  "good_visibility": ""\n}\n\n' +
+      'Regras de extração (apenas para RG ou CNH):\n' +
       '1. **NOME**: Campo explicitamente rotulado como "NOME" no documento. Ignorar "FILIAÇÃO"\n' +
-      '2. **CPF**: Número com formato XXX.XXX.XXX-XX — geralmente no verso do documento\n' +
+      '2. **CPF**: Número com formato XXX.XXX.XXX-XX\n' +
       '3. **RG**: Campo rotulado como "RG", "REGISTRO GERAL" ou "IDENTIDADE" — geralmente um número mais curto (6 a 9 dígitos)\n' +
       '4. **ESTADO**: Estado emissor do documento (ex: "PARÁ", "SP", "RJ")\n' +
       '5. Se ilegível ou ausente → "Não Identificado"\n' +
