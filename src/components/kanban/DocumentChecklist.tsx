@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import {
   CheckCircle2,
+  ChevronRight,
   FileText,
   Upload,
   RefreshCw,
@@ -50,6 +51,7 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
   const [uploadingKey, setUploadingKey] = useState<string | null>(null)
   const [togglingKey, setTogglingKey] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set())
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const { toast } = useToast()
 
@@ -281,13 +283,31 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
         const required = block.docs.filter((d) => !d.exclusion)
         const blockCompleted = required.filter((d) => d.isCompleted).length
         const SubjectIcon = block.subject.kind === 'owner' ? User : FileStack
+        const isExpanded = expandedBlocks.has(block.id)
 
         return (
           <div
             key={block.id}
             className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden"
           >
-            <div className="bg-brand-primary/[0.02] px-5 py-3 border-b border-brand-primary/5 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedBlocks((prev) => {
+                  const next = new Set(prev)
+                  if (next.has(block.id)) next.delete(block.id)
+                  else next.add(block.id)
+                  return next
+                })
+              }
+              className="w-full bg-brand-primary/[0.02] px-5 py-3 border-b border-brand-primary/5 flex items-center gap-2 hover:bg-brand-primary/[0.04] transition-colors cursor-pointer"
+            >
+              <ChevronRight
+                className={cn(
+                  'w-4 h-4 text-brand-primary/40 shrink-0 transition-transform duration-200',
+                  isExpanded && 'rotate-90',
+                )}
+              />
               <FileText className="w-4 h-4 text-brand-primary/50 shrink-0" />
               <h4 className="font-semibold text-brand-primary text-sm">{block.category}</h4>
               <span className="inline-flex items-center gap-1 rounded-full bg-brand-primary/5 px-2 py-0.5 text-[11px] font-semibold text-brand-primary/60">
@@ -297,168 +317,170 @@ export function DocumentChecklist({ landId, metadata }: { landId: string; metada
               <span className="ml-auto text-xs font-medium text-brand-primary/50 shrink-0">
                 {required.length === 0 ? 'Não se aplica' : `${blockCompleted}/${required.length}`}
               </span>
-            </div>
-            <div className="divide-y divide-brand-primary/5">
-              {block.docs.map(({ doc, check, isCompleted, exclusion }) => {
-                const uiKey = instanceKey(doc.key, block.subject.id)
-                const userName = check?.expand?.user?.name || check?.expand?.user?.email
-                const isToggling = togglingKey === uiKey
-                const ownerType = ownerTypeOf(block.subject)
+            </button>
+            {isExpanded && (
+              <div className="divide-y divide-brand-primary/5">
+                {block.docs.map(({ doc, check, isCompleted, exclusion }) => {
+                  const uiKey = instanceKey(doc.key, block.subject.id)
+                  const userName = check?.expand?.user?.name || check?.expand?.user?.email
+                  const isToggling = togglingKey === uiKey
+                  const ownerType = ownerTypeOf(block.subject)
 
-                // Dispensar só vale para campo vazio: com arquivo enviado, a
-                // saída é remover o documento, não escondê-lo da conta. A opção
-                // de desfazer continua disponível para não prender um registro
-                // marcado antes desta regra.
-                const canToggle = exclusion === 'manual' || (!exclusion && !isCompleted)
+                  // Dispensar só vale para campo vazio: com arquivo enviado, a
+                  // saída é remover o documento, não escondê-lo da conta. A opção
+                  // de desfazer continua disponível para não prender um registro
+                  // marcado antes desta regra.
+                  const canToggle = exclusion === 'manual' || (!exclusion && !isCompleted)
 
-                return (
-                  <div
-                    key={uiKey}
-                    className={cn(
-                      'p-5 transition-colors hover:bg-brand-primary/[0.01]',
-                      isCompleted && !exclusion && 'bg-emerald-50/30',
-                      exclusion && 'bg-slate-50/60',
-                    )}
-                  >
-                    <div className="flex flex-col md:flex-row md:items-center gap-4">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-                          {exclusion ? (
-                            <Ban className="w-5 h-5 text-slate-400" />
-                          ) : isCompleted ? (
-                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                          ) : (
-                            <FileText className="w-5 h-5 text-amber-500" />
+                  return (
+                    <div
+                      key={uiKey}
+                      className={cn(
+                        'p-5 transition-colors hover:bg-brand-primary/[0.01]',
+                        isCompleted && !exclusion && 'bg-emerald-50/30',
+                        exclusion && 'bg-slate-50/60',
+                      )}
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <div className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                            {exclusion ? (
+                              <Ban className="w-5 h-5 text-slate-400" />
+                            ) : isCompleted ? (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                            ) : (
+                              <FileText className="w-5 h-5 text-amber-500" />
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={cn(
+                                  'text-sm font-semibold',
+                                  exclusion
+                                    ? 'text-brand-primary/40 line-through'
+                                    : isCompleted
+                                      ? 'text-brand-primary/60'
+                                      : 'text-brand-primary',
+                                )}
+                              >
+                                {doc.label}
+                              </span>
+                              <DocumentInfo label={doc.label} description={doc.description} />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                              <span
+                                className={cn(
+                                  'text-[11px] font-semibold px-2 py-0.5 rounded-full',
+                                  exclusion
+                                    ? 'bg-slate-200 text-slate-600'
+                                    : isCompleted
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-amber-100 text-amber-700',
+                                )}
+                              >
+                                {getExclusionLabel(exclusion, ownerType) ??
+                                  (isCompleted ? 'Enviado' : 'Pendente')}
+                              </span>
+                              {isCompleted && userName && (
+                                <span className="text-[11px] text-brand-primary/50">
+                                  por {userName}
+                                </span>
+                              )}
+                              {isCompleted && check?.updated && (
+                                <span className="text-[11px] text-brand-primary/40">
+                                  em {format(new Date(check.updated), 'dd/MM/yyyy')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                          {isCompleted && check?.id && (
+                            <DocumentFileActions checkId={check.id} documentLabel={doc.label} />
                           )}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={cn(
-                                'text-sm font-semibold',
-                                exclusion
-                                  ? 'text-brand-primary/40 line-through'
-                                  : isCompleted
-                                    ? 'text-brand-primary/60'
-                                    : 'text-brand-primary',
-                              )}
-                            >
-                              {doc.label}
-                            </span>
-                            <DocumentInfo label={doc.label} description={doc.description} />
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
-                            <span
-                              className={cn(
-                                'text-[11px] font-semibold px-2 py-0.5 rounded-full',
-                                exclusion
-                                  ? 'bg-slate-200 text-slate-600'
-                                  : isCompleted
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-amber-100 text-amber-700',
-                              )}
-                            >
-                              {getExclusionLabel(exclusion, ownerType) ??
-                                (isCompleted ? 'Enviado' : 'Pendente')}
-                            </span>
-                            {isCompleted && userName && (
-                              <span className="text-[11px] text-brand-primary/50">
-                                por {userName}
-                              </span>
-                            )}
-                            {isCompleted && check?.updated && (
-                              <span className="text-[11px] text-brand-primary/40">
-                                em {format(new Date(check.updated), 'dd/MM/yyyy')}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-                        {isCompleted && check?.id && (
-                          <DocumentFileActions checkId={check.id} documentLabel={doc.label} />
-                        )}
-                        {/* Escondido quando já há arquivo (dispensar deixaria de
+                          {/* Escondido quando já há arquivo (dispensar deixaria de
                             fazer sentido) e quando a dispensa vem do tipo de
                             proprietário — nesse caso a mudança é no cadastro do
                             proprietário, não documento a documento. */}
-                        {canToggle && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={isToggling}
-                            onClick={() =>
-                              handleToggleNotApplicable(
-                                doc.key,
-                                block.subject.id,
-                                exclusion !== 'manual',
-                              )
-                            }
-                            className={cn(
-                              'h-9 shrink-0 text-xs font-semibold',
-                              exclusion === 'manual'
-                                ? 'text-brand-primary/60 hover:text-brand-primary'
-                                : 'text-brand-primary/40 hover:text-brand-primary',
-                            )}
-                          >
-                            {isToggling ? (
-                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                            ) : exclusion === 'manual' ? (
-                              <Undo2 className="w-3.5 h-3.5 mr-1" />
-                            ) : (
-                              <Ban className="w-3.5 h-3.5 mr-1" />
-                            )}
-                            {exclusion === 'manual' ? 'Voltar a exigir' : 'Não se aplica'}
-                          </Button>
-                        )}
-                        <input
-                          ref={(el) => {
-                            fileInputRefs.current[uiKey] = el
-                          }}
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) handleFileUpload(doc.key, block.subject.id, file)
-                            e.target.value = ''
-                          }}
-                        />
-                        {/* Documento dispensado não aceita envio: o botão sai de
+                          {canToggle && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isToggling}
+                              onClick={() =>
+                                handleToggleNotApplicable(
+                                  doc.key,
+                                  block.subject.id,
+                                  exclusion !== 'manual',
+                                )
+                              }
+                              className={cn(
+                                'h-9 shrink-0 text-xs font-semibold',
+                                exclusion === 'manual'
+                                  ? 'text-brand-primary/60 hover:text-brand-primary'
+                                  : 'text-brand-primary/40 hover:text-brand-primary',
+                              )}
+                            >
+                              {isToggling ? (
+                                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                              ) : exclusion === 'manual' ? (
+                                <Undo2 className="w-3.5 h-3.5 mr-1" />
+                              ) : (
+                                <Ban className="w-3.5 h-3.5 mr-1" />
+                              )}
+                              {exclusion === 'manual' ? 'Voltar a exigir' : 'Não se aplica'}
+                            </Button>
+                          )}
+                          <input
+                            ref={(el) => {
+                              fileInputRefs.current[uiKey] = el
+                            }}
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleFileUpload(doc.key, block.subject.id, file)
+                              e.target.value = ''
+                            }}
+                          />
+                          {/* Documento dispensado não aceita envio: o botão sai de
                             cena em vez de ficar desabilitado, senão a linha fica
                             oferecendo uma ação morta. */}
-                        {!exclusion && (
-                          <Button
-                            variant={isCompleted ? 'outline' : 'default'}
-                            size="sm"
-                            disabled={uploadingKey === uiKey}
-                            onClick={() => fileInputRefs.current[uiKey]?.click()}
-                            className={cn(
-                              'h-9 shrink-0',
-                              isCompleted
-                                ? 'border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5'
-                                : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
-                            )}
-                          >
-                            {uploadingKey === uiKey ? (
-                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                            ) : isCompleted ? (
-                              <RefreshCw className="w-3.5 h-3.5 mr-1" />
-                            ) : (
-                              <Upload className="w-3.5 h-3.5 mr-1" />
-                            )}
-                            {isCompleted ? 'Substituir' : 'Enviar'}
-                          </Button>
-                        )}
+                          {!exclusion && (
+                            <Button
+                              variant={isCompleted ? 'outline' : 'default'}
+                              size="sm"
+                              disabled={uploadingKey === uiKey}
+                              onClick={() => fileInputRefs.current[uiKey]?.click()}
+                              className={cn(
+                                'h-9 shrink-0',
+                                isCompleted
+                                  ? 'border-brand-primary/20 text-brand-primary hover:bg-brand-primary/5'
+                                  : 'bg-brand-secondary hover:bg-brand-secondary/90 text-white',
+                              )}
+                            >
+                              {uploadingKey === uiKey ? (
+                                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                              ) : isCompleted ? (
+                                <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                              ) : (
+                                <Upload className="w-3.5 h-3.5 mr-1" />
+                              )}
+                              {isCompleted ? 'Substituir' : 'Enviar'}
+                            </Button>
+                          )}
+                        </div>
                       </div>
+                      {errors[uiKey] && (
+                        <p className="text-xs text-brand-critical mt-2 md:ml-8">{errors[uiKey]}</p>
+                      )}
                     </div>
-                    {errors[uiKey] && (
-                      <p className="text-xs text-brand-critical mt-2 md:ml-8">{errors[uiKey]}</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )
       })}
