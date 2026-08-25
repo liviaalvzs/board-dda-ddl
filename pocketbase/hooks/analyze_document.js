@@ -220,8 +220,8 @@ routerAdd(
     var openrouterKey = $secrets.get('OPENROUTER_API_KEY')
     if (!openrouterKey) return e.internalServerError('OPENROUTER_API_KEY não configurada')
 
-    var fileExt = (record.getString('file_ext') || '').toLowerCase()
-    var presignedUrl = generatePresignedUrl(documentUrl, fileExt)
+    var fileBase64 = String(body.file_base64 || '').trim()
+    if (!fileBase64) return e.badRequestError('file_base64 é obrigatório (data URL do documento)')
 
     var prompt =
       'Analise a imagem de documento de identidade brasileiro (RG) e extraia:\n\n' +
@@ -236,14 +236,10 @@ routerAdd(
       '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
       '7. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade do documento'
 
-    var ext = (fileExt || '').replace(/^\./, '').toLowerCase()
     var contentParts = [{ type: 'text', text: prompt }]
     contentParts.push({
-      type: 'file',
-      file: {
-        url: presignedUrl,
-        filename: 'document.' + (ext || 'jpg'),
-      },
+      type: 'image_url',
+      image_url: { url: fileBase64 },
     })
 
     var aiResponse

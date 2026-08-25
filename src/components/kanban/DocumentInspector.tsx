@@ -114,9 +114,23 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
     setAnalyzing(true)
     setError('')
     try {
-      const res = await pb.send('/backend/v1/analyze-document', {
+      const urlRes = await pb.send('/backend/v1/document-file-url', {
         method: 'POST',
         body: { check_id: doc.id },
+      })
+      const fileRes = await fetch(urlRes.url)
+      if (!fileRes.ok) throw new Error('Falha ao baixar o arquivo do S3.')
+      const blob = await fileRes.blob()
+      const fileBase64: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(new Error('Falha ao converter arquivo.'))
+        reader.readAsDataURL(blob)
+      })
+
+      const res = await pb.send('/backend/v1/analyze-document', {
+        method: 'POST',
+        body: { check_id: doc.id, file_base64: fileBase64 },
       })
       if (res.extracted) {
         setExtracted(res.extracted)
