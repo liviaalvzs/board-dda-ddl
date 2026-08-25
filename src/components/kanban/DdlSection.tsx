@@ -144,24 +144,24 @@ export function DdlSection({ metadata, externalId, onUpdated }: DdlSectionProps)
       {unlocked && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* 1. Data do pedido — read-only */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
-              <CalendarIcon className="w-3.5 h-3.5" />
-              Data do pedido
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="w-3 h-3 text-brand-primary/30 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs max-w-[220px]">
-                  Data em que a terra entrou na etapa 4 (Em auditoria). Alterável apenas em Prazos e
-                  Etapas.
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="h-10 flex items-center rounded-lg bg-slate-100 px-3 text-sm text-brand-primary">
-              {dataPedido ? format(dataPedido, 'dd/MM/yyyy', { locale: ptBR }) : '—'}
-            </div>
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="space-y-1.5 cursor-help">
+                <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  Data do pedido
+                  <Info className="w-3 h-3 text-brand-primary/30" />
+                </div>
+                <div className="h-10 flex items-center rounded-lg bg-slate-100 px-3 text-sm text-brand-primary">
+                  {dataPedido ? format(dataPedido, 'dd/MM/yyyy', { locale: ptBR }) : '—'}
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs max-w-[220px]">
+              Data em que a terra entrou na etapa 4 (Em auditoria). Alterável apenas em Prazos e
+              Etapas.
+            </TooltipContent>
+          </Tooltip>
 
           {/* 2. Data estimada — editável (campo existente) */}
           <div className="space-y-1.5">
@@ -182,26 +182,26 @@ export function DdlSection({ metadata, externalId, onUpdated }: DdlSectionProps)
           </div>
 
           {/* 3. Data de recebimento — read-only (stage 4→5) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Data de recebimento
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="w-3 h-3 text-brand-primary/30 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs max-w-[220px]">
-                  Data em que a terra passou para a etapa 5 (Recebimento DDL preliminar). Alterável
-                  apenas em Prazos e Etapas.
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <div className="h-10 flex items-center rounded-lg bg-slate-100 px-3 text-sm text-brand-primary">
-              {dataRecebimentoEtapa
-                ? format(dataRecebimentoEtapa, 'dd/MM/yyyy', { locale: ptBR })
-                : '—'}
-            </div>
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="space-y-1.5 cursor-help">
+                <div className="flex items-center gap-1.5 text-[12px] text-brand-primary/50 font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Data de recebimento
+                  <Info className="w-3 h-3 text-brand-primary/30" />
+                </div>
+                <div className="h-10 flex items-center rounded-lg bg-slate-100 px-3 text-sm text-brand-primary">
+                  {dataRecebimentoEtapa
+                    ? format(dataRecebimentoEtapa, 'dd/MM/yyyy', { locale: ptBR })
+                    : '—'}
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs max-w-[220px]">
+              Data em que a terra passou para a etapa 5 (Recebimento DDL preliminar). Alterável
+              apenas em Prazos e Etapas.
+            </TooltipContent>
+          </Tooltip>
         </div>
       )}
     </div>
