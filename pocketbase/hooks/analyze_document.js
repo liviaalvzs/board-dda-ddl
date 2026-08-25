@@ -272,20 +272,71 @@ routerAdd(
     var fileB64 = uint8ToBase64(s3Response.body)
     var dataUrl = 'data:' + mimeType + ';base64,' + fileB64
 
-    var prompt =
-      'Analise a imagem enviada e determine se é um documento pessoal brasileiro (RG ou CNH).\n\n' +
-      'Se NÃO for um documento pessoal (RG ou CNH), retorne APENAS este JSON:\n' +
-      '{\n  "is_personal_document": false,\n  "document_type_detected": "<descreva o que é: certidão, contrato, comprovante, etc.>",\n  "nome": "Não Aplicável",\n  "cpf": "Não Aplicável",\n  "rg": "Não Aplicável",\n  "estado": "Não Aplicável",\n  "good_visibility": "Não Aplicável"\n}\n\n' +
-      'Se FOR um documento pessoal (RG ou CNH), retorne APENAS este JSON:\n' +
-      '{\n  "is_personal_document": true,\n  "document_type_detected": "RG" ou "CNH",\n  "nome": "",\n  "cpf": "",\n  "rg": "",\n  "estado": "",\n  "good_visibility": ""\n}\n\n' +
-      'Regras de extração (apenas para RG ou CNH):\n' +
-      '1. **NOME**: Campo explicitamente rotulado como "NOME" no documento. Ignorar "FILIAÇÃO"\n' +
-      '2. **CPF**: Número com formato XXX.XXX.XXX-XX\n' +
-      '3. **RG**: Campo rotulado como "RG", "REGISTRO GERAL" ou "IDENTIDADE" — geralmente um número mais curto (6 a 9 dígitos)\n' +
-      '4. **ESTADO**: Estado emissor do documento (ex: "PARÁ", "SP", "RJ")\n' +
-      '5. Se ilegível ou ausente → "Não Identificado"\n' +
-      '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
-      '7. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade do documento'
+    var documentKey = record.getString('document_key')
+    var landId = record.getString('land_id')
+    var subjectId = record.getString('subject_id') || ''
+
+    var prompt = ''
+
+    if (documentKey === 'pf_certidao_estado_civil') {
+      // Verifica se documentos pessoais já foram analisados
+      var pessoaisRecord = null
+      try {
+        pessoaisRecord = $app.findFirstRecordByFilter(
+          'document_checks',
+          'land_id = "' +
+            landId.replace(/"/g, '\\"') +
+            '" && document_key = "pf_documentos_pessoais" && subject_id = "' +
+            subjectId.replace(/"/g, '\\"') +
+            '"',
+        )
+      } catch (_) {}
+
+      var pessoaisAnalysis = pessoaisRecord ? pessoaisRecord.get('ai_analysis') : null
+      if (!pessoaisAnalysis || !pessoaisAnalysis.nome) {
+        return e.json(400, {
+          error: 'É necessário analisar os Documentos Pessoais antes da Certidão de Estado Civil.',
+        })
+      }
+
+      var nomeReferencia = pessoaisAnalysis.nome || ''
+
+      prompt =
+        'Analise a imagem enviada e determine se é uma certidão de estado civil brasileira ' +
+        '(certidão de casamento, nascimento, divórcio, óbito, ou averbação).\n\n' +
+        'Se NÃO for uma certidão de estado civil, retorne APENAS este JSON:\n' +
+        '{\n  "is_certidao_estado_civil": false,\n  "document_type_detected": "<descreva o que é>",\n  "tipo_certidao": "Não Aplicável",\n  "nomes_mencionados": [],\n  "data_emissao": "Não Aplicável",\n  "cartorio": "Não Aplicável",\n  "estado_civil_resultante": "Não Aplicável",\n  "good_visibility": "Não Aplicável"\n}\n\n' +
+        'Se FOR uma certidão de estado civil, retorne APENAS este JSON:\n' +
+        '{\n  "is_certidao_estado_civil": true,\n  "document_type_detected": "Certidão de Estado Civil",\n  "tipo_certidao": "<casamento, nascimento, divórcio, óbito ou averbação>",\n  "nomes_mencionados": ["<nome completo 1>", "<nome completo 2>", ...],\n  "data_emissao": "<dd/mm/aaaa>",\n  "cartorio": "<nome do cartório>",\n  "estado_civil_resultante": "<solteiro, casado, divorciado, viúvo>",\n  "good_visibility": ""\n}\n\n' +
+        'Regras de extração:\n' +
+        '1. **TIPO**: Identifique se é certidão de casamento, nascimento, divórcio, óbito ou averbação\n' +
+        '2. **NOMES**: Extraia TODOS os nomes completos de pessoas mencionadas na certidão (nubentes, registrado, falecido, etc.)\n' +
+        '3. **DATA DE EMISSÃO**: Data em que a certidão foi emitida\n' +
+        '4. **CARTÓRIO**: Nome completo do cartório emissor\n' +
+        '5. **ESTADO CIVIL RESULTANTE**: O estado civil que resulta deste documento (casado, solteiro, divorciado, viúvo)\n' +
+        '6. Se ilegível ou ausente → "Não Identificado"\n' +
+        '7. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
+        '8. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade\n\n' +
+        'IMPORTANTE: O nome de referência do proprietário é "' +
+        nomeReferencia +
+        '". ' +
+        'Verifique se este nome aparece entre os nomes mencionados na certidão.'
+    } else {
+      prompt =
+        'Analise a imagem enviada e determine se é um documento pessoal brasileiro (RG ou CNH).\n\n' +
+        'Se NÃO for um documento pessoal (RG ou CNH), retorne APENAS este JSON:\n' +
+        '{\n  "is_personal_document": false,\n  "document_type_detected": "<descreva o que é: certidão, contrato, comprovante, etc.>",\n  "nome": "Não Aplicável",\n  "cpf": "Não Aplicável",\n  "rg": "Não Aplicável",\n  "estado": "Não Aplicável",\n  "good_visibility": "Não Aplicável"\n}\n\n' +
+        'Se FOR um documento pessoal (RG ou CNH), retorne APENAS este JSON:\n' +
+        '{\n  "is_personal_document": true,\n  "document_type_detected": "RG" ou "CNH",\n  "nome": "",\n  "cpf": "",\n  "rg": "",\n  "estado": "",\n  "good_visibility": ""\n}\n\n' +
+        'Regras de extração (apenas para RG ou CNH):\n' +
+        '1. **NOME**: Campo explicitamente rotulado como "NOME" no documento. Ignorar "FILIAÇÃO"\n' +
+        '2. **CPF**: Número com formato XXX.XXX.XXX-XX\n' +
+        '3. **RG**: Campo rotulado como "RG", "REGISTRO GERAL" ou "IDENTIDADE" — geralmente um número mais curto (6 a 9 dígitos)\n' +
+        '4. **ESTADO**: Estado emissor do documento (ex: "PARÁ", "SP", "RJ")\n' +
+        '5. Se ilegível ou ausente → "Não Identificado"\n' +
+        '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
+        '7. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade do documento'
+    }
 
     var contentParts = [{ type: 'text', text: prompt }]
     contentParts.push({

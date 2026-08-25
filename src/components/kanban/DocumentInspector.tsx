@@ -14,6 +14,10 @@ import {
   AlertTriangle,
   RefreshCw,
   ChevronDown,
+  Calendar,
+  Building2,
+  Heart,
+  Users,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,12 +47,18 @@ interface DocumentRecord {
 
 interface ExtractedData {
   is_personal_document?: boolean
+  is_certidao_estado_civil?: boolean
   document_type_detected?: string
   nome?: string
   cpf?: string
   rg?: string
   estado?: string
   good_visibility?: string
+  tipo_certidao?: string
+  nomes_mencionados?: string[]
+  data_emissao?: string
+  cartorio?: string
+  estado_civil_resultante?: string
 }
 
 interface AttentionItem {
@@ -57,7 +67,7 @@ interface AttentionItem {
   severity: 'error' | 'warning'
 }
 
-const ANALYZABLE_KEYS = new Set(['pf_documentos_pessoais'])
+const ANALYZABLE_KEYS = new Set(['pf_documentos_pessoais', 'pf_certidao_estado_civil'])
 
 function VisibilityBadge({ level }: { level: string }) {
   const normalized = level.toLowerCase().trim()
@@ -189,9 +199,74 @@ function AttentionReport({ items }: { items: AttentionItem[] }) {
   )
 }
 
+function CertidaoInfo({ data }: { data: ExtractedData }) {
+  const fields = [
+    { icon: Heart, label: 'Tipo', value: data.tipo_certidao },
+    { icon: User, label: 'Estado Civil', value: data.estado_civil_resultante },
+    { icon: Calendar, label: 'Data Emissão', value: data.data_emissao },
+    { icon: Building2, label: 'Cartório', value: data.cartorio },
+  ]
+
+  return (
+    <div className="space-y-2.5">
+      {data.good_visibility && data.good_visibility !== 'Não Aplicável' && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold text-brand-primary/50 uppercase tracking-wider">
+            Qualidade do documento:
+          </span>
+          <VisibilityBadge level={data.good_visibility} />
+        </div>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {fields.map(({ icon: Icon, label, value }) => (
+          <div
+            key={label}
+            className="flex items-center gap-2.5 bg-white rounded-lg border border-brand-primary/10 px-3 py-2.5"
+          >
+            <Icon className="w-4 h-4 text-brand-secondary shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-brand-primary/40 uppercase tracking-wider">
+                {label}
+              </p>
+              <p className="text-sm font-semibold text-brand-primary truncate">
+                {value || 'Não Identificado'}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+      {data.nomes_mencionados && data.nomes_mencionados.length > 0 && (
+        <div className="bg-white rounded-lg border border-brand-primary/10 px-3 py-2.5">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Users className="w-4 h-4 text-brand-secondary shrink-0" />
+            <p className="text-[10px] font-semibold text-brand-primary/40 uppercase tracking-wider">
+              Pessoas mencionadas
+            </p>
+          </div>
+          <div className="space-y-1 ml-6">
+            {data.nomes_mencionados.map((nome, i) => (
+              <p key={i} className="text-sm font-semibold text-brand-primary">
+                {nome}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ExtractedInfo({ data }: { data: ExtractedData }) {
   if (data.is_personal_document === false) {
     return <WrongDocumentBanner detected={data.document_type_detected} />
+  }
+
+  if (data.is_certidao_estado_civil === false) {
+    return <WrongDocumentBanner detected={data.document_type_detected} />
+  }
+
+  if (data.is_certidao_estado_civil === true) {
+    return <CertidaoInfo data={data} />
   }
 
   const fields = [
@@ -233,11 +308,21 @@ function ExtractedInfo({ data }: { data: ExtractedData }) {
   )
 }
 
-function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
+function DocumentPreviewCard({
+  doc,
+  pessoaisAnalysis,
+}: {
+  doc: DocumentRecord
+  pessoaisAnalysis?: ExtractedData | null
+}) {
   const label = getDocumentLabel(doc.document_key)
   const senderName = doc.expand?.user?.name || doc.expand?.user?.email?.split('@')[0] || '—'
   const canAnalyze = ANALYZABLE_KEYS.has(doc.document_key)
   const isStale = canAnalyze && doc.ai_analysis === null && (doc.replaced_count ?? 0) > 0
+  const isCertidao = doc.document_key === 'pf_certidao_estado_civil'
+  const needsPessoaisFirst =
+    isCertidao &&
+    (!pessoaisAnalysis || !pessoaisAnalysis.nome || pessoaisAnalysis.is_personal_document === false)
 
   const [analyzing, setAnalyzing] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedData | null>(doc.ai_analysis ?? null)
@@ -277,7 +362,8 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
             Enviado por {senderName} em {format(new Date(doc.updated), 'dd/MM/yyyy')}
           </p>
         </div>
-        {extracted?.is_personal_document === false ? (
+        {extracted?.is_personal_document === false ||
+        extracted?.is_certidao_estado_civil === false ? (
           <Badge className="bg-rose-100 text-rose-700 border-none text-[9px] font-bold px-2 py-0.5 shrink-0">
             Documento Errado
           </Badge>
@@ -309,13 +395,30 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
 
         {extracted ? (
           <ExtractedInfo data={extracted} />
+        ) : canAnalyze && needsPessoaisFirst ? (
+          <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/50 p-4 flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
+            <p className="text-xs text-amber-700 leading-relaxed">
+              Analise os <strong>Documentos Pessoais</strong> primeiro para poder analisar a
+              Certidão de Estado Civil.
+            </p>
+          </div>
         ) : canAnalyze ? (
           <div className="space-y-3">
             <div className="rounded-lg border border-dashed border-brand-primary/15 bg-white p-4 flex items-center gap-3">
               <Scan className="w-6 h-6 text-brand-secondary/40 shrink-0" />
               <p className="text-xs text-brand-primary/50 leading-relaxed">
-                Clique em <strong>Analisar</strong> para extrair RG, CPF, Nome e Estado deste
-                documento usando IA.
+                {isCertidao ? (
+                  <>
+                    Clique em <strong>Analisar</strong> para extrair tipo de certidão, nomes,
+                    cartório e estado civil usando IA.
+                  </>
+                ) : (
+                  <>
+                    Clique em <strong>Analisar</strong> para extrair RG, CPF, Nome e Estado deste
+                    documento usando IA.
+                  </>
+                )}
               </p>
             </div>
             {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
@@ -398,6 +501,18 @@ export function DocumentInspector({ landId }: { landId: string }) {
     )
   }
 
+  const pessoaisDoc = docs.find((d) => d.document_key === 'pf_documentos_pessoais' && d.ai_analysis)
+  const pessoaisAnalysis = pessoaisDoc?.ai_analysis ?? null
+  const pessoaisNome = (pessoaisAnalysis?.nome || '').trim().toLowerCase()
+
+  function normalizeName(name: string) {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .trim()
+  }
+
   const attentionItems: AttentionItem[] = docs.flatMap((doc) => {
     const items: AttentionItem[] = []
     const label = getDocumentLabel(doc.document_key)
@@ -409,6 +524,35 @@ export function DocumentInspector({ landId }: { landId: string }) {
         message: `Não é um RG ou CNH${analysis.document_type_detected ? `. Identificado como: ${analysis.document_type_detected}` : ''}`,
         severity: 'error',
       })
+    }
+
+    if (analysis && analysis.is_certidao_estado_civil === false) {
+      items.push({
+        docLabel: label,
+        message: `Não é uma certidão de estado civil${analysis.document_type_detected ? `. Identificado como: ${analysis.document_type_detected}` : ''}`,
+        severity: 'error',
+      })
+    }
+
+    if (
+      doc.document_key === 'pf_certidao_estado_civil' &&
+      analysis?.is_certidao_estado_civil === true &&
+      pessoaisNome &&
+      pessoaisNome !== 'não identificado' &&
+      analysis.nomes_mencionados &&
+      analysis.nomes_mencionados.length > 0
+    ) {
+      const normalizedPessoais = normalizeName(pessoaisNome)
+      const nameFound = analysis.nomes_mencionados.some(
+        (n) => normalizeName(n) === normalizedPessoais,
+      )
+      if (!nameFound) {
+        items.push({
+          docLabel: label,
+          message: `O nome do proprietário ("${pessoaisAnalysis?.nome}") não foi encontrado entre os nomes da certidão: ${analysis.nomes_mencionados.join(', ')}`,
+          severity: 'warning',
+        })
+      }
     }
 
     if (
@@ -444,7 +588,7 @@ export function DocumentInspector({ landId }: { landId: string }) {
       </div>
 
       {docs.map((doc) => (
-        <DocumentPreviewCard key={doc.id} doc={doc} />
+        <DocumentPreviewCard key={doc.id} doc={doc} pessoaisAnalysis={pessoaisAnalysis} />
       ))}
     </div>
   )
