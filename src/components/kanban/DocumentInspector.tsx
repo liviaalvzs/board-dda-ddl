@@ -34,8 +34,18 @@ interface DocumentRecord {
   }
 }
 
+async function fetchPresignedUrl(checkId: string, disposition: 'inline' | 'attachment' = 'inline') {
+  const res = await pb.send('/backend/v1/document-file-url', {
+    method: 'POST',
+    body: { check_id: checkId, disposition },
+  })
+  return res.url as string
+}
+
 function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const label = getDocumentLabel(doc.document_key)
   const isPdf = doc.file_ext === '.pdf' || doc.document_url?.toLowerCase().endsWith('.pdf')
   const isImage =
@@ -43,6 +53,23 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
     /\.(jpe?g|png)$/i.test(doc.document_url || '')
 
   const senderName = doc.expand?.user?.name || doc.expand?.user?.email?.split('@')[0] || '—'
+
+  const handleTogglePreview = async () => {
+    if (previewOpen) {
+      setPreviewOpen(false)
+      return
+    }
+    setLoadingPreview(true)
+    try {
+      const url = await fetchPresignedUrl(doc.id)
+      setPreviewUrl(url)
+      setPreviewOpen(true)
+    } catch (e) {
+      console.error('Erro ao gerar URL do preview:', e)
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
 
   return (
     <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
@@ -57,10 +84,15 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setPreviewOpen(!previewOpen)}
+          onClick={handleTogglePreview}
+          disabled={loadingPreview}
           className="shrink-0 h-8 text-xs font-semibold text-brand-primary/60 hover:text-brand-primary gap-1.5"
         >
-          {previewOpen ? (
+          {loadingPreview ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Carregando
+            </>
+          ) : previewOpen ? (
             <>
               <EyeOff className="w-3.5 h-3.5" /> Ocultar
             </>
@@ -72,14 +104,14 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
         </Button>
       </div>
 
-      {previewOpen && (
+      {previewOpen && previewUrl && (
         <div className="border-t border-brand-primary/5">
           {isPdf ? (
-            <iframe src={doc.document_url} className="w-full h-[400px] bg-slate-50" title={label} />
+            <iframe src={previewUrl} className="w-full h-[400px] bg-slate-50" title={label} />
           ) : isImage ? (
             <div className="p-4 bg-slate-50 flex justify-center">
               <img
-                src={doc.document_url}
+                src={previewUrl}
                 alt={label}
                 className="max-h-[400px] max-w-full object-contain rounded-lg border border-slate-200"
               />
@@ -89,7 +121,7 @@ function DocumentPreviewCard({ doc }: { doc: DocumentRecord }) {
               <FileQuestion className="w-8 h-8" />
               <p className="text-xs font-medium">Preview não disponível para este formato</p>
               <a
-                href={doc.document_url}
+                href={previewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-brand-secondary hover:underline font-semibold"
