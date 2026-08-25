@@ -129,7 +129,7 @@ routerAdd(
       })
     }
 
-    function generatePresignedUrl(documentUrl) {
+    function generatePresignedUrl(documentUrl, fileExt) {
       var bucket = $secrets.get('AWS_S3_BUCKET') || 'prd-rg-data-lake'
       var region = $secrets.get('AWS_S3_REGION') || 'us-east-1'
       var host = bucket + '.s3.' + region + '.amazonaws.com'
@@ -147,13 +147,24 @@ routerAdd(
       var dateStamp = amzDate.substring(0, 8)
       var credentialScope = dateStamp + '/' + region + '/s3/aws4_request'
 
+      var ext = (fileExt || '').replace(/^\./, '').toLowerCase()
+      var mimeTypes = {
+        pdf: 'application/pdf',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        webp: 'image/webp',
+      }
+      var contentType = mimeTypes[ext] || 'application/octet-stream'
       var params = [
         ['X-Amz-Algorithm', 'AWS4-HMAC-SHA256'],
         ['X-Amz-Credential', accessKeyId + '/' + credentialScope],
         ['X-Amz-Date', amzDate],
         ['X-Amz-Expires', String(expires)],
         ['X-Amz-SignedHeaders', 'host'],
-        ['response-content-type', 'application/octet-stream'],
+        ['response-content-disposition', 'inline; filename=document.' + (ext || 'bin')],
+        ['response-content-type', contentType],
       ]
 
       var canonicalQuery = params
@@ -209,7 +220,8 @@ routerAdd(
     var openrouterKey = $secrets.get('OPENROUTER_API_KEY')
     if (!openrouterKey) return e.internalServerError('OPENROUTER_API_KEY não configurada')
 
-    var presignedUrl = generatePresignedUrl(documentUrl)
+    var fileExt = (record.getString('file_ext') || '').toLowerCase()
+    var presignedUrl = generatePresignedUrl(documentUrl, fileExt)
 
     var prompt =
       'Analise a imagem de documento de identidade brasileiro (RG) e extraia:\n\n' +
