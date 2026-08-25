@@ -220,6 +220,20 @@ routerAdd(
       return parts.join('')
     }
 
+    function getAiAnalysis(record) {
+      var raw = record.get('ai_analysis')
+      if (!raw) return null
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw)
+        } catch (_) {
+          return null
+        }
+      }
+      if (typeof raw === 'object') return raw
+      return null
+    }
+
     // ── Lógica principal ────────────────────────────────────────────────
     var body = e.requestInfo().body || {}
     var checkId = String(body.check_id || '').trim()
@@ -274,68 +288,29 @@ routerAdd(
 
     var documentKey = record.getString('document_key')
     var landId = record.getString('land_id')
-    var subjectId = record.getString('subject_id') || ''
 
     var prompt = ''
 
     if (documentKey === 'pf_certidao_estado_civil') {
-      // Verifica se documentos pessoais já foram analisados
-      var pessoaisRecords = []
+      // Tenta buscar nome do proprietário para cross-reference (opcional)
+      var nomeReferencia = ''
       try {
-        pessoaisRecords = $app.findRecordsByFilter(
+        var allDocs = $app.findRecordsByFilter(
           'document_checks',
-          'land_id = {:landId} && document_key = "pf_documentos_pessoais" && is_completed = true',
+          'land_id = {:landId} && document_key = "pf_documentos_pessoais"',
           '-updated',
-          1,
+          10,
           0,
           { landId: landId },
         )
-      } catch (filterErr) {
-        $app
-          .logger()
-          .error(
-            'analyze-document: pessoais filter error',
-            'error',
-            String(filterErr),
-            'landId',
-            landId,
-          )
-      }
-      var pessoaisRecord = pessoaisRecords && pessoaisRecords.length > 0 ? pessoaisRecords[0] : null
-
-      var pessoaisAnalysisRaw = pessoaisRecord ? pessoaisRecord.get('ai_analysis') : null
-      var pessoaisAnalysis = pessoaisAnalysisRaw
-      if (typeof pessoaisAnalysis === 'string' && pessoaisAnalysis.length > 0) {
-        try {
-          pessoaisAnalysis = JSON.parse(pessoaisAnalysis)
-        } catch (_) {
-          pessoaisAnalysis = null
+        for (var di = 0; di < allDocs.length; di++) {
+          var analysis = getAiAnalysis(allDocs[di])
+          if (analysis && analysis.nome && analysis.nome !== 'Não Aplicável') {
+            nomeReferencia = analysis.nome
+            break
+          }
         }
-      }
-
-      $app
-        .logger()
-        .error(
-          'analyze-document: pessoais debug',
-          'landId',
-          landId,
-          'recordFound',
-          !!pessoaisRecord,
-          'recordCount',
-          pessoaisRecords ? pessoaisRecords.length : -1,
-          'analysisType',
-          typeof pessoaisAnalysisRaw,
-          'hasNome',
-          pessoaisAnalysis ? !!pessoaisAnalysis.nome : false,
-        )
-
-      if (!pessoaisAnalysis || !pessoaisAnalysis.nome) {
-        return e.badRequestError(
-          'É necessário analisar os Documentos Pessoais antes da Certidão de Estado Civil.',
-        )
-      }
-
-      var nomeReferencia = pessoaisAnalysis.nome || ''
+      } catch (_) {}
 
       prompt =
         'Analise a imagem enviada e determine se é uma certidão de estado civil brasileira ' +
@@ -352,11 +327,15 @@ routerAdd(
         '5. **ESTADO CIVIL RESULTANTE**: O estado civil que resulta deste documento (casado, solteiro, divorciado, viúvo)\n' +
         '6. Se ilegível ou ausente → "Não Identificado"\n' +
         '7. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
-        '8. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade\n\n' +
-        'IMPORTANTE: O nome de referência do proprietário é "' +
-        nomeReferencia +
-        '". ' +
-        'Verifique se este nome aparece entre os nomes mencionados na certidão.'
+        '8. Em "good_visibility" traga "alta", "média" ou "baixa" a depender da qualidade'
+
+      if (nomeReferencia) {
+        prompt +=
+          '\n\nIMPORTANTE: O nome de referência do proprietário é "' +
+          nomeReferencia +
+          '". ' +
+          'Verifique se este nome aparece entre os nomes mencionados na certidão.'
+      }
     } else {
       prompt =
         'Analise a imagem enviada e determine se é um documento pessoal brasileiro (RG ou CNH).\n\n' +
@@ -421,10 +400,7 @@ routerAdd(
           'body',
           errBody,
         )
-      return e.json(aiResponse.statusCode, {
-        error: 'Erro da IA (status ' + aiResponse.statusCode + ')',
-        details: errBody,
-      })
+      return e.internalServerError('Erro da IA (status ' + aiResponse.statusCode + ')')
     }
 
     var parsed
