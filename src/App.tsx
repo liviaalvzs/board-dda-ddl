@@ -15,6 +15,7 @@ import Mapa from './pages/Mapa'
 import Dashboard from './pages/Dashboard'
 import TestAiDocumentAnalysis from './pages/TestAiDocumentAnalysis'
 import AddLands from './pages/AddLands'
+import AdminTools from './pages/AdminTools'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -103,6 +104,14 @@ const App = () => (
               element={
                 <AdminRoute>
                   <AddLands />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/tools"
+              element={
+                <AdminRoute>
+                  <AdminTools />
                 </AdminRoute>
               }
             />
