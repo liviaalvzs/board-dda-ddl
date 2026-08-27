@@ -605,7 +605,9 @@ routerAdd(
           var spSiteHost = 'regreencap.sharepoint.com'
           var spSitePath = '/sites/-Operacional'
           var spFolder = 'Terras/01. Pipeline/Teste Portal DD'
-          var spFileName = safeFilename + ext
+          var spLandFolder = sanitizeFilename(landCode)
+          var spSubjectFolder = sanitizeFilename(subjectLabel || 'Geral')
+          var spFileName = sanitizeFilename(docName) + ext
 
           var siteRes = $http.send({
             url: 'https://graph.microsoft.com/v1.0/sites/' + spSiteHost + ':' + spSitePath,
@@ -643,12 +645,12 @@ routerAdd(
             }
 
             if (driveId) {
-              var spPath = spFolder + '/' + spFileName
+              var spPath = spFolder + '/' + spLandFolder + '/' + spSubjectFolder + '/' + spFileName
               var uploadUrl =
                 'https://graph.microsoft.com/v1.0/drives/' +
                 driveId +
                 '/root:/' +
-                encodeURIComponent(spPath).replace(/%2F/g, '/') +
+                spPath.split('/').map(encodeURIComponent).join('/') +
                 ':/content'
 
               var spUploadRes = $http.send({
