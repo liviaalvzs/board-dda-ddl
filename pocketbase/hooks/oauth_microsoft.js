@@ -81,7 +81,7 @@ routerAdd('POST', '/backend/v1/auth/microsoft-callback', (e) => {
     $app.logger().info('MS OAuth user', 'email', email, 'name', displayName)
 
     // Admins by email
-    var adminEmails = ['maria.palma@re.green', 'lucas.lamare@re.green']
+    var adminEmails = ['maria.palma@re.green', 'lucas.lamare@re.green', 'livia.santana@re.green']
     var isAdmin = adminEmails.indexOf(email) !== -1
     var userRole = isAdmin ? 'admin' : 'negociador'
 
