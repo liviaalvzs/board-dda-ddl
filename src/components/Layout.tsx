@@ -119,7 +119,7 @@ export default function Layout() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <NotificationBell />
+            {isAdmin && <NotificationBell />}
             {user && (
               <span className="text-sm font-medium text-gray-600 hidden sm:inline-block">
                 {user.name || user.email}
