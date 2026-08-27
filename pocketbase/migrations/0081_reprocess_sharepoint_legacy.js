@@ -372,7 +372,7 @@ migrate(
 
     for (var idx = 0; idx < allDocs.length; idx++) {
       var doc = allDocs[idx]
-      var docId = doc.getId()
+      var docId = doc.id
       var documentKey = doc.getString('document_key')
       var documentUrl = doc.getString('document_url')
       var landId = doc.getString('land_id')
