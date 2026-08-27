@@ -1,5 +1,5 @@
 routerAdd(
-  'POST',
+  'GET',
   '/backend/v1/reprocess-sharepoint',
   (e) => {
     // ── Helpers SHA256/HMAC/SigV4 para presigned URL ──────────────────
@@ -294,8 +294,7 @@ routerAdd(
       return e.forbiddenError('Apenas admins podem reprocessar documentos')
     }
 
-    var body = e.requestInfo().body || {}
-    var filterLandId = String(body.land_id || '').trim()
+    var filterLandId = String(e.request.url.query().get('land_id') || '').trim()
 
     var spClientId = $secrets.get('SHAREPOINT_CLIENT_ID')
     var spClientSecret = $secrets.get('SHAREPOINT_CLIENT_SECRET')
