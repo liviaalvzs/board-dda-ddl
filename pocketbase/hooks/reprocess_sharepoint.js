@@ -289,6 +289,11 @@ routerAdd(
     }
 
     // ── Lógica principal ────────────────────────────────────────────────
+    var authRecord = e.requestInfo().auth
+    if (!authRecord || authRecord.getString('role') !== 'admin') {
+      return e.forbiddenError('Apenas admins podem reprocessar documentos')
+    }
+
     var body = e.requestInfo().body || {}
     var filterLandId = String(body.land_id || '').trim()
 
@@ -590,5 +595,5 @@ routerAdd(
       results: results,
     })
   },
-  $apis.requireAdminAuth(),
+  $apis.requireAuth(),
 )
