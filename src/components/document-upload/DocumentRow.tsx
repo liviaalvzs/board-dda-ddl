@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { uploadDocument } from '@/services/document-upload'
+import pb from '@/lib/pocketbase/client'
 import { DocumentInfo } from '@/components/document-upload/DocumentInfo'
 import { DocumentFileActions } from '@/components/document-upload/DocumentFileActions'
 
@@ -62,13 +63,21 @@ export function DocumentRow({
     }
     setUploading(true)
     try {
-      await uploadDocument(landId, documentKey, file, clusterSerial, subjectId)
+      const result = await uploadDocument(landId, documentKey, file, clusterSerial, subjectId)
       toast({
         title: isCompleted
           ? `Documento ${documentLabel} substituído. A versão anterior foi arquivada.`
           : `Documento ${documentLabel} enviado com sucesso!`,
       })
       onUploaded()
+      if (result?.check_id) {
+        pb.send('/backend/v1/analyze-document', {
+          method: 'POST',
+          body: { check_id: result.check_id },
+        }).catch(() => {
+          /* análise best-effort */
+        })
+      }
     } catch (err) {
       toast({ title: getErrorMessage(err) })
     } finally {

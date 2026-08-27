@@ -710,7 +710,7 @@ routerAdd(
       $app.logger().warn('proxy-upload: SharePoint error (non-blocking)', 'error', String(spErr))
     }
 
-    return e.json(200, { url: s3Url, key: s3Key })
+    return e.json(200, { url: s3Url, key: s3Key, check_id: record.id })
   },
   $apis.requireAuth(),
 )
