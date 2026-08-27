@@ -388,6 +388,25 @@ routerAdd(
           '". ' +
           'Verifique se este nome aparece entre os nomes mencionados na certidão.'
       }
+    } else if (documentKey === 'imovel_car') {
+      prompt =
+        'Analise a imagem enviada e determine se é um CAR (Cadastro Ambiental Rural) brasileiro.\n\n' +
+        'Se NÃO for um CAR, retorne APENAS este JSON:\n' +
+        '{\n  "is_car": false,\n  "document_type_detected": "<descreva o que é>",\n  "nome_imovel": "Não Aplicável",\n  "numero_car": "Não Aplicável",\n  "municipio": "Não Aplicável",\n  "estado": "Não Aplicável",\n  "area_hectares": "Não Aplicável",\n  "good_visibility": "Não Aplicável"\n}\n\n' +
+        'Se FOR um CAR, retorne APENAS este JSON:\n' +
+        '{\n  "is_car": true,\n  "document_type_detected": "CAR",\n  "nome_imovel": "<nome da propriedade/fazenda/sítio>",\n  "numero_car": "<código do CAR ex: PA-1234567-...>",\n  "municipio": "<município>",\n  "estado": "<UF>",\n  "area_hectares": "<área total em hectares>",\n  "good_visibility": ""\n}\n\n' +
+        'Regras de extração:\n' +
+        '1. **NOME DO IMÓVEL**: Nome da propriedade rural (fazenda, sítio, chácara, etc.) conforme registrado no CAR\n' +
+        '2. **NÚMERO CAR**: Código completo do registro no SICAR\n' +
+        '3. **MUNICÍPIO/ESTADO**: Localização do imóvel\n' +
+        '4. **ÁREA**: Área total em hectares\n' +
+        '5. Se ilegível ou ausente → "Não Identificado"\n' +
+        '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
+        '7. **VISIBILIDADE (good_visibility)** — Avalie com rigor a qualidade REAL da imagem do documento:\n' +
+        '   - "alta": TODOS os campos importantes estão nítidos e legíveis sem esforço.\n' +
+        '   - "média": Alguns campos legíveis, outros parcialmente cortados ou embaçados.\n' +
+        '   - "baixa": Documento muito embaçado, escuro, cortado ou ilegível.\n' +
+        '   Seja RIGOROSO: na dúvida entre dois níveis, escolha o MENOR.'
     } else {
       prompt =
         'Analise a imagem enviada e determine se é um documento pessoal brasileiro (RG ou CNH).\n\n' +
@@ -493,6 +512,266 @@ routerAdd(
       $app
         .logger()
         .error('analyze-document: failed to persist ai_analysis', 'error', String(saveErr))
+    }
+
+    // --- SharePoint upload com nomes inteligentes ---
+    try {
+      var spClientId = $secrets.get('SHAREPOINT_CLIENT_ID')
+      var spClientSecret = $secrets.get('SHAREPOINT_CLIENT_SECRET')
+      var spTenantId = $secrets.get('SHAREPOINT_TENANT_ID')
+
+      if (spClientId && spClientSecret && spTenantId) {
+        var landRecord = null
+        try {
+          landRecord = $app.findRecordById('land_metadata', landId)
+        } catch (_) {}
+        var landCode = landRecord ? landRecord.getString('land_code') : ''
+        var landName = landRecord ? landRecord.getString('name') : ''
+
+        var subjectId = record.getString('subject_id')
+        var subjectRecord = null
+        try {
+          if (subjectId) subjectRecord = $app.findRecordById('land_subjects', subjectId)
+        } catch (_) {}
+        var subjectLabel = subjectRecord ? subjectRecord.getString('label') : 'Geral'
+        var subjectKind = subjectRecord ? subjectRecord.getString('kind') : ''
+
+        // Determinar nome real do sujeito
+        var smartSubjectName = subjectLabel
+        if (subjectKind === 'owner') {
+          var ownerName = ''
+          if (
+            extracted &&
+            extracted.nome &&
+            extracted.nome !== 'Não Aplicável' &&
+            extracted.nome !== 'Não Identificado'
+          ) {
+            ownerName = extracted.nome
+          } else if (
+            extracted &&
+            extracted.nome_titular &&
+            extracted.nome_titular !== 'Não Aplicável' &&
+            extracted.nome_titular !== 'Não Identificado'
+          ) {
+            ownerName = extracted.nome_titular
+          }
+          if (!ownerName && subjectId) {
+            try {
+              var prevDocs = $app.findRecordsByFilter(
+                'document_checks',
+                'subject_id = {:sid} && document_key = "pf_documentos_pessoais"',
+                '-updated',
+                5,
+                0,
+                { sid: subjectId },
+              )
+              for (var oi = 0; oi < prevDocs.length; oi++) {
+                var oAn = getAiAnalysis(prevDocs[oi])
+                if (
+                  oAn &&
+                  oAn.nome &&
+                  oAn.nome !== 'Não Aplicável' &&
+                  oAn.nome !== 'Não Identificado'
+                ) {
+                  ownerName = oAn.nome
+                  break
+                }
+              }
+            } catch (_) {}
+          }
+          if (ownerName) smartSubjectName = ownerName
+        } else if (subjectKind === 'matricula') {
+          if (
+            extracted &&
+            extracted.nome_imovel &&
+            extracted.nome_imovel !== 'Não Aplicável' &&
+            extracted.nome_imovel !== 'Não Identificado'
+          ) {
+            smartSubjectName = extracted.nome_imovel
+          } else if (landName) {
+            smartSubjectName = landName
+          }
+        }
+
+        // Montar nome inteligente do arquivo
+        var fileExtClean = (fileExt || '').replace(/^\./, '')
+        var smartFileName = ''
+
+        if (
+          documentKey === 'pf_documentos_pessoais' ||
+          documentKey === 'pf_documentos_pessoais_conjuge'
+        ) {
+          var pNome =
+            extracted &&
+            extracted.nome &&
+            extracted.nome !== 'Não Aplicável' &&
+            extracted.nome !== 'Não Identificado'
+              ? extracted.nome
+              : ''
+          smartFileName = pNome
+            ? 'DOCUMENTO PESSOAL - ' + pNome
+            : 'Documento Pessoal - ' + smartSubjectName
+        } else if (documentKey === 'pf_comprovante_residencia') {
+          var rNome =
+            extracted &&
+            extracted.nome_titular &&
+            extracted.nome_titular !== 'Não Aplicável' &&
+            extracted.nome_titular !== 'Não Identificado'
+              ? extracted.nome_titular
+              : ''
+          smartFileName = rNome
+            ? 'COMPROVANTE DE RESIDÊNCIA - ' + rNome
+            : 'Comprovante de Residência - ' + smartSubjectName
+        } else if (documentKey === 'pf_certidao_estado_civil') {
+          var cNomes = (extracted && extracted.nomes_mencionados) || []
+          var tipoCert = (extracted && extracted.tipo_certidao) || ''
+          var validNames = []
+          for (var ni = 0; ni < cNomes.length; ni++) {
+            if (cNomes[ni] && cNomes[ni] !== 'Não Identificado') validNames.push(cNomes[ni])
+          }
+          if (validNames.length >= 2 && tipoCert.toLowerCase().indexOf('nascimento') === -1) {
+            smartFileName = 'CERTIDÃO DE ESTADO CIVIL - ' + validNames[0] + ' E ' + validNames[1]
+          } else if (validNames.length >= 1) {
+            smartFileName = 'CERTIDÃO DE ESTADO CIVIL - ' + validNames[0]
+          } else {
+            smartFileName = 'Certidão de Estado Civil - ' + smartSubjectName
+          }
+        } else if (documentKey === 'imovel_car') {
+          var carNome =
+            extracted &&
+            extracted.nome_imovel &&
+            extracted.nome_imovel !== 'Não Aplicável' &&
+            extracted.nome_imovel !== 'Não Identificado'
+              ? extracted.nome_imovel
+              : ''
+          smartFileName = carNome ? 'CAR - ' + carNome : 'CAR - ' + (landName || smartSubjectName)
+        } else {
+          var docLabels = {
+            imovel_certidao_matricula: 'Certidão de Matrícula',
+            imovel_ccir: 'CCIR',
+            imovel_ditr: 'DITR',
+            certidao_ambiental_ibama: 'Certidão IBAMA',
+            certidao_ambiental_estadual: 'Certidão Ambiental Estadual',
+            certidao_ambiental_municipal: 'Certidão Ambiental Municipal',
+            certidao_fiscal_federal: 'Certidão Fiscal Federal',
+            certidao_fiscal_estadual: 'Certidão Fiscal Estadual',
+            certidao_fiscal_municipal: 'Certidão Fiscal Municipal',
+            certidao_fiscal_trabalhista: 'Certidão Fiscal Trabalhista',
+          }
+          var docLabel = docLabels[documentKey] || documentKey.replace(/_/g, ' ')
+          smartFileName = docLabel + ' - ' + (landName || smartSubjectName)
+        }
+
+        smartFileName = smartFileName + '.' + fileExtClean
+
+        function spSanitize(name) {
+          return name
+            .replace(/[<>:"/\\|?*#%]/g, '_')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 200)
+        }
+
+        var spLandFolder = spSanitize(
+          landCode ? landCode + ' - ' + (landName || '') : landName || 'Sem Nome',
+        )
+        var spSubjectFolder = spSanitize(smartSubjectName)
+        smartFileName = spSanitize(smartFileName)
+
+        var tokenRes = $http.send({
+          url: 'https://login.microsoftonline.com/' + spTenantId + '/oauth2/v2.0/token',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body:
+            'grant_type=client_credentials' +
+            '&client_id=' +
+            encodeURIComponent(spClientId) +
+            '&client_secret=' +
+            encodeURIComponent(spClientSecret) +
+            '&scope=' +
+            encodeURIComponent('https://graph.microsoft.com/.default'),
+          timeout: 15,
+        })
+
+        if (tokenRes.statusCode === 200 && tokenRes.json && tokenRes.json.access_token) {
+          var spToken = tokenRes.json.access_token
+
+          var siteRes = $http.send({
+            url: 'https://graph.microsoft.com/v1.0/sites/regreencap.sharepoint.com:/sites/-Operacional',
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + spToken },
+            timeout: 10,
+          })
+
+          if (siteRes.statusCode === 200 && siteRes.json && siteRes.json.id) {
+            var siteId = siteRes.json.id
+
+            var drivesRes = $http.send({
+              url: 'https://graph.microsoft.com/v1.0/sites/' + siteId + '/drives',
+              method: 'GET',
+              headers: { Authorization: 'Bearer ' + spToken },
+              timeout: 10,
+            })
+
+            var driveId = ''
+            if (drivesRes.statusCode === 200 && drivesRes.json && drivesRes.json.value) {
+              for (var di = 0; di < drivesRes.json.value.length; di++) {
+                var drv = drivesRes.json.value[di]
+                if (
+                  drv.name === 'Documentos' ||
+                  drv.name === 'Documents' ||
+                  drv.name === 'Documentos Compartilhados'
+                ) {
+                  driveId = drv.id
+                  break
+                }
+              }
+              if (!driveId && drivesRes.json.value.length > 0) {
+                driveId = drivesRes.json.value[0].id
+              }
+            }
+
+            if (driveId) {
+              var spFolder = 'Terras/01. Pipeline/Teste Portal DD'
+              var spPath =
+                spFolder + '/' + spLandFolder + '/' + spSubjectFolder + '/' + smartFileName
+              var uploadUrl =
+                'https://graph.microsoft.com/v1.0/drives/' +
+                driveId +
+                '/root:/' +
+                spPath.split('/').map(encodeURIComponent).join('/') +
+                ':/content'
+
+              var spUploadRes = $http.send({
+                url: uploadUrl,
+                method: 'PUT',
+                headers: {
+                  Authorization: 'Bearer ' + spToken,
+                  'Content-Type': mimeType,
+                },
+                body: s3Response.body,
+                timeout: 120,
+              })
+
+              if (spUploadRes.statusCode >= 200 && spUploadRes.statusCode < 300) {
+                $app.logger().info('analyze-document: SharePoint upload OK', 'path', spPath)
+              } else {
+                $app
+                  .logger()
+                  .warn(
+                    'analyze-document: SharePoint upload failed',
+                    'status',
+                    spUploadRes.statusCode,
+                  )
+              }
+            }
+          }
+        }
+      }
+    } catch (spErr) {
+      $app
+        .logger()
+        .warn('analyze-document: SharePoint error (non-blocking)', 'error', String(spErr))
     }
 
     return e.json(200, { extracted: extracted })
