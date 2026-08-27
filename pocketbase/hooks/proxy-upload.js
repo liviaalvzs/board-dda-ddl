@@ -541,6 +541,33 @@ routerAdd(
     if (wasCompleted) record.set('ai_analysis', null)
     record.set('file_ext', ext)
     record.set('document_file', null)
+
+    // --- Notificação de documento enviado ---
+    try {
+      var actorName = ''
+      if (e.auth) actorName = e.auth.getString('name') || e.auth.email() || ''
+      var landName = landCode
+      try {
+        var lm = $app.findFirstRecordByFilter(
+          'land_metadata',
+          'external_id = "' + landId.replace(/"/g, '\\"') + '"',
+        )
+        landName = lm.getString('name') || lm.getString('cluster_serial') || landCode
+      } catch (_) {}
+      var notifSubjectLabel = subjectLabel || ''
+      var notifTitle = docName + (notifSubjectLabel ? ' - ' + notifSubjectLabel : '')
+      var notifCol = $app.findCollectionByNameOrId('notifications')
+      var notif = new Record(notifCol)
+      notif.set('type', 'document')
+      notif.set('title', notifTitle)
+      notif.set('message', 'Enviado por ' + (actorName || 'usuário') + ' para ' + landName)
+      notif.set('land_id', landId)
+      notif.set('land_name', landName)
+      notif.set('actor_name', actorName)
+      $app.save(notif)
+    } catch (notifErr) {
+      $app.logger().warn('proxy-upload: falha ao criar notificação', 'error', String(notifErr))
+    }
     try {
       $app.save(record)
     } catch (finalSaveErr) {

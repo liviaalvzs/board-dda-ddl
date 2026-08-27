@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import ChatWidget from './ChatWidget'
+import NotificationBell from './NotificationBell'
 
 export default function Layout() {
   const { signOut, user, role } = useAuth()
@@ -118,6 +119,7 @@ export default function Layout() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
+            <NotificationBell />
             {user && (
               <span className="text-sm font-medium text-gray-600 hidden sm:inline-block">
                 {user.name || user.email}
