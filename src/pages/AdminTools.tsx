@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { usePocketBase } from '@/hooks/use-pocketbase'
+import pb from '@/lib/pocketbase/client'
 import { toast } from 'sonner'
 import { Loader2, Upload, CheckCircle, XCircle } from 'lucide-react'
 
 export default function AdminTools() {
-  const { pb } = usePocketBase()
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{
     total: number
