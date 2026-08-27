@@ -87,7 +87,9 @@ export default function NotificationBell() {
         setLastSeen(now)
         try {
           localStorage.setItem(LAST_SEEN_KEY, now)
-        } catch {}
+        } catch (_) {
+          /* localStorage may be unavailable */
+        }
       }
       return !v
     })
