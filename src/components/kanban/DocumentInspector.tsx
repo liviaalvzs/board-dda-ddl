@@ -128,12 +128,16 @@ function normalizeName(name: string) {
 function VisibilityBadge({ level }: { level: string }) {
   if (!level || typeof level !== 'string') return null
   const normalized = level.toLowerCase().trim()
+  if (normalized === 'true' || normalized === 'false' || normalized === 'não aplicável') return null
   const config =
     normalized === 'alta'
       ? { bg: 'bg-emerald-100', text: 'text-emerald-700' }
       : normalized === 'média' || normalized === 'media'
         ? { bg: 'bg-amber-100', text: 'text-amber-700' }
-        : { bg: 'bg-rose-100', text: 'text-rose-700' }
+        : normalized === 'baixa'
+          ? { bg: 'bg-rose-100', text: 'text-rose-700' }
+          : null
+  if (!config) return null
   return (
     <Badge className={cn(config.bg, config.text, 'border-none text-[9px] font-bold px-1.5 py-0')}>
       <Eye className="w-2.5 h-2.5 mr-0.5" /> {level}

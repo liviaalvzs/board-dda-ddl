@@ -326,11 +326,11 @@ routerAdd(
         '4. **DATA**: Mês/ano de referência da conta ou data de emissão\n' +
         '5. Se ilegível ou ausente → "Não Identificado"\n' +
         '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
-        '7. **VISIBILIDADE (good_visibility)** — Avalie com rigor a qualidade REAL da imagem do documento:\n' +
-        '   - "alta": SOMENTE se TODOS os campos importantes (nome, endereço, valores, datas) estão nítidos, legíveis sem esforço, sem cortes, sem sombras cobrindo texto, sem desfoque. A foto está bem iluminada, bem enquadrada e o texto é totalmente legível.\n' +
-        '   - "média": Alguns campos são legíveis mas outros estão parcialmente cortados, levemente embaçados, com sombra, reflexo, ou a foto está ligeiramente torta/distante. É possível ler a maioria dos dados com algum esforço.\n' +
-        '   - "baixa": Documento muito embaçado, escuro, superexposto, muito cortado, com grande parte do texto ilegível, foto tremida, ou resolução muito baixa. Difícil extrair informações com confiança.\n' +
-        '   Seja RIGOROSO: na dúvida entre dois níveis, escolha o MENOR. Fotos de celular com qualquer desfoque NÃO são "alta".'
+        '7. **VISIBILIDADE (good_visibility)** — OBRIGATÓRIO retornar APENAS um destes três valores: "alta", "média" ou "baixa". NÃO retorne true/false.\n' +
+        '   - "alta": TODOS os campos importantes estão nítidos e legíveis sem esforço.\n' +
+        '   - "média": Alguns campos legíveis, outros parcialmente cortados ou embaçados.\n' +
+        '   - "baixa": Documento muito embaçado, escuro, cortado ou ilegível.\n' +
+        '   Seja RIGOROSO: na dúvida entre dois níveis, escolha o MENOR.'
 
       if (nomeProprietario) {
         prompt +=
@@ -375,11 +375,11 @@ routerAdd(
         '5. **ESTADO CIVIL RESULTANTE**: O estado civil que resulta deste documento (casado, solteiro, divorciado, viúvo)\n' +
         '6. Se ilegível ou ausente → "Não Identificado"\n' +
         '7. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
-        '8. **VISIBILIDADE (good_visibility)** — Avalie com rigor a qualidade REAL da imagem do documento:\n' +
-        '   - "alta": SOMENTE se TODOS os campos importantes (nomes, datas, cartório, tipo de certidão) estão nítidos, legíveis sem esforço, sem cortes, sem sombras cobrindo texto, sem desfoque. A foto está bem iluminada, bem enquadrada e o texto é totalmente legível.\n' +
-        '   - "média": Alguns campos são legíveis mas outros estão parcialmente cortados, levemente embaçados, com sombra, reflexo, ou a foto está ligeiramente torta/distante. É possível ler a maioria dos dados com algum esforço.\n' +
-        '   - "baixa": Documento muito embaçado, escuro, superexposto, muito cortado, com grande parte do texto ilegível, foto tremida, ou resolução muito baixa. Difícil extrair informações com confiança.\n' +
-        '   Seja RIGOROSO: na dúvida entre dois níveis, escolha o MENOR. Fotos de celular com qualquer desfoque NÃO são "alta".'
+        '8. **VISIBILIDADE (good_visibility)** — OBRIGATÓRIO retornar APENAS um destes três valores: "alta", "média" ou "baixa". NÃO retorne true/false.\n' +
+        '   - "alta": TODOS os campos importantes estão nítidos e legíveis sem esforço.\n' +
+        '   - "média": Alguns campos legíveis, outros parcialmente cortados ou embaçados.\n' +
+        '   - "baixa": Documento muito embaçado, escuro, cortado ou ilegível.\n' +
+        '   Seja RIGOROSO: na dúvida entre dois níveis, escolha o MENOR.'
 
       if (nomeReferencia) {
         prompt +=
@@ -403,7 +403,7 @@ routerAdd(
         '5. **ÁREA**: Área total em hectares\n' +
         '6. Se ilegível ou ausente → "Não Identificado"\n' +
         '7. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
-        '8. **VISIBILIDADE (good_visibility)** — Avalie com rigor:\n' +
+        '8. **VISIBILIDADE (good_visibility)** — OBRIGATÓRIO retornar APENAS um destes três valores: "alta", "média" ou "baixa". NÃO retorne true/false.\n' +
         '   - "alta": TODOS os campos importantes estão nítidos e legíveis.\n' +
         '   - "média": Alguns campos legíveis, outros parcialmente cortados ou embaçados.\n' +
         '   - "baixa": Documento muito embaçado, escuro, cortado ou ilegível.\n' +
@@ -422,7 +422,7 @@ routerAdd(
         '4. **ÁREA**: Área total em hectares\n' +
         '5. Se ilegível ou ausente → "Não Identificado"\n' +
         '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
-        '7. **VISIBILIDADE (good_visibility)** — Avalie com rigor a qualidade REAL da imagem do documento:\n' +
+        '7. **VISIBILIDADE (good_visibility)** — OBRIGATÓRIO retornar APENAS um destes três valores: "alta", "média" ou "baixa". NÃO retorne true/false.\n' +
         '   - "alta": TODOS os campos importantes estão nítidos e legíveis sem esforço.\n' +
         '   - "média": Alguns campos legíveis, outros parcialmente cortados ou embaçados.\n' +
         '   - "baixa": Documento muito embaçado, escuro, cortado ou ilegível.\n' +
@@ -441,11 +441,11 @@ routerAdd(
         '4. **ESTADO**: Estado emissor do documento (ex: "PARÁ", "SP", "RJ")\n' +
         '5. Se ilegível ou ausente → "Não Identificado"\n' +
         '6. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
-        '7. **VISIBILIDADE (good_visibility)** — Avalie com rigor a qualidade REAL da imagem do documento:\n' +
-        '   - "alta": SOMENTE se TODOS os campos importantes (nome, CPF, RG, foto, estado) estão nítidos, legíveis sem esforço, sem cortes, sem sombras cobrindo texto, sem desfoque. A foto está bem iluminada, bem enquadrada e o texto é totalmente legível.\n' +
-        '   - "média": Alguns campos são legíveis mas outros estão parcialmente cortados, levemente embaçados, com sombra, reflexo, ou a foto está ligeiramente torta/distante. É possível ler a maioria dos dados com algum esforço.\n' +
-        '   - "baixa": Documento muito embaçado, escuro, superexposto, muito cortado, com grande parte do texto ilegível, foto tremida, ou resolução muito baixa. Difícil extrair informações com confiança.\n' +
-        '   Seja RIGOROSO: na dúvida entre dois níveis, escolha o MENOR. Fotos de celular com qualquer desfoque NÃO são "alta".'
+        '7. **VISIBILIDADE (good_visibility)** — OBRIGATÓRIO retornar APENAS um destes três valores: "alta", "média" ou "baixa". NÃO retorne true/false.\n' +
+        '   - "alta": TODOS os campos importantes estão nítidos e legíveis sem esforço.\n' +
+        '   - "média": Alguns campos legíveis, outros parcialmente cortados ou embaçados.\n' +
+        '   - "baixa": Documento muito embaçado, escuro, cortado ou ilegível.\n' +
+        '   Seja RIGOROSO: na dúvida entre dois níveis, escolha o MENOR.'
     }
 
     var contentParts = [{ type: 'text', text: prompt }]
