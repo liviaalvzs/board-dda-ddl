@@ -108,6 +108,8 @@ const ANALYZABLE_KEYS = new Set([
   'pf_documentos_pessoais_conjuge',
   'pf_certidao_estado_civil',
   'pf_comprovante_residencia',
+  'imovel_car',
+  'imovel_certidao_matricula',
 ])
 
 const OWNER_KEYS_SET = new Set([...OWNER_PF_KEYS, ...OWNER_PJ_KEYS])
@@ -187,9 +189,43 @@ function extractedSummary(data: ExtractedData, documentKey: string): string {
   if (documentKey === 'pf_certidao_estado_civil') {
     if (data.is_certidao_estado_civil === false) return 'Documento errado'
     if (data.is_certidao_estado_civil === true) {
-      return [data.tipo_certidao, data.estado_civil_resultante].filter(Boolean).join(' · ')
+      const nomes = (data.nomes_mencionados || []).filter(Boolean)
+      return [data.tipo_certidao, nomes.length > 0 ? nomes.join(' e ') : null]
+        .filter(Boolean)
+        .join(' · ')
     }
     return 'Análise desatualizada'
+  }
+  if (documentKey === 'imovel_certidao_matricula') {
+    if (data.is_certidao_matricula === false) return 'Documento errado'
+    if (
+      data.nome_imovel &&
+      data.nome_imovel !== 'Não Identificado' &&
+      data.nome_imovel !== 'Não Aplicável'
+    ) {
+      return data.nome_imovel
+    }
+    return 'Análise concluída'
+  }
+  if (documentKey === 'imovel_car') {
+    if (data.is_car === false) return 'Documento errado'
+    return (
+      [
+        data.nome_imovel &&
+        data.nome_imovel !== 'Não Identificado' &&
+        data.nome_imovel !== 'Não Aplicável'
+          ? data.nome_imovel
+          : null,
+        data.municipio && data.municipio !== 'Não Identificado'
+          ? `${data.municipio}/${data.estado}`
+          : null,
+        data.area_hectares && data.area_hectares !== 'Não Identificado'
+          ? `${data.area_hectares} ha`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || 'Análise concluída'
+    )
   }
   if (data.is_personal_document === false) return 'Documento errado'
   return [data.nome, data.cpf].filter(Boolean).join(' · ')
@@ -301,6 +337,81 @@ function ExpandedDetails({ data, documentKey }: { data: ExtractedData; documentK
             </div>
           </div>
         )}
+      </div>
+    )
+  }
+
+  if (documentKey === 'imovel_certidao_matricula') {
+    if (data.is_certidao_matricula === false) {
+      return (
+        <p className="text-xs text-rose-600">
+          Não é uma certidão de matrícula.
+          {data.document_type_detected && ` Identificado como: ${data.document_type_detected}`}
+        </p>
+      )
+    }
+    return (
+      <div className="space-y-2">
+        {data.good_visibility && data.good_visibility !== 'Não Aplicável' && (
+          <VisibilityBadge level={data.good_visibility} />
+        )}
+        <DetailGrid
+          items={[
+            { icon: Building2, label: 'Imóvel', value: data.nome_imovel },
+            { icon: FileText, label: 'Matrícula', value: data.numero_matricula },
+            { icon: Landmark, label: 'Cartório', value: data.cartorio },
+            {
+              icon: MapPin,
+              label: 'Município/UF',
+              value:
+                data.municipio && data.estado
+                  ? `${data.municipio} - ${data.estado}`
+                  : data.municipio || data.estado,
+            },
+            {
+              icon: FileText,
+              label: 'Área',
+              value: data.area_hectares ? `${data.area_hectares} ha` : undefined,
+            },
+          ]}
+        />
+      </div>
+    )
+  }
+
+  if (documentKey === 'imovel_car') {
+    if (data.is_car === false) {
+      return (
+        <p className="text-xs text-rose-600">
+          Não é um CAR.
+          {data.document_type_detected && ` Identificado como: ${data.document_type_detected}`}
+        </p>
+      )
+    }
+    return (
+      <div className="space-y-2">
+        {data.good_visibility && data.good_visibility !== 'Não Aplicável' && (
+          <VisibilityBadge level={data.good_visibility} />
+        )}
+        <DetailGrid
+          items={[
+            { icon: Building2, label: 'Imóvel', value: data.nome_imovel },
+            { icon: IdCard, label: 'Registro CAR', value: data.numero_car },
+            {
+              icon: MapPin,
+              label: 'Município/UF',
+              value:
+                data.municipio && data.estado
+                  ? `${data.municipio} - ${data.estado}`
+                  : data.municipio || data.estado,
+            },
+            {
+              icon: FileText,
+              label: 'Área Total',
+              value: data.area_hectares ? `${data.area_hectares} ha` : undefined,
+            },
+          ]}
+        />
       </div>
     )
   }
@@ -443,7 +554,11 @@ function DocumentRow({
                   ? 'Extrair tipo de certidão, nomes, cartório e estado civil.'
                   : doc.document_key === 'pf_comprovante_residencia'
                     ? 'Extrair titular, endereço completo e tipo de comprovante.'
-                    : 'Extrair RG, CPF, Nome e Estado.'}
+                    : doc.document_key === 'imovel_car'
+                      ? 'Extrair nome do imóvel, registro CAR, município e área.'
+                      : doc.document_key === 'imovel_certidao_matricula'
+                        ? 'Extrair nome do imóvel, matrícula, cartório e área.'
+                        : 'Extrair RG, CPF, Nome e Estado.'}
               </p>
             </div>
           ) : (
