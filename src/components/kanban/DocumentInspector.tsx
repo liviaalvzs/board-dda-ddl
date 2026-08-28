@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Search,
   FileText,
@@ -19,6 +19,9 @@ import {
   Building2,
   Heart,
   Users,
+  FileStack,
+  Shield,
+  Landmark,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,6 +60,8 @@ interface ExtractedData {
   is_personal_document?: boolean
   is_certidao_estado_civil?: boolean
   is_comprovante_residencia?: boolean
+  is_car?: boolean
+  is_certidao_matricula?: boolean
   document_type_detected?: string
   nome?: string
   cpf?: string
@@ -75,12 +80,27 @@ interface ExtractedData {
   cep?: string
   tipo_comprovante?: string
   data_referencia?: string
+  nome_imovel?: string
+  numero_matricula?: string
+  numero_car?: string
+  area_hectares?: string
+  municipio?: string
+}
+
+interface LandSubject {
+  id: string
+  land_id: string
+  kind: 'owner' | 'matricula'
+  label: string
+  owner_type?: string
+  sort_order?: number
 }
 
 interface AttentionItem {
   docLabel: string
   message: string
   severity: 'error' | 'warning'
+  subjectLabel?: string
 }
 
 const ANALYZABLE_KEYS = new Set([
@@ -89,6 +109,19 @@ const ANALYZABLE_KEYS = new Set([
   'pf_certidao_estado_civil',
   'pf_comprovante_residencia',
 ])
+
+const OWNER_KEYS_SET = new Set([...OWNER_PF_KEYS, ...OWNER_PJ_KEYS])
+const MATRICULA_KEYS_SET = new Set(MATRICULA_KEYS)
+const CERTIDAO_AMBIENTAL_SET = new Set(CERTIDAO_AMBIENTAL_KEYS)
+const CERTIDAO_FISCAL_SET = new Set(CERTIDAO_FISCAL_KEYS)
+
+function normalizeName(name: string) {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+}
 
 function VisibilityBadge({ level }: { level: string }) {
   const normalized = level.toLowerCase().trim()
@@ -363,7 +396,6 @@ function DocumentRow({
 
   return (
     <div className="border-t border-brand-primary/5 first:border-t-0">
-      {/* Main row */}
       <div
         className={cn(
           'flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50/80 transition-colors',
@@ -393,7 +425,6 @@ function DocumentRow({
         </div>
       </div>
 
-      {/* Expanded details */}
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
           {extracted ? (
@@ -481,96 +512,94 @@ function DocumentRow({
   )
 }
 
-export function DocumentInspector({ landId }: { landId: string }) {
-  const [docs, setDocs] = useState<DocumentRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [missingItems, setMissingItems] = useState<{ subjectLabel: string; docLabels: string[] }[]>(
-    [],
+function SubjectSection({
+  icon: Icon,
+  label,
+  badge,
+  docs,
+  pessoaisAnalysis,
+  attentionItems,
+}: {
+  icon: any
+  label: string
+  badge?: string
+  docs: DocumentRecord[]
+  pessoaisAnalysis?: ExtractedData | null
+  attentionItems: AttentionItem[]
+}) {
+  if (docs.length === 0 && attentionItems.length === 0) return null
+
+  return (
+    <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 flex items-center gap-3 border-b border-brand-primary/5">
+        <Icon className="w-4 h-4 text-brand-secondary shrink-0" />
+        <span className="text-xs font-bold text-brand-primary/70 uppercase tracking-wider flex-1">
+          {label}
+        </span>
+        {badge && (
+          <Badge className="bg-brand-secondary/10 text-brand-secondary border-none text-[9px] font-bold px-1.5 py-0">
+            {badge}
+          </Badge>
+        )}
+        <Badge className="bg-slate-100 text-slate-600 border-none text-[9px] font-bold px-1.5 py-0">
+          {docs.length} {docs.length === 1 ? 'doc' : 'docs'}
+        </Badge>
+      </div>
+
+      {attentionItems.length > 0 && (
+        <div className="border-b border-brand-primary/5 bg-rose-50/30">
+          {attentionItems.map((item, i) => (
+            <div key={i} className="px-4 py-2 flex items-start gap-2.5 text-xs">
+              {item.severity === 'error' ? (
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+              )}
+              <div>
+                <span
+                  className={cn(
+                    'font-semibold',
+                    item.severity === 'error' ? 'text-rose-700' : 'text-amber-700',
+                  )}
+                >
+                  {item.docLabel}:
+                </span>{' '}
+                <span
+                  className={item.severity === 'error' ? 'text-rose-600/80' : 'text-amber-600/80'}
+                >
+                  {item.message}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="divide-y-0">
+        {docs.map((doc) => (
+          <DocumentRow key={doc.id} doc={doc} pessoaisAnalysis={pessoaisAnalysis} />
+        ))}
+      </div>
+    </div>
   )
+}
 
-  const fetchDocs = async () => {
-    try {
-      const records = await pb.collection('document_checks').getFullList({
-        filter: `land_id="${landId}" && is_completed=true && document_url!=""`,
-        expand: 'user',
-        sort: '-updated',
-      })
-      setDocs(records as unknown as DocumentRecord[])
-      const allChecks = await pb.collection('document_checks').getFullList({
-        filter: `land_id="${landId}"`,
-        sort: 'document_key',
-      })
-      const completedKeys = new Set(
-        (allChecks as unknown as DocumentRecord[])
-          .filter((d) => d.is_completed && d.document_url)
-          .map((d) => d.document_key),
-      )
-      const naKeys = new Set(
-        (allChecks as unknown as DocumentRecord[])
-          .filter((d) => d.not_applicable)
-          .map((d) => d.document_key),
-      )
-      const missingKeys = ALL_DOCUMENT_KEYS.filter(
-        (key) => !completedKeys.has(key) && !naKeys.has(key),
-      )
-      setPendingDocs(missingKeys.map((key) => ({ document_key: key }) as unknown as DocumentRecord))
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
-  }
+function buildSubjectAttentionItems(subjectDocs: DocumentRecord[]): AttentionItem[] {
+  const items: AttentionItem[] = []
 
-  useEffect(() => {
-    fetchDocs()
-  }, [landId])
-
-  useRealtime('document_checks', (e) => {
-    if (e.record.land_id === landId) fetchDocs()
-  })
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="w-6 h-6 animate-spin text-brand-secondary" />
-      </div>
-    )
-  }
-
-  if (docs.length === 0) {
-    return (
-      <div className="bg-white p-10 rounded-xl border border-dashed border-brand-primary/20 text-center">
-        <Search className="w-10 h-10 text-brand-primary/20 mx-auto mb-3" />
-        <h3 className="text-base font-semibold text-brand-primary/60 mb-1">
-          Nenhum documento enviado
-        </h3>
-        <p className="text-sm text-brand-primary/40">
-          Envie documentos na aba "Envio de Documentos" para inspecioná-los aqui.
-        </p>
-      </div>
-    )
-  }
-
-  const pessoaisDoc = docs.find((d) => d.document_key === 'pf_documentos_pessoais' && d.ai_analysis)
+  const pessoaisDoc = subjectDocs.find(
+    (d) => d.document_key === 'pf_documentos_pessoais' && d.ai_analysis,
+  )
   const pessoaisAnalysis = pessoaisDoc?.ai_analysis ?? null
-  const pessoaisNome = (pessoaisAnalysis?.nome || '').trim().toLowerCase()
+  const pessoaisNome = (pessoaisAnalysis?.nome || '').trim()
 
-  const conjugeDoc = docs.find(
+  const conjugeDoc = subjectDocs.find(
     (d) => d.document_key === 'pf_documentos_pessoais_conjuge' && d.ai_analysis,
   )
   const conjugeAnalysis = conjugeDoc?.ai_analysis ?? null
-  const conjugeNome = (conjugeAnalysis?.nome || '').trim().toLowerCase()
+  const conjugeNome = (conjugeAnalysis?.nome || '').trim()
 
-  function normalizeName(name: string) {
-    return name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .trim()
-  }
-
-  const attentionItems: AttentionItem[] = docs.flatMap((doc) => {
-    const items: AttentionItem[] = []
+  for (const doc of subjectDocs) {
     const label = getDocumentLabel(doc.document_key)
     const analysis = doc.ai_analysis
 
@@ -596,29 +625,22 @@ export function DocumentInspector({ landId }: { landId: string }) {
       analysis.nomes_mencionados &&
       analysis.nomes_mencionados.length > 0
     ) {
-      if (pessoaisNome && pessoaisNome !== 'não identificado') {
-        const normalizedPessoais = normalizeName(pessoaisNome)
-        const nameFound = analysis.nomes_mencionados.some(
-          (n) => normalizeName(n) === normalizedPessoais,
-        )
-        if (!nameFound) {
-          items.push({
-            docLabel: label,
-            message: `O nome do proprietário ("${pessoaisAnalysis?.nome}") não foi encontrado entre os nomes da certidão: ${analysis.nomes_mencionados.join(', ')}`,
-            severity: 'warning',
-          })
-        }
+      const knownNames: string[] = []
+      if (pessoaisNome && pessoaisNome.toLowerCase() !== 'não identificado') {
+        knownNames.push(pessoaisNome)
+      }
+      if (conjugeNome && conjugeNome.toLowerCase() !== 'não identificado') {
+        knownNames.push(conjugeNome)
       }
 
-      if (conjugeNome && conjugeNome !== 'não identificado') {
-        const normalizedConjuge = normalizeName(conjugeNome)
-        const conjugeFound = analysis.nomes_mencionados.some(
-          (n) => normalizeName(n) === normalizedConjuge,
-        )
-        if (!conjugeFound) {
+      for (const known of knownNames) {
+        const normalizedKnown = normalizeName(known)
+        const found = analysis.nomes_mencionados.some((n) => normalizeName(n) === normalizedKnown)
+        if (!found) {
+          const role = known === pessoaisNome ? 'proprietário' : 'cônjuge'
           items.push({
             docLabel: label,
-            message: `O nome do cônjuge ("${conjugeAnalysis?.nome}") não foi encontrado entre os nomes da certidão: ${analysis.nomes_mencionados.join(', ')}`,
+            message: `O nome do ${role} ("${known}") não foi encontrado entre os nomes da certidão: ${analysis.nomes_mencionados.join(', ')}`,
             severity: 'warning',
           })
         }
@@ -633,22 +655,22 @@ export function DocumentInspector({ landId }: { landId: string }) {
       analysis.nome_titular !== 'Não Aplicável'
     ) {
       const normalizedTitular = normalizeName(analysis.nome_titular)
-      const matchesProp =
-        pessoaisNome &&
-        pessoaisNome !== 'não identificado' &&
-        normalizeName(pessoaisNome) === normalizedTitular
-      const matchesConjuge =
-        conjugeNome &&
-        conjugeNome !== 'não identificado' &&
-        normalizeName(conjugeNome) === normalizedTitular
-      if (!matchesProp && !matchesConjuge) {
-        const nomes: string[] = []
-        if (pessoaisAnalysis?.nome) nomes.push(pessoaisAnalysis.nome)
-        if (conjugeAnalysis?.nome) nomes.push(conjugeAnalysis.nome)
-        if (nomes.length > 0) {
+
+      const knownNames: { name: string; normalized: string }[] = []
+      if (pessoaisNome && pessoaisNome.toLowerCase() !== 'não identificado') {
+        knownNames.push({ name: pessoaisNome, normalized: normalizeName(pessoaisNome) })
+      }
+      if (conjugeNome && conjugeNome.toLowerCase() !== 'não identificado') {
+        knownNames.push({ name: conjugeNome, normalized: normalizeName(conjugeNome) })
+      }
+
+      if (knownNames.length > 0) {
+        const matchesAny = knownNames.some((k) => k.normalized === normalizedTitular)
+        if (!matchesAny) {
+          const nomes = knownNames.map((k) => `"${k.name}"`)
           items.push({
             docLabel: label,
-            message: `O titular do comprovante ("${analysis.nome_titular}") não confere com ${nomes.length > 1 ? 'o proprietário nem o cônjuge' : 'o proprietário'} (${nomes.map((n) => `"${n}"`).join(', ')})`,
+            message: `O titular do comprovante ("${analysis.nome_titular}") não confere com ${nomes.length > 1 ? 'o proprietário nem o cônjuge' : 'o proprietário'} (${nomes.join(', ')})`,
             severity: 'warning',
           })
         }
@@ -674,25 +696,130 @@ export function DocumentInspector({ landId }: { landId: string }) {
         severity: 'warning',
       })
     }
-
-    return items
-  })
-
-  for (const item of missingItems) {
-    attentionItems.push({
-      docLabel: `Falta enviar (${item.subjectLabel})`,
-      message: item.docLabels.join(', '),
-      severity: 'warning',
-    })
   }
 
-  const errorCount = attentionItems.filter((i) => i.severity === 'error').length
-  const warningCount = attentionItems.filter((i) => i.severity === 'warning').length
+  return items
+}
+
+export function DocumentInspector({ landId }: { landId: string }) {
+  const [docs, setDocs] = useState<DocumentRecord[]>([])
+  const [subjects, setSubjects] = useState<LandSubject[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchData = async () => {
+    try {
+      const [records, subjectRecords] = await Promise.all([
+        pb.collection('document_checks').getFullList({
+          filter: `land_id="${landId}" && is_completed=true && document_url!=""`,
+          expand: 'user',
+          sort: '-updated',
+        }),
+        pb.collection('land_subjects').getFullList({
+          filter: `land_id="${landId}"`,
+          sort: 'sort_order,created',
+        }),
+      ])
+      setDocs(records as unknown as DocumentRecord[])
+      setSubjects(subjectRecords as unknown as LandSubject[])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [landId])
+
+  useRealtime('document_checks', (e) => {
+    if (e.record.land_id === landId) fetchData()
+  })
+
+  const grouped = useMemo(() => {
+    const ownerSubjects = subjects
+      .filter((s) => s.kind === 'owner')
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    const matriculaSubjects = subjects
+      .filter((s) => s.kind === 'matricula')
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+
+    const ownerSections = ownerSubjects.map((sub) => {
+      const subDocs = docs.filter(
+        (d) => d.subject_id === sub.id && OWNER_KEYS_SET.has(d.document_key),
+      )
+      const pessoaisDoc = subDocs.find(
+        (d) => d.document_key === 'pf_documentos_pessoais' && d.ai_analysis,
+      )
+      return {
+        subject: sub,
+        docs: subDocs,
+        pessoaisAnalysis: pessoaisDoc?.ai_analysis ?? null,
+        attentionItems: buildSubjectAttentionItems(subDocs),
+      }
+    })
+
+    const matriculaSections = matriculaSubjects.map((sub) => {
+      const subDocs = docs.filter(
+        (d) => d.subject_id === sub.id && MATRICULA_KEYS_SET.has(d.document_key),
+      )
+      return {
+        subject: sub,
+        docs: subDocs,
+        attentionItems: [] as AttentionItem[],
+      }
+    })
+
+    const certidaoAmbientalDocs = docs.filter((d) => CERTIDAO_AMBIENTAL_SET.has(d.document_key))
+    const certidaoFiscalDocs = docs.filter((d) => CERTIDAO_FISCAL_SET.has(d.document_key))
+
+    const categorizedIds = new Set<string>()
+    for (const sec of ownerSections) sec.docs.forEach((d) => categorizedIds.add(d.id))
+    for (const sec of matriculaSections) sec.docs.forEach((d) => categorizedIds.add(d.id))
+    certidaoAmbientalDocs.forEach((d) => categorizedIds.add(d.id))
+    certidaoFiscalDocs.forEach((d) => categorizedIds.add(d.id))
+    const uncategorizedDocs = docs.filter((d) => !categorizedIds.has(d.id))
+
+    return {
+      ownerSections,
+      matriculaSections,
+      certidaoAmbientalDocs,
+      certidaoFiscalDocs,
+      uncategorizedDocs,
+    }
+  }, [docs, subjects])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-brand-secondary" />
+      </div>
+    )
+  }
+
+  if (docs.length === 0) {
+    return (
+      <div className="bg-white p-10 rounded-xl border border-dashed border-brand-primary/20 text-center">
+        <Search className="w-10 h-10 text-brand-primary/20 mx-auto mb-3" />
+        <h3 className="text-base font-semibold text-brand-primary/60 mb-1">
+          Nenhum documento enviado
+        </h3>
+        <p className="text-sm text-brand-primary/40">
+          Envie documentos na aba "Envio de Documentos" para inspecioná-los aqui.
+        </p>
+      </div>
+    )
+  }
+
+  const allAttentionItems = grouped.ownerSections.flatMap((s) =>
+    s.attentionItems.map((item) => ({ ...item, subjectLabel: s.subject.label })),
+  )
+  const errorCount = allAttentionItems.filter((i) => i.severity === 'error').length
+  const warningCount = allAttentionItems.filter((i) => i.severity === 'warning').length
 
   return (
     <div className="space-y-4">
-      {/* Attention items banner */}
-      {attentionItems.length > 0 && (
+      {allAttentionItems.length > 0 && (
         <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
           <div className="px-4 py-3 flex items-center gap-3 border-b border-brand-primary/5 bg-rose-50/50">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -711,14 +838,19 @@ export function DocumentInspector({ landId }: { landId: string }) {
             )}
           </div>
           <div className="divide-y divide-brand-primary/5">
-            {attentionItems.map((item, i) => (
+            {allAttentionItems.map((item, i) => (
               <div key={i} className="px-4 py-2.5 flex items-start gap-2.5 text-xs">
                 {item.severity === 'error' ? (
                   <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
                 ) : (
-                  <RefreshCw className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                 )}
                 <div>
+                  {item.subjectLabel && (
+                    <Badge className="bg-slate-100 text-slate-600 border-none text-[9px] font-bold px-1.5 py-0 mr-1.5">
+                      {item.subjectLabel}
+                    </Badge>
+                  )}
                   <span
                     className={cn(
                       'font-semibold',
@@ -739,23 +871,70 @@ export function DocumentInspector({ landId }: { landId: string }) {
         </div>
       )}
 
-      {/* Documents table */}
-      <div className="bg-white rounded-xl border border-brand-primary/10 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 flex items-center gap-3 border-b border-brand-primary/5">
-          <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-          <span className="text-xs font-bold text-brand-primary/70 uppercase tracking-wider flex-1">
-            Documentos Enviados
-          </span>
-          <Badge className="bg-brand-secondary/10 text-brand-secondary border-none text-[9px] font-bold px-1.5 py-0">
-            {docs.length} {docs.length === 1 ? 'documento' : 'documentos'}
-          </Badge>
-        </div>
-        <div className="divide-y-0">
-          {docs.map((doc) => (
-            <DocumentRow key={doc.id} doc={doc} pessoaisAnalysis={pessoaisAnalysis} />
+      {grouped.ownerSections.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-brand-primary/50 uppercase tracking-wider flex items-center gap-2 px-1">
+            <User className="w-3.5 h-3.5" />
+            Proprietários
+          </h3>
+          {grouped.ownerSections.map((section) => (
+            <SubjectSection
+              key={section.subject.id}
+              icon={User}
+              label={section.subject.label}
+              badge={section.subject.owner_type === 'pj' ? 'PJ' : 'PF'}
+              docs={section.docs}
+              pessoaisAnalysis={section.pessoaisAnalysis}
+              attentionItems={section.attentionItems}
+            />
           ))}
         </div>
-      </div>
+      )}
+
+      {grouped.matriculaSections.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-brand-primary/50 uppercase tracking-wider flex items-center gap-2 px-1">
+            <FileStack className="w-3.5 h-3.5" />
+            Matrículas
+          </h3>
+          {grouped.matriculaSections.map((section) => (
+            <SubjectSection
+              key={section.subject.id}
+              icon={FileStack}
+              label={section.subject.label}
+              docs={section.docs}
+              attentionItems={section.attentionItems}
+            />
+          ))}
+        </div>
+      )}
+
+      {grouped.certidaoAmbientalDocs.length > 0 && (
+        <SubjectSection
+          icon={Shield}
+          label="Certidões Ambientais"
+          docs={grouped.certidaoAmbientalDocs}
+          attentionItems={[]}
+        />
+      )}
+
+      {grouped.certidaoFiscalDocs.length > 0 && (
+        <SubjectSection
+          icon={Landmark}
+          label="Certidões Fiscais"
+          docs={grouped.certidaoFiscalDocs}
+          attentionItems={[]}
+        />
+      )}
+
+      {grouped.uncategorizedDocs.length > 0 && (
+        <SubjectSection
+          icon={FileText}
+          label="Outros Documentos"
+          docs={grouped.uncategorizedDocs}
+          attentionItems={[]}
+        />
+      )}
     </div>
   )
 }
