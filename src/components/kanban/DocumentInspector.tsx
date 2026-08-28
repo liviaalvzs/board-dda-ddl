@@ -124,6 +124,7 @@ function normalizeName(name: string) {
 }
 
 function VisibilityBadge({ level }: { level: string }) {
+  if (!level || typeof level !== 'string') return null
   const normalized = level.toLowerCase().trim()
   const config =
     normalized === 'alta'
