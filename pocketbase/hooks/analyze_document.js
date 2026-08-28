@@ -543,7 +543,9 @@ routerAdd(
       if (spClientId && spClientSecret && spTenantId) {
         var landRecord = null
         try {
-          landRecord = $app.findRecordById('land_metadata', landId)
+          landRecord = $app.findFirstRecordByFilter('land_metadata', 'external_id = {:eid}', {
+            eid: landId,
+          })
         } catch (_) {}
         var landName = landRecord ? landRecord.getString('name') : ''
         var clusterSerial = landRecord ? landRecord.getString('cluster_serial') : ''

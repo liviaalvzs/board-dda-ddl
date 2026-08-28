@@ -574,14 +574,19 @@ routerAdd(
       // Buscar land metadata (com cache)
       if (!landCache[landId]) {
         try {
-          var lr = $app.findRecordById('land_metadata', landId)
-          landCache[landId] = {
-            code: lr.getString('land_code'),
-            name: lr.getString('name'),
-            clusterSerial: lr.getString('cluster_serial'),
+          var lr = $app.findFirstRecordByFilter('land_metadata', 'external_id = {:eid}', {
+            eid: landId,
+          })
+          if (lr) {
+            landCache[landId] = {
+              name: lr.getString('name'),
+              clusterSerial: lr.getString('cluster_serial'),
+            }
+          } else {
+            landCache[landId] = { name: '', clusterSerial: '' }
           }
         } catch (_) {
-          landCache[landId] = { code: '', name: '', clusterSerial: '' }
+          landCache[landId] = { name: '', clusterSerial: '' }
         }
       }
       var landName = landCache[landId].name
