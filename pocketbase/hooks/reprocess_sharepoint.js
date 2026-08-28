@@ -476,9 +476,35 @@ routerAdd(
         continue
       }
 
-      // Análise IA se necessário
+      // Análise IA se necessário (ou se análise existente não tem nomes úteis)
       var extracted = getAiAnalysis(doc)
-      if (!extracted && openrouterKey) {
+      var needsReanalysis = false
+      if (!extracted) {
+        needsReanalysis = true
+      } else {
+        var hasName = false
+        if (
+          extracted.nome &&
+          extracted.nome !== 'Não Aplicável' &&
+          extracted.nome !== 'Não Identificado'
+        )
+          hasName = true
+        if (
+          extracted.nome_titular &&
+          extracted.nome_titular !== 'Não Aplicável' &&
+          extracted.nome_titular !== 'Não Identificado'
+        )
+          hasName = true
+        if (
+          extracted.nome_imovel &&
+          extracted.nome_imovel !== 'Não Aplicável' &&
+          extracted.nome_imovel !== 'Não Identificado'
+        )
+          hasName = true
+        if (extracted.nomes_mencionados && extracted.nomes_mencionados.length > 0) hasName = true
+        if (!hasName) needsReanalysis = true
+      }
+      if (needsReanalysis && openrouterKey) {
         try {
           var fileB64 = uint8ToBase64(s3Response.body)
           var dataUrl = 'data:' + contentType + ';base64,' + fileB64
@@ -626,7 +652,7 @@ routerAdd(
         smartSubjectName,
         fileExt,
       )
-      var spLandFolder = spSanitize(clusterSerial || 'Sem Nome')
+      var spLandFolder = spSanitize(clusterSerial || landCache[landId].code || 'Sem Nome')
       var spSubjectFolder = spSanitize(smartSubjectName)
 
       // Upload ao SharePoint

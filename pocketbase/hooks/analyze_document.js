@@ -673,7 +673,7 @@ routerAdd(
             .substring(0, 200)
         }
 
-        var spLandFolder = spSanitize(clusterSerial || landCode || 'Sem Nome')
+        var spLandFolder = spSanitize(clusterSerial || landCode || landName || 'Sem Nome')
         var spSubjectFolder = spSanitize(smartSubjectName)
         smartFileName = spSanitize(smartFileName)
 
