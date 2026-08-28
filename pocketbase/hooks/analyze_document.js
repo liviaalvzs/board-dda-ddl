@@ -527,6 +527,7 @@ routerAdd(
         } catch (_) {}
         var landCode = landRecord ? landRecord.getString('land_code') : ''
         var landName = landRecord ? landRecord.getString('name') : ''
+        var clusterSerial = landRecord ? landRecord.getString('cluster_serial') : ''
 
         var subjectId = record.getString('subject_id')
         var subjectRecord = null
@@ -672,9 +673,7 @@ routerAdd(
             .substring(0, 200)
         }
 
-        var spLandFolder = spSanitize(
-          landCode ? landCode + ' - ' + (landName || '') : landName || 'Sem Nome',
-        )
+        var spLandFolder = spSanitize(clusterSerial || landCode || 'Sem Nome')
         var spSubjectFolder = spSanitize(smartSubjectName)
         smartFileName = spSanitize(smartFileName)
 

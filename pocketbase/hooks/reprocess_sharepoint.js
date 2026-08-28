@@ -2,7 +2,7 @@ routerAdd(
   'GET',
   '/backend/v1/reprocess-sharepoint',
   (e) => {
-    // ── Helpers SHA256/HMAC/SigV4 para presigned URL ──────────────────
+    // ── SHA256 / HMAC / SigV4 ───────────────────────────────────────────
     function sha256(msg) {
       var K = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
@@ -127,6 +127,24 @@ routerAdd(
       return encodeURIComponent(str).replace(/[!'()*]/g, function (c) {
         return '%' + c.charCodeAt(0).toString(16).toUpperCase()
       })
+    }
+
+    function uint8ToBase64(bytes) {
+      var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+      var len = bytes.length
+      var parts = []
+      for (var i = 0; i < len; i += 3) {
+        var a = bytes[i]
+        var b = i + 1 < len ? bytes[i + 1] : 0
+        var c = i + 2 < len ? bytes[i + 2] : 0
+        parts.push(
+          chars[a >> 2],
+          chars[((a & 3) << 4) | (b >> 4)],
+          i + 1 < len ? chars[((b & 15) << 2) | (c >> 6)] : '=',
+          i + 2 < len ? chars[c & 63] : '=',
+        )
+      }
+      return parts.join('')
     }
 
     function generatePresignedUrl(documentUrl, fileExt) {
@@ -288,6 +306,36 @@ routerAdd(
       return spSanitize(smartFileName + '.' + fileExtClean)
     }
 
+    function buildAiPrompt(documentKey) {
+      if (documentKey === 'pf_comprovante_residencia') {
+        return (
+          'Analise a imagem e extraia os dados do comprovante de residência. ' +
+          'Retorne APENAS JSON: {"is_comprovante_residencia":true,"nome_titular":"<nome>","endereco_completo":"<endereço>","bairro":"","cidade":"","estado":"","cep":"","tipo_comprovante":"","data_referencia":"","good_visibility":""}. ' +
+          'Se não for comprovante: {"is_comprovante_residencia":false,"document_type_detected":"<tipo>","nome_titular":"Não Aplicável","good_visibility":"Não Aplicável"}.'
+        )
+      }
+      if (documentKey === 'pf_certidao_estado_civil') {
+        return (
+          'Analise a imagem e extraia dados da certidão de estado civil. ' +
+          'Retorne APENAS JSON: {"is_certidao_estado_civil":true,"tipo_certidao":"<casamento/nascimento/divórcio>","nomes_mencionados":["<nome1>","<nome2>"],"data_emissao":"","cartorio":"","estado_civil_resultante":"","good_visibility":""}. ' +
+          'Se não for certidão: {"is_certidao_estado_civil":false,"document_type_detected":"<tipo>","nomes_mencionados":[],"good_visibility":"Não Aplicável"}. ' +
+          'NOMES: apenas nubentes ou pessoa principal, máximo 2.'
+        )
+      }
+      if (documentKey === 'imovel_car') {
+        return (
+          'Analise a imagem e extraia dados do CAR (Cadastro Ambiental Rural). ' +
+          'Retorne APENAS JSON: {"is_car":true,"nome_imovel":"<fazenda/sítio>","numero_car":"","municipio":"","estado":"","area_hectares":"","good_visibility":""}. ' +
+          'Se não for CAR: {"is_car":false,"document_type_detected":"<tipo>","nome_imovel":"Não Aplicável","good_visibility":"Não Aplicável"}.'
+        )
+      }
+      return (
+        'Analise a imagem e determine se é um documento pessoal brasileiro (RG ou CNH). ' +
+        'Retorne APENAS JSON: {"is_personal_document":true,"document_type_detected":"RG" ou "CNH","nome":"","cpf":"","rg":"","estado":"","good_visibility":""}. ' +
+        'Se não for RG/CNH: {"is_personal_document":false,"document_type_detected":"<tipo>","nome":"Não Aplicável","good_visibility":"Não Aplicável"}.'
+      )
+    }
+
     // ── Lógica principal ────────────────────────────────────────────────
     var authRecord = e.requestInfo().auth
     if (!authRecord || authRecord.getString('role') !== 'admin') {
@@ -299,19 +347,19 @@ routerAdd(
     var spClientId = $secrets.get('SHAREPOINT_CLIENT_ID')
     var spClientSecret = $secrets.get('SHAREPOINT_CLIENT_SECRET')
     var spTenantId = $secrets.get('SHAREPOINT_TENANT_ID')
+    var openrouterKey = $secrets.get('OPENROUTER_API_KEY')
 
     if (!spClientId || !spClientSecret || !spTenantId) {
       return e.internalServerError('Credenciais do SharePoint não configuradas')
     }
 
-    // Obter token SharePoint
+    // Token SharePoint
     var tokenRes = $http.send({
       url: 'https://login.microsoftonline.com/' + spTenantId + '/oauth2/v2.0/token',
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body:
-        'grant_type=client_credentials' +
-        '&client_id=' +
+        'grant_type=client_credentials&client_id=' +
         encodeURIComponent(spClientId) +
         '&client_secret=' +
         encodeURIComponent(spClientSecret) +
@@ -319,13 +367,12 @@ routerAdd(
         encodeURIComponent('https://graph.microsoft.com/.default'),
       timeout: 15,
     })
-
     if (tokenRes.statusCode !== 200 || !tokenRes.json || !tokenRes.json.access_token) {
       return e.internalServerError('Falha ao obter token do SharePoint')
     }
     var spToken = tokenRes.json.access_token
 
-    // Obter site e drive
+    // Site e drive SharePoint
     var siteRes = $http.send({
       url: 'https://graph.microsoft.com/v1.0/sites/regreencap.sharepoint.com:/sites/-Operacional',
       method: 'GET',
@@ -356,19 +403,15 @@ routerAdd(
           break
         }
       }
-      if (!driveId && drivesRes.json.value.length > 0) {
-        driveId = drivesRes.json.value[0].id
-      }
+      if (!driveId && drivesRes.json.value.length > 0) driveId = drivesRes.json.value[0].id
     }
     if (!driveId) {
       return e.internalServerError('Drive do SharePoint não encontrado')
     }
 
-    // Buscar todos os document_checks com document_url
+    // Buscar documentos
     var filter = 'document_url != ""'
-    if (filterLandId) {
-      filter = 'land_id = {:landId} && document_url != ""'
-    }
+    if (filterLandId) filter = 'land_id = {:landId} && document_url != ""'
     var allDocs = []
     try {
       allDocs = $app.findRecordsByFilter(
@@ -385,23 +428,104 @@ routerAdd(
 
     var results = []
     var uploaded = 0
-    var skipped = 0
+    var analyzed = 0
     var failed = 0
-
-    // Cache de lands e subjects para evitar queries repetidas
     var landCache = {}
     var subjectCache = {}
 
     for (var idx = 0; idx < allDocs.length; idx++) {
       var doc = allDocs[idx]
-      var docId = doc.getId()
+      var docId = doc.id
       var documentKey = doc.getString('document_key')
       var documentUrl = doc.getString('document_url')
       var landId = doc.getString('land_id')
       var subjectId = doc.getString('subject_id')
       var fileExt = (doc.getString('file_ext') || '').toLowerCase()
+      var ext = (fileExt || '').replace(/^\./, '').toLowerCase()
+      var mimeMap = {
+        pdf: 'application/pdf',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        webp: 'image/webp',
+      }
+      var contentType = mimeMap[ext] || 'application/octet-stream'
 
+      // Baixar do S3
+      var presignedUrl
+      try {
+        presignedUrl = generatePresignedUrl(documentUrl, fileExt)
+      } catch (urlErr) {
+        results.push({ id: docId, status: 'error', detail: 'presigned URL: ' + String(urlErr) })
+        failed++
+        continue
+      }
+
+      var s3Response
+      try {
+        s3Response = $http.send({ url: presignedUrl, method: 'GET', timeout: 60 })
+      } catch (dlErr) {
+        results.push({ id: docId, status: 'error', detail: 'S3 download: ' + String(dlErr) })
+        failed++
+        continue
+      }
+      if (s3Response.statusCode !== 200) {
+        results.push({ id: docId, status: 'error', detail: 'S3 status ' + s3Response.statusCode })
+        failed++
+        continue
+      }
+
+      // Análise IA se necessário
       var extracted = getAiAnalysis(doc)
+      if (!extracted && openrouterKey) {
+        try {
+          var fileB64 = uint8ToBase64(s3Response.body)
+          var dataUrl = 'data:' + contentType + ';base64,' + fileB64
+          var prompt = buildAiPrompt(documentKey)
+
+          var aiRes = $http.send({
+            url: 'https://openrouter.ai/api/v1/chat/completions',
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer ' + openrouterKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: prompt },
+                    { type: 'image_url', image_url: { url: dataUrl } },
+                  ],
+                },
+              ],
+            }),
+            timeout: 120,
+          })
+
+          if (aiRes.statusCode === 200 && aiRes.json) {
+            var aiContent = ''
+            try {
+              aiContent = aiRes.json.choices[0].message.content || ''
+            } catch (_) {}
+            aiContent = aiContent
+              .replace(/```json\s*/gi, '')
+              .replace(/```\s*/g, '')
+              .trim()
+            try {
+              extracted = JSON.parse(aiContent)
+              doc.set('ai_analysis', extracted)
+              $app.save(doc)
+              analyzed++
+            } catch (_) {}
+          }
+        } catch (aiErr) {
+          $app.logger().warn('reprocess: AI analysis failed', 'doc', docId, 'error', String(aiErr))
+        }
+      }
 
       // Buscar land metadata (com cache)
       if (!landCache[landId]) {
@@ -410,13 +534,14 @@ routerAdd(
           landCache[landId] = {
             code: lr.getString('land_code'),
             name: lr.getString('name'),
+            clusterSerial: lr.getString('cluster_serial'),
           }
         } catch (_) {
-          landCache[landId] = { code: '', name: '' }
+          landCache[landId] = { code: '', name: '', clusterSerial: '' }
         }
       }
-      var landCode = landCache[landId].code
       var landName = landCache[landId].name
+      var clusterSerial = landCache[landId].clusterSerial
 
       // Buscar subject (com cache)
       var subjectLabel = 'Geral'
@@ -437,7 +562,7 @@ routerAdd(
         subjectKind = subjectCache[subjectId].kind
       }
 
-      // Determinar nome real do sujeito
+      // Nome real do sujeito
       var smartSubjectName = subjectLabel
       if (subjectKind === 'owner') {
         var ownerName = ''
@@ -501,51 +626,8 @@ routerAdd(
         smartSubjectName,
         fileExt,
       )
-
-      var spLandFolder = spSanitize(
-        landCode ? landCode + ' - ' + (landName || '') : landName || 'Sem Nome',
-      )
+      var spLandFolder = spSanitize(clusterSerial || 'Sem Nome')
       var spSubjectFolder = spSanitize(smartSubjectName)
-
-      // Baixar do S3
-      var ext = (fileExt || '').replace(/^\./, '').toLowerCase()
-      var mimeMap = {
-        pdf: 'application/pdf',
-        jpg: 'image/jpeg',
-        jpeg: 'image/jpeg',
-        png: 'image/png',
-        gif: 'image/gif',
-        webp: 'image/webp',
-      }
-      var contentType = mimeMap[ext] || 'application/octet-stream'
-
-      var presignedUrl
-      try {
-        presignedUrl = generatePresignedUrl(documentUrl, fileExt)
-      } catch (urlErr) {
-        results.push({ id: docId, status: 'error', detail: 'presigned URL: ' + String(urlErr) })
-        failed++
-        continue
-      }
-
-      var s3Response
-      try {
-        s3Response = $http.send({ url: presignedUrl, method: 'GET', timeout: 60 })
-      } catch (dlErr) {
-        results.push({ id: docId, status: 'error', detail: 'S3 download: ' + String(dlErr) })
-        failed++
-        continue
-      }
-
-      if (s3Response.statusCode !== 200) {
-        results.push({
-          id: docId,
-          status: 'error',
-          detail: 'S3 status ' + s3Response.statusCode,
-        })
-        failed++
-        continue
-      }
 
       // Upload ao SharePoint
       var spFolder = 'Terras/01. Pipeline/Teste Portal DD'
@@ -561,10 +643,7 @@ routerAdd(
         var spUploadRes = $http.send({
           url: uploadUrl,
           method: 'PUT',
-          headers: {
-            Authorization: 'Bearer ' + spToken,
-            'Content-Type': contentType,
-          },
+          headers: { Authorization: 'Bearer ' + spToken, 'Content-Type': contentType },
           body: s3Response.body,
           timeout: 120,
         })
@@ -589,7 +668,7 @@ routerAdd(
     return e.json(200, {
       total: allDocs.length,
       uploaded: uploaded,
-      skipped: skipped,
+      analyzed: analyzed,
       failed: failed,
       results: results,
     })

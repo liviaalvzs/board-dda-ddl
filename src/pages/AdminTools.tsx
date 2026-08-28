@@ -9,6 +9,7 @@ export default function AdminTools() {
   const [result, setResult] = useState<{
     total: number
     uploaded: number
+    analyzed: number
     failed: number
     results: { id: string; status: string; path?: string; detail?: string }[]
   } | null>(null)
@@ -66,6 +67,11 @@ export default function AdminTools() {
               <span className="text-green-600 font-medium flex items-center gap-1">
                 <CheckCircle className="h-3.5 w-3.5" /> {result.uploaded} enviados
               </span>
+              {result.analyzed > 0 && (
+                <span className="text-blue-600 font-medium">
+                  {result.analyzed} analisados pela IA
+                </span>
+              )}
               {result.failed > 0 && (
                 <span className="text-red-600 font-medium flex items-center gap-1">
                   <XCircle className="h-3.5 w-3.5" /> {result.failed} falhas
