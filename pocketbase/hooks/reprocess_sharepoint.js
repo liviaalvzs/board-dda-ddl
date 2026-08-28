@@ -286,9 +286,19 @@ routerAdd(
             ? extracted.nome_imovel
             : ''
         smartFileName = carNome ? 'CAR - ' + carNome : 'CAR - ' + (landName || subjectName)
+      } else if (documentKey === 'imovel_certidao_matricula') {
+        var matNome =
+          extracted &&
+          extracted.nome_imovel &&
+          extracted.nome_imovel !== 'Não Aplicável' &&
+          extracted.nome_imovel !== 'Não Identificado'
+            ? extracted.nome_imovel
+            : ''
+        smartFileName = matNome
+          ? 'CERTIDÃO DE MATRÍCULA - ' + matNome
+          : 'Certidão de Matrícula - ' + (landName || subjectName)
       } else {
         var docLabels = {
-          imovel_certidao_matricula: 'Certidão de Matrícula',
           imovel_ccir: 'CCIR',
           imovel_ditr: 'DITR',
           certidao_ambiental_ibama: 'Certidão IBAMA',
@@ -320,6 +330,14 @@ routerAdd(
           'Retorne APENAS JSON: {"is_certidao_estado_civil":true,"tipo_certidao":"<casamento/nascimento/divórcio>","nomes_mencionados":["<nome1>","<nome2>"],"data_emissao":"","cartorio":"","estado_civil_resultante":"","good_visibility":""}. ' +
           'Se não for certidão: {"is_certidao_estado_civil":false,"document_type_detected":"<tipo>","nomes_mencionados":[],"good_visibility":"Não Aplicável"}. ' +
           'NOMES: apenas nubentes ou pessoa principal, máximo 2.'
+        )
+      }
+      if (documentKey === 'imovel_certidao_matricula') {
+        return (
+          'Analise a imagem e extraia dados da Certidão de Matrícula de imóvel rural. ' +
+          'Retorne APENAS JSON: {"is_certidao_matricula":true,"nome_imovel":"<nome da fazenda/sítio/propriedade>","numero_matricula":"","cartorio":"","municipio":"","estado":"","area_hectares":"","good_visibility":""}. ' +
+          'Se não for certidão de matrícula: {"is_certidao_matricula":false,"document_type_detected":"<tipo>","nome_imovel":"Não Aplicável","good_visibility":"Não Aplicável"}. ' +
+          'NOME DO IMÓVEL: procure por denominação, nome da fazenda, sítio, chácara ou propriedade rural mencionada no documento.'
         )
       }
       if (documentKey === 'imovel_car') {
@@ -652,12 +670,11 @@ routerAdd(
         smartSubjectName,
         fileExt,
       )
-      var spLandFolder = spSanitize(clusterSerial || landCache[landId].code || 'Sem Nome')
-      var spSubjectFolder = spSanitize(smartSubjectName)
+      var spLandFolder = spSanitize(clusterSerial || landName || 'Sem Nome')
 
       // Upload ao SharePoint
       var spFolder = 'Terras/01. Pipeline/Teste Portal DD'
-      var spPath = spFolder + '/' + spLandFolder + '/' + spSubjectFolder + '/' + smartFileName
+      var spPath = spFolder + '/' + spLandFolder + '/' + smartFileName
       var uploadUrl =
         'https://graph.microsoft.com/v1.0/drives/' +
         driveId +

@@ -388,6 +388,26 @@ routerAdd(
           '". ' +
           'Verifique se este nome aparece entre os nomes mencionados na certidão.'
       }
+    } else if (documentKey === 'imovel_certidao_matricula') {
+      prompt =
+        'Analise a imagem enviada e determine se é uma Certidão de Matrícula de imóvel rural.\n\n' +
+        'Se NÃO for uma Certidão de Matrícula, retorne APENAS este JSON:\n' +
+        '{\n  "is_certidao_matricula": false,\n  "document_type_detected": "<descreva o que é>",\n  "nome_imovel": "Não Aplicável",\n  "numero_matricula": "Não Aplicável",\n  "cartorio": "Não Aplicável",\n  "municipio": "Não Aplicável",\n  "estado": "Não Aplicável",\n  "area_hectares": "Não Aplicável",\n  "good_visibility": "Não Aplicável"\n}\n\n' +
+        'Se FOR uma Certidão de Matrícula, retorne APENAS este JSON:\n' +
+        '{\n  "is_certidao_matricula": true,\n  "document_type_detected": "Certidão de Matrícula",\n  "nome_imovel": "<nome da fazenda/sítio/chácara/propriedade>",\n  "numero_matricula": "<número da matrícula>",\n  "cartorio": "<nome do cartório>",\n  "municipio": "<município>",\n  "estado": "<UF>",\n  "area_hectares": "<área em hectares>",\n  "good_visibility": ""\n}\n\n' +
+        'Regras de extração:\n' +
+        '1. **NOME DO IMÓVEL**: Procure por "denominação", nome da fazenda, sítio, chácara ou propriedade rural mencionada\n' +
+        '2. **NÚMERO DA MATRÍCULA**: Número do registro no cartório\n' +
+        '3. **CARTÓRIO**: Nome completo do cartório de registro de imóveis\n' +
+        '4. **MUNICÍPIO/ESTADO**: Localização do imóvel\n' +
+        '5. **ÁREA**: Área total em hectares\n' +
+        '6. Se ilegível ou ausente → "Não Identificado"\n' +
+        '7. Retorne APENAS o JSON, sem markdown, sem texto adicional.\n' +
+        '8. **VISIBILIDADE (good_visibility)** — Avalie com rigor:\n' +
+        '   - "alta": TODOS os campos importantes estão nítidos e legíveis.\n' +
+        '   - "média": Alguns campos legíveis, outros parcialmente cortados ou embaçados.\n' +
+        '   - "baixa": Documento muito embaçado, escuro, cortado ou ilegível.\n' +
+        '   Seja RIGOROSO: na dúvida entre dois níveis, escolha o MENOR.'
     } else if (documentKey === 'imovel_car') {
       prompt =
         'Analise a imagem enviada e determine se é um CAR (Cadastro Ambiental Rural) brasileiro.\n\n' +
@@ -525,7 +545,6 @@ routerAdd(
         try {
           landRecord = $app.findRecordById('land_metadata', landId)
         } catch (_) {}
-        var landCode = landRecord ? landRecord.getString('land_code') : ''
         var landName = landRecord ? landRecord.getString('name') : ''
         var clusterSerial = landRecord ? landRecord.getString('cluster_serial') : ''
 
@@ -646,9 +665,19 @@ routerAdd(
               ? extracted.nome_imovel
               : ''
           smartFileName = carNome ? 'CAR - ' + carNome : 'CAR - ' + (landName || smartSubjectName)
+        } else if (documentKey === 'imovel_certidao_matricula') {
+          var matNome =
+            extracted &&
+            extracted.nome_imovel &&
+            extracted.nome_imovel !== 'Não Aplicável' &&
+            extracted.nome_imovel !== 'Não Identificado'
+              ? extracted.nome_imovel
+              : ''
+          smartFileName = matNome
+            ? 'CERTIDÃO DE MATRÍCULA - ' + matNome
+            : 'Certidão de Matrícula - ' + (landName || smartSubjectName)
         } else {
           var docLabels = {
-            imovel_certidao_matricula: 'Certidão de Matrícula',
             imovel_ccir: 'CCIR',
             imovel_ditr: 'DITR',
             certidao_ambiental_ibama: 'Certidão IBAMA',
@@ -673,8 +702,7 @@ routerAdd(
             .substring(0, 200)
         }
 
-        var spLandFolder = spSanitize(clusterSerial || landCode || landName || 'Sem Nome')
-        var spSubjectFolder = spSanitize(smartSubjectName)
+        var spLandFolder = spSanitize(clusterSerial || landName || 'Sem Nome')
         smartFileName = spSanitize(smartFileName)
 
         var tokenRes = $http.send({
@@ -732,8 +760,7 @@ routerAdd(
 
             if (driveId) {
               var spFolder = 'Terras/01. Pipeline/Teste Portal DD'
-              var spPath =
-                spFolder + '/' + spLandFolder + '/' + spSubjectFolder + '/' + smartFileName
+              var spPath = spFolder + '/' + spLandFolder + '/' + smartFileName
               var uploadUrl =
                 'https://graph.microsoft.com/v1.0/drives/' +
                 driveId +
