@@ -435,7 +435,7 @@ export default function Index() {
             </BreadcrumbList>
           </Breadcrumb>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Controle DDL</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Acompanhamento</h1>
             <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-medium">
               {filteredCards.length} {filteredCards.length === 1 ? 'propriedade' : 'propriedades'}
             </Badge>
