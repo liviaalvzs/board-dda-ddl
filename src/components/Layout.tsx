@@ -92,7 +92,7 @@ export default function Layout() {
               <img
                 src={irisLogo}
                 alt="Logo Íris"
-                className="h-9 sm:h-10 w-auto max-w-[160px] sm:max-w-[180px] object-contain"
+                className="h-11 sm:h-14 w-auto max-w-[220px] sm:max-w-[260px] object-contain"
               />
             </Link>
 
