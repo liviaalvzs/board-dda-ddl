@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom'
 import {
-  Leaf,
   LogOut,
   Building2,
   KanbanSquare,
@@ -88,14 +87,13 @@ export default function Layout() {
       <header className="bg-white shadow-sm z-20 flex-shrink-0 relative border-b border-brand-primary/10">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-4 sm:gap-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-brand-primary p-2 rounded-lg flex items-center justify-center">
-                <Leaf className="w-6 h-6 text-white" />
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-brand-primary hidden sm:block">
-                Diligência - Controle
-              </h1>
-            </div>
+            <Link to="/" className="flex items-center gap-3">
+              <img
+                src="/iris-logo.png"
+                alt="Logo Íris"
+                className="h-9 sm:h-10 w-auto max-w-[160px] sm:max-w-[180px] object-contain"
+              />
+            </Link>
 
             <nav className="hidden md:flex items-center gap-6">
               {navItems.map((item) => {

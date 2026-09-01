@@ -40,7 +40,7 @@ function isCssLoaded(): boolean {
 }
 
 function isJsLoaded(): boolean {
-  return typeof window !== 'undefined' && !!(window as Record<string, unknown>).L
+  return typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).L
 }
 
 function loadCss(sources: CdnSource[]): Promise<void> {

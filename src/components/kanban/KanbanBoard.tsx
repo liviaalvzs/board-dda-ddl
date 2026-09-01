@@ -15,16 +15,10 @@ interface KanbanBoardProps {
   cards: KanbanCardType[]
   isLoading: boolean
   onMoveCard: (cardId: string, targetColumnId: string) => void
-  onCreateCard: (columnId: string, title: string) => void
+  onCreateCard?: (columnId: string, title: string) => void
 }
 
-export function KanbanBoard({
-  columns,
-  cards,
-  isLoading,
-  onMoveCard,
-  onCreateCard,
-}: KanbanBoardProps) {
+export function KanbanBoard({ columns, cards, isLoading, onMoveCard }: KanbanBoardProps) {
   const [metadataMap, setMetadataMap] = useState<Record<string, any>>({})
   const [docChecksMap, setDocChecksMap] = useState<
     Record<
@@ -367,7 +361,6 @@ export function KanbanBoard({
             column={column}
             cards={enrichedCards.filter((c) => c.stageId === column.id)}
             onDropCard={handleMoveCard}
-            onCreateCard={onCreateCard}
             collapsible={column.collapsible}
           />
         ))}

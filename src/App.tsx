@@ -35,7 +35,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 const App = () => (
   <AuthProvider>
-    <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
+    <BrowserRouter>
       <TooltipProvider>
         <Toaster />
         <Sonner />
