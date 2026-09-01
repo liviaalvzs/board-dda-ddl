@@ -92,7 +92,7 @@ export default function Layout() {
               <img
                 src={irisLogo}
                 alt="Logo Íris"
-                className="h-16 sm:h-20 w-auto max-w-[280px] sm:max-w-[340px] object-contain"
+                className="h-12 sm:h-16 w-auto max-w-[220px] sm:max-w-[280px] object-contain"
               />
             </Link>
 
@@ -104,7 +104,7 @@ export default function Layout() {
                     key={item.to}
                     to={item.to}
                     className={cn(
-                      'flex items-center gap-2 text-sm font-medium transition-colors',
+                      'flex items-center gap-2 text-base font-medium transition-colors',
                       isActive
                         ? 'text-brand-secondary'
                         : 'text-brand-primary/60 hover:text-brand-primary',
@@ -153,7 +153,7 @@ export default function Layout() {
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    'flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors',
+                    'flex items-center gap-3 px-6 py-3 text-base font-medium transition-colors',
                     isActive
                       ? 'text-brand-secondary bg-brand-secondary/5'
                       : 'text-brand-primary/70 active:bg-gray-50',
@@ -165,7 +165,7 @@ export default function Layout() {
             })}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-3 px-6 py-3 text-sm font-medium text-gray-500 active:bg-gray-50 w-full"
+              className="flex items-center gap-3 px-6 py-3 text-base font-medium text-gray-500 active:bg-gray-50 w-full"
             >
               <LogOut className="w-4 h-4" /> Sair
             </button>
