@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import ChatWidget from './ChatWidget'
 import NotificationBell from './NotificationBell'
-import irisLogo from '@/assets/regreen2026-09-01t142910.481z-a0f4e.png'
+import irisLogo from '@/assets/regreen2026-09-01t142910.481z-da724.png'
 
 export default function Layout() {
   const { signOut, user, role } = useAuth()
@@ -92,7 +92,7 @@ export default function Layout() {
               <img
                 src={irisLogo}
                 alt="Logo Íris"
-                className="h-11 sm:h-14 w-auto max-w-[220px] sm:max-w-[260px] object-contain"
+                className="h-9 sm:h-10 w-auto max-w-[220px] sm:max-w-[260px] object-contain"
               />
             </Link>
 
