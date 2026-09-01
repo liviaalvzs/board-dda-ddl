@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import ChatWidget from './ChatWidget'
 import NotificationBell from './NotificationBell'
+import irisLogo from '@/assets/regreen2026-09-01t142910.481z-a0f4e.png'
 
 export default function Layout() {
   const { signOut, user, role } = useAuth()
@@ -87,14 +88,11 @@ export default function Layout() {
       <header className="bg-white shadow-sm z-20 flex-shrink-0 relative border-b border-brand-primary/10">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-4 sm:gap-8">
-            <Link
-              to="/"
-              className="flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-secondary rounded"
-            >
+            <Link to="/" className="flex items-center gap-3">
               <img
-                src="/iris-logo.png"
-                alt="Íris"
-                className="h-9 sm:h-10 w-auto max-w-[160px] sm:max-w-[180px] object-contain select-none"
+                src={irisLogo}
+                alt="Logo Íris"
+                className="h-9 sm:h-10 w-auto max-w-[160px] sm:max-w-[180px] object-contain"
               />
             </Link>
 
