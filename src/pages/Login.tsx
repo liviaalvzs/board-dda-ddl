@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Leaf } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import irisLogo from '@/assets/regreen2026-09-01t142910.481z-a0f4e.png'
 
 export default function Login() {
   const [error, setError] = useState('')
@@ -28,10 +28,11 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-brand-background p-4">
       <Card className="w-full max-w-sm shadow-subtle border-brand-secondary/20">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto w-12 h-12 bg-brand-primary p-2 rounded-xl flex items-center justify-center mb-4">
-            <Leaf className="w-8 h-8 text-white" />
-          </div>
-          <CardTitle className="text-2xl text-brand-primary">Board DDL DDA</CardTitle>
+          <img
+            src={irisLogo}
+            alt="íris"
+            className="mx-auto h-16 w-auto max-w-[240px] object-contain mb-4"
+          />
           <CardDescription>Entre com sua conta re.green</CardDescription>
         </CardHeader>
         <CardContent>
